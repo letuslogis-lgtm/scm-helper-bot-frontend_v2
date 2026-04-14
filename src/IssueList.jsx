@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, adminSupabase } from './supabaseClient.js';
+import { StatusBadge, CategoryBadge, formatDateTime } from './SharedUI.jsx';
+import { RequestModal, HandleModal } from './SupportCenter.jsx';
+
 
 
  // SharedUI에서 가져옴

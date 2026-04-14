@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, adminSupabase } from './supabaseClient.js';
 import * as Recharts from 'recharts';
+import { TableSkeleton, CATEGORY_COLORS, BRAND_COLORS, StatusBadge, CategoryBadge } from './SharedUI.jsx';
+
 
 
 

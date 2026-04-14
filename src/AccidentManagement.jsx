@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, adminSupabase } from './supabaseClient.js';
 import * as Recharts from 'recharts';
+import { MainLayout } from './MainLayout.jsx';
+import { CloseIcon } from './SharedUI.jsx';
+
 
 
 

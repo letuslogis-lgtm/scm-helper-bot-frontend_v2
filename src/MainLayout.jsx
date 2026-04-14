@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, adminSupabase } from './supabaseClient.js';
+import { Header } from './Header.jsx';
+import { Sidebar } from './Sidebar.jsx';
+
 
 // 🔍 핵심: 외부 파일(Sidebar.jsx, Header.jsx)에서 window에 등록한 부품들을 가져옵니다.
 
