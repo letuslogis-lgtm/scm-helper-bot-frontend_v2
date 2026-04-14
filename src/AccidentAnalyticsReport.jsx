@@ -150,7 +150,7 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
     const PIE_COLORS = ['#3b82f6', '#f97316', '#10b981', '#ef4444', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899'];
 
     return (
-        <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] slide-up flex flex-col gap-5 max-w-[1600px] mx-auto pb-20">
+        <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] slide-up flex flex-col gap-5 w-full mx-auto pb-20">
 
             {/* 🎯 상단 헤더 및 필터 구역 */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 shrink-0 z-10 flex flex-col md:flex-row md:justify-between md:items-end gap-4 hover:shadow-md transition-shadow">
