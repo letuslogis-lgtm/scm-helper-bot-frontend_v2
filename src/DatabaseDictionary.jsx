@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, adminSupabase } from './supabaseClient.js';
 import { AttendanceManagement } from './AttendanceManagement.jsx';
-import { CloseIcon } from './SharedUI.jsx';
+;
 
 
 
