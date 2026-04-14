@@ -745,8 +745,8 @@ const AttendanceManagement = () => {
  // 필터 상태
  const [inputValue, setInputValue] = useState('');
  const [searchTerm, setSearchTerm] = useState('');
- const [workerTypeFilter, setWorkerTypeFilter] = useState('현장직');
- const [locationFilter, setLocationFilter] = useState('메인센터');
+ const [workerTypeFilter, setWorkerTypeFilter] = useState('전체');
+ const [locationFilter, setLocationFilter] = useState('전체');
  const [selectedVendor, setSelectedVendor] = useState('전체');
 
  // 🚩 [신규] 집계 화면 뷰 모드 (업체별 vs 브랜드별)
