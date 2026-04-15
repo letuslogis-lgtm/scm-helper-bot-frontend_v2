@@ -851,7 +851,8 @@ const AttendanceManagement = () => {
  const cleanName = row.worker_name?.replace(/\s/g, '') || '';
  const masterInfo = workerMasterMap[cleanName] || {};
 
- const wType = masterInfo.type === '사무직' ? '사무직' : '현장직';
+ const rawType = masterInfo.type ? masterInfo.type.replace(/\s/g, '') : '';
+  const wType = rawType === '사무직' ? '사무직' : '현장직';
  if (workerTypeFilter === '현장직' && wType === '사무직') return false;
  if (workerTypeFilter === '사무직' && wType !== '사무직') return false;
 
@@ -863,16 +864,24 @@ const AttendanceManagement = () => {
  return true;
  };
 
- const filteredDetailData = useMemo(() => {
+   const isDateInRange = (dateStr, start, end) => {
+    if (!dateStr || !start || !end) return true;
+    const dTime = new Date(dateStr).setHours(0, 0, 0, 0);
+    const sTime = new Date(start).setHours(0, 0, 0, 0);
+    const eTime = new Date(end).setHours(23, 59, 59, 999);
+    return dTime >= sTime && dTime <= eTime;
+  };
+
+  const filteredDetailData = useMemo(() => {
  return attendanceData.filter(row => {
- if (row.work_date < startDate || row.work_date > endDate) return false;
+ if (!isDateInRange(row.work_date, startDate, endDate)) return false;
  return baseFilterLogic(row);
  });
  }, [attendanceData, startDate, endDate, selectedVendor, searchTerm, workerTypeFilter, locationFilter, workerMasterMap]);
 
  const filteredChartData = useMemo(() => {
  return attendanceData.filter(row => {
- if (!row.work_date || row.work_date < chartStartDate || row.work_date > chartEndDate) return false;
+ if (!isDateInRange(row.work_date, chartStartDate, chartEndDate)) return false;
  return baseFilterLogic(row);
  });
  }, [attendanceData, chartStartDate, chartEndDate, selectedVendor, searchTerm, workerTypeFilter, locationFilter, workerMasterMap]);
