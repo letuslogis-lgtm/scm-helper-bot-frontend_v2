@@ -763,13 +763,13 @@ const AttendanceManagement = () => {
  const fetchWorkerMaster = async () => {
  try {
  // 🚩 브랜드명(managed_brand) 추가 로드
- const { data, error } = await supabaseClient.from('workers').select('name, employment_type, work_location, managed_brand');
+ const { data, error } = await supabaseClient.from('workers').select('name, employment_type, workplace, managed_brand');
  if (data) {
  const masterMap = {};
  data.forEach(w => {
  masterMap[w.name.replace(/\s/g, '')] = {
  type: w.employment_type,
- location: w.work_location,
+ location: w.workplace,
  brand: w.managed_brand || '미지정/공통' // 브랜드 정보 저장
  };
  });
