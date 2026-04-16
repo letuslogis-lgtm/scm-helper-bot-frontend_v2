@@ -245,22 +245,22 @@ const UserManagement = () => {
  <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20">
  {/* 🚩 문제 2 해결: 표 안쪽 스크롤 영역 설정 (h-[600px] 고정값 제거) */}
  <div className="p-0 overflow-auto flex-1 custom-scrollbar">
- <table className="w-full text-left whitespace-nowrap">
+ <table className="w-full text-left table-fixed">
  {/* 🚩 문제 2 해결: <thead>에 bg-slate-50 을 줘서 글자 겹침 방지 (투명도 /70 제거) */}
  <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
  <tr>
- <th className="p-4 pl-6 w-10 text-center">
+ <th className="p-4 pl-6 w-12 text-center">
  <input type="checkbox" checked={isAllSelected} onChange={toggleAll} className="w-4 h-4 accent-letusBlue cursor-pointer" title="전체 선택" />
  </th>
- <th className="p-4 w-10 text-center">No</th>
- <th className="p-4">사용자명</th>
- <th className="p-4">사용자 ID</th>
- <th className="p-4">소속 팀</th>
- <th className="p-4">소속 브랜드</th>
- <th className="p-4">담당 업체/창고</th>
- <th className="p-4">권한 그룹</th>
- <th className="p-4 text-center">가입일시</th>
- <th className="p-4 text-center">상태</th>
+ <th className="p-4 w-12 text-center">No</th>
+ <th className="p-4 w-[11%]">사용자명</th>
+ <th className="p-4 w-[12%]">사용자 ID</th>
+ <th className="p-4 w-[11%]">소속 팀</th>
+ <th className="p-4 w-[14%]">소속 브랜드</th>
+ <th className="p-4 w-[16%]">담당 업체/창고</th>
+ <th className="p-4 w-[8%]">권한 그룹</th>
+ <th className="p-4 w-[14%] text-center">가입일시</th>
+ <th className="p-4 w-[8%] text-center">상태</th>
  </tr>
  </thead>
  {isLoading ? (
@@ -287,11 +287,11 @@ const UserManagement = () => {
  <input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => toggleOne(user.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" onClick={e => e.stopPropagation()} />
  </td>
  <td className="p-4 text-center text-gray-400 font-medium">{idx + 1}</td>
- <td className="p-4 font-black text-gray-800 text-sm tracking-tight">{user.name}</td>
- <td className="p-4 font-bold text-gray-600">{user.login_id}</td>
- <td className="p-4 text-gray-600 font-medium">{user.team || '-'}</td>
+ <td className="p-4 font-black text-gray-800 text-sm tracking-tight truncate" title={user.name}>{user.name}</td>
+ <td className="p-4 font-bold text-gray-600 truncate" title={user.login_id}>{user.login_id}</td>
+ <td className="p-4 text-gray-600 font-medium truncate" title={user.team || '-'}>{user.team || '-'}</td>
  <td className="p-4">
- <div className="flex gap-1.5 flex-wrap max-w-[200px]">
+ <div className="flex gap-1.5 flex-wrap">
  {user.brands
  ? <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-[4px] text-[11px] whitespace-nowrap font-bold shadow-sm">{user.brands}</span>
  : <span className="text-gray-400">-</span>

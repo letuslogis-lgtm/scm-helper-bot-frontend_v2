@@ -810,7 +810,7 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
  if (isLoading) return <div className="p-6 h-[calc(100vh-64px)] flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full"></div></div>;
 
  return (
- <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] slide-up flex flex-col gap-6 ">
+ <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] w-full transition-all duration-300 slide-up flex flex-col gap-6 ">
 
  <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-4 md:px-8 md:py-5 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden shrink-0">
  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-50 to-transparent rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>

@@ -1016,7 +1016,7 @@ const AttendanceManagement = () => {
  }, [activeTab, filteredChartData, filteredDetailData]);
 
  return (
- <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] slide-up flex flex-col gap-6 ">
+ <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] w-full transition-all duration-300 slide-up flex flex-col gap-6 ">
 
  <div className="sticky top-0 z-40 bg-slate-100 pb-4 pt-6 -mt-6 -mx-6 px-6 shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
  <div className="flex justify-between items-center shrink-0 mb-6">
