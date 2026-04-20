@@ -198,6 +198,129 @@ const VendorListModal = ({ user, onClose }) => {
     );
 };
 
+// 🔐 메뉴 권한 설정 모달 (UserManagement에서 이동 - 순환 참조 방지)
+const MenuPermissionModal = ({ initialMenus, onApply, onClose }) => {
+    const [selectedMenus, setSelectedMenus] = useState(initialMenus || []);
+    const [expandedMenus, setExpandedMenus] = useState(['home_menu']);
+
+    const MENU_DATA = [
+        {
+            id: 'master', label: '마스터 정보관리',
+            children: [{ id: 'user_management', label: '사용자 관리' }, { id: 'product_manager', label: 'ITEM DB 수동 업데이트' }]
+        },
+        {
+            id: 'logistics', label: '입고 특이사항',
+            children: [{ id: 'dashboard', label: '입고 대시보드' }, { id: 'list', label: '특이사항 LIST' }]
+        },
+        {
+            id: 'loading_issues', label: '출고 특이사항',
+            children: [{ id: 'accident_dashboard', label: '출고 대시보드' }, { id: 'accident_list', label: '사고분석 LIST' }]
+        },
+        {
+            id: 'support_menu', label: '고객 지원',
+            children: [{ id: 'support', label: '지원센터' }]
+        }
+    ];
+
+    const toggleExpand = (id) => {
+        setExpandedMenus(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+    };
+
+    const toggleMainMenu = (menu) => {
+        const childIds = menu.children.map(c => c.id);
+        const isAllSelected = childIds.every(id => selectedMenus.includes(id));
+        if (isAllSelected) {
+            setSelectedMenus(prev => prev.filter(id => !childIds.includes(id)));
+        } else {
+            setSelectedMenus(prev => [...new Set([...prev, ...childIds])]);
+        }
+    };
+
+    const toggleSubMenu = (id) => {
+        setSelectedMenus(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+    };
+
+    const handleSave = () => {
+        onApply(selectedMenus);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110] backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[400px] overflow-hidden flex flex-col slide-up">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50 shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-purple-500 rounded-full mr-2"></span>메뉴 접근 권한 설정
+                    </h3>
+                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div className="p-5 bg-white flex-1 overflow-y-auto max-h-[60vh] custom-scrollbar space-y-2">
+                    <div className="bg-purple-50 border border-purple-100 rounded-lg p-3 text-xs text-gray-600 mb-4 font-medium">
+                        💡 대메뉴를 선택하면 하위 메뉴가 모두 선택됩니다.<br />
+                        <span className="text-gray-400 mt-1 block">* 관리자 그룹은 이 설정과 무관하게 모든 메뉴에 접근 가능합니다.</span>
+                    </div>
+
+                    <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
+                        {MENU_DATA.map(menu => {
+                            const childIds = menu.children.map(c => c.id);
+                            const isAllSelected = childIds.length > 0 && childIds.every(id => selectedMenus.includes(id));
+                            const isPartiallySelected = !isAllSelected && childIds.some(id => selectedMenus.includes(id));
+                            const isExpanded = expandedMenus.includes(menu.id);
+
+                            return (
+                                <div key={menu.id} className="bg-white">
+                                    <div className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-2.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isAllSelected}
+                                                ref={input => { if (input) input.indeterminate = isPartiallySelected; }}
+                                                onChange={() => toggleMainMenu(menu)}
+                                                className="w-4 h-4 accent-purple-500 cursor-pointer"
+                                            />
+                                            <span className="text-sm font-bold text-gray-800 select-none cursor-pointer" onClick={() => toggleMainMenu(menu)}>{menu.label}</span>
+                                        </div>
+                                        <button onClick={() => toggleExpand(menu.id)} className="p-1 text-gray-400 hover:text-gray-600 transition-colors rounded-md hover:bg-gray-200">
+                                            <svg className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+                                        </button>
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="bg-slate-50 pl-10 pr-3 py-2 space-y-2 border-t border-gray-50">
+                                            {menu.children.map(child => (
+                                                <label key={child.id} className="flex items-center gap-2.5 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedMenus.includes(child.id)}
+                                                        onChange={() => toggleSubMenu(child.id)}
+                                                        className="w-3.5 h-3.5 accent-purple-500 cursor-pointer"
+                                                    />
+                                                    <span className={`text-xs font-medium transition-colors select-none ${selectedMenus.includes(child.id) ? 'text-gray-800 font-bold' : 'text-gray-500 group-hover:text-gray-700'}`}>{child.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 shrink-0">
+                    <button type="button" onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 transition-colors bg-white">취소</button>
+                    <button onClick={handleSave} className="px-5 py-2 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                        권한 적용
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // 🌟 전역 등록
 export { VendorSearchModal };
 export { VendorListModal };
+export { MenuPermissionModal };

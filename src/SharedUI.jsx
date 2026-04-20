@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, adminSupabase } from './supabaseClient.js';
 import { VendorSearchModal } from './CommonComponents.jsx';
-import { MenuPermissionModal } from './UserManagement.jsx';
+import { MenuPermissionModal } from './CommonComponents.jsx';
 
 
 
