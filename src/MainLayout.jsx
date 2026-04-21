@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase, adminSupabase } from './supabaseClient.js';
 import { Header } from './Header.jsx';
 import { Sidebar } from './Sidebar.jsx';
+import { AgentCommandCenter } from './AgentCommandCenter.jsx';
+import { TeamCalendar } from './TeamCalendar.jsx';
+
 
 
 // 🔍 핵심: 외부 파일(Sidebar.jsx, Header.jsx)에서 window에 등록한 부품들을 가져옵니다.
@@ -12,6 +15,7 @@ const MainLayout = ({
     children,
     currentPage,
     setCurrentPage,
+    session,
     userProfile,
     handleLogout,
     notifications,
@@ -65,6 +69,9 @@ const MainLayout = ({
                 <main className="flex-1 w-full overflow-auto custom-scrollbar bg-slate-100">
                     {children}
                 </main>
+                <AgentCommandCenter
+                    session={session}
+                    userProfile={userProfile} />
             </div>
         </div>
     );

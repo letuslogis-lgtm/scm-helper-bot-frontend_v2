@@ -17,6 +17,7 @@ import { SupportCenter } from './SupportCenter.jsx';
 import { useAppLogic } from './useAppLogic.jsx';
 import { DatabaseDictionary } from './DatabaseDictionary.jsx';
 import { UserEditModal } from './SharedUI.jsx';
+import { TeamCalendar } from './TeamCalendar.jsx';
 
 const App = () => {
     // 💡 마법의 훅으로 수백 줄의 로직을 대체
@@ -29,6 +30,7 @@ const App = () => {
         <MainLayout {...logic}>
             {logic.currentPage === 'home' && <MyDashboard userProfile={logic.userProfile} setPage={logic.setCurrentPage} favorites={logic.favorites} />}
             {logic.currentPage === 'dashboard' && <Dashboard onNavigateToList={() => logic.setCurrentPage('list')} onDrillDown={logic.handleDrillDown} issues={logic.issues} isLoading={logic.isLoading} onReload={logic.fetchIssues} />}
+            {logic.currentPage === 'team_calendar' && <TeamCalendar userProfile={logic.userProfile} />}
             {logic.currentPage === 'list' && <IssueList userProfile={logic.userProfile} issues={logic.issues} isLoading={logic.isLoading} onReload={logic.fetchIssues} savedFilters={logic.savedListFilters} setSavedFilters={logic.setSavedListFilters} />}
             {logic.currentPage === 'worker_management' && <WorkerManagement />}
             {logic.currentPage === 'attendance' && <AttendanceManagement />}

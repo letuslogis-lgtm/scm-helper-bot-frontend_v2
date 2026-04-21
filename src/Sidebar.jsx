@@ -8,7 +8,8 @@ export const MENU_DATA = [
         id: 'home_menu', label: '나의 워크스페이스',
         icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
         children: [
-            { id: 'home', label: 'MY DASHBOARD' }
+            { id: 'home', label: 'MY DASHBOARD' },
+            { id: 'team_calendar', label: 'TEAM CALENDER' }
         ]
     },
     {
@@ -17,7 +18,6 @@ export const MENU_DATA = [
         children: [
             { id: 'user_management', label: '사용자 관리' },
             { id: 'worker_management', label: '근무자 관리' },
-            // 🚩 밑에 있던 시스템 데이터 맵을 여기로 쏙 올렸습니다!
             { id: 'db_map', label: '시스템 데이터 맵' },
             { id: 'product_manager', label: 'ITEM DB 수동 업데이트' }
         ]
@@ -60,7 +60,7 @@ const Sidebar = ({ page, setPage, userProfile, isSidebarOpen, setIsSidebarOpen, 
     const [activeTab, setActiveTab] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
-    
+
 
     useEffect(() => {
         if (searchTerm) setOpenMenu('all_open');

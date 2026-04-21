@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { supabase, adminSupabase } from './supabaseClient.js';
 
 

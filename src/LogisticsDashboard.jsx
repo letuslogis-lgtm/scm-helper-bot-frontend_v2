@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, adminSupabase } from './supabaseClient.js';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line, ComposedChart, Area, AreaChart } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { TableSkeleton, CATEGORY_COLORS, BRAND_COLORS, StatusBadge, CategoryBadge } from './SharedUI.jsx';
 
 
 
-
-
- // SharedUI에서 가져옴
+// SharedUI에서 가져옴
 
 // --- 대시보드 (Dashboard) ---
 const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = false, onReload }) => {
