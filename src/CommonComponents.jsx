@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient.js';
+import { ALL_MENUS } from './menuConfig.jsx';
 
 
 
@@ -199,34 +200,21 @@ const VendorListModal = ({ user, onClose }) => {
 };
 
 // 🔐 메뉴 권한 설정 모달 (UserManagement에서 이동 - 순환 참조 방지)
+// 🔐 메뉴 권한 설정 모달 (하드코딩 제거 및 menuConfig.js 완벽 연동)
 const MenuPermissionModal = ({ initialMenus, onApply, onClose }) => {
     const [selectedMenus, setSelectedMenus] = useState(initialMenus || []);
-    const [expandedMenus, setExpandedMenus] = useState(['home_menu']);
 
-    const MENU_DATA = [
-        {
-            id: 'master', label: '마스터 정보관리',
-            children: [{ id: 'user_management', label: '사용자 관리' }, { id: 'product_manager', label: 'ITEM DB 수동 업데이트' }]
-        },
-        {
-            id: 'logistics', label: '입고 특이사항',
-            children: [{ id: 'dashboard', label: '입고 대시보드' }, { id: 'list', label: '특이사항 LIST' }]
-        },
-        {
-            id: 'loading_issues', label: '출고 특이사항',
-            children: [{ id: 'accident_dashboard', label: '출고 대시보드' }, { id: 'accident_list', label: '사고분석 LIST' }]
-        },
-        {
-            id: 'support_menu', label: '고객 지원',
-            children: [{ id: 'support', label: '지원센터' }]
-        }
-    ];
+    // 🌟 하드코딩 제거: ALL_MENUS의 첫 번째 대메뉴 ID를 기본으로 열어둡니다.
+    const [expandedMenus, setExpandedMenus] = useState(ALL_MENUS.length > 0 ? [ALL_MENUS[0].id] : []);
+
+    // 🌟 노가다로 적혀있던 MENU_DATA 배열 전체 삭제! (상단에서 import한 ALL_MENUS를 사용합니다)
 
     const toggleExpand = (id) => {
         setExpandedMenus(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
     };
 
     const toggleMainMenu = (menu) => {
+        if (!menu.children) return; // 방어 코드: 혹시 자식 메뉴가 없는 대메뉴일 경우 에러 방지
         const childIds = menu.children.map(c => c.id);
         const isAllSelected = childIds.every(id => selectedMenus.includes(id));
         if (isAllSelected) {
@@ -264,8 +252,9 @@ const MenuPermissionModal = ({ initialMenus, onApply, onClose }) => {
                     </div>
 
                     <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
-                        {MENU_DATA.map(menu => {
-                            const childIds = menu.children.map(c => c.id);
+                        {/* 🌟 MENU_DATA.map 대신 ALL_MENUS.map 으로 교체! */}
+                        {ALL_MENUS.map(menu => {
+                            const childIds = menu.children ? menu.children.map(c => c.id) : [];
                             const isAllSelected = childIds.length > 0 && childIds.every(id => selectedMenus.includes(id));
                             const isPartiallySelected = !isAllSelected && childIds.some(id => selectedMenus.includes(id));
                             const isExpanded = expandedMenus.includes(menu.id);
@@ -288,7 +277,7 @@ const MenuPermissionModal = ({ initialMenus, onApply, onClose }) => {
                                         </button>
                                     </div>
 
-                                    {isExpanded && (
+                                    {isExpanded && menu.children && (
                                         <div className="bg-slate-50 pl-10 pr-3 py-2 space-y-2 border-t border-gray-50">
                                             {menu.children.map(child => (
                                                 <label key={child.id} className="flex items-center gap-2.5 cursor-pointer group">

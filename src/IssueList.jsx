@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient.js';
 import { StatusBadge, CategoryBadge, formatDateTime } from './SharedUI.jsx';
 import { RequestModal, HandleModal } from './SupportCenter.jsx';
 
@@ -13,6 +13,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     const [activeModalRow, setActiveModalRow] = useState(null);
     const [activeHandleRow, setActiveHandleRow] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isSendingFeedback, setIsSendingFeedback] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
     const [draftFilters, setDraftFilters] = useState({ ...savedFilters });
@@ -138,7 +139,25 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     };
 
     const handleSelectAll = (e) => setSelectedIds(e.target.checked ? sortedIssues.map(i => i.id) : []);
-    const handleSelectOne = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    const handleSelectOne = (e, id) => {
+        if (e && e.nativeEvent && e.nativeEvent.shiftKey && lastSelectedId) {
+            const startIdx = sortedIssues.findIndex(i => i.id === lastSelectedId);
+            const endIdx = sortedIssues.findIndex(i => i.id === id);
+            if (startIdx !== -1 && endIdx !== -1) {
+                const min = Math.min(startIdx, endIdx);
+                const max = Math.max(startIdx, endIdx);
+                const idsInRange = sortedIssues.slice(min, max + 1).map(i => i.id);
+                setSelectedIds(prev => {
+                    const newSet = new Set(prev);
+                    idsInRange.forEach(x => newSet.add(x));
+                    return Array.from(newSet);
+                });
+                return;
+            }
+        }
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+        setLastSelectedId(id);
+    };
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
         if (sortConfig.direction === 'asc') return <span className="ml-1 text-letusBlue font-black">↑</span>;
@@ -280,9 +299,9 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                             ) : sortedIssues.length === 0 ? (
                                 <tr><td colSpan="13" className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : sortedIssues.map((row) => (
-                                <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`} onClick={() => handleSelectOne(row.id)}>
+                                <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`} onClick={(e) => handleSelectOne(e, row.id)}>
                                     <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
-                                        <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={() => handleSelectOne(row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                                        <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={(e) => handleSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                     </td>
                                     <td className="p-4 font-bold text-gray-800 text-center">{row.reception_no}</td>
                                     <td className="p-4 font-semibold text-gray-700 text-center">{row.brand}</td>

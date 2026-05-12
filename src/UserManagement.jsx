@@ -1,16 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import { supabase, invokeFunction } from './supabaseClient.js';
 import { VendorSearchModal, VendorListModal, MenuPermissionModal } from './CommonComponents.jsx';
 import { TableSkeleton, CloseIcon, formatDateTime, UserEditModal } from './SharedUI.jsx';
-
-
-
-
-
-
-// 🔥 여기에 UserEditModal 과 VendorListModal 을 꼭 추가해야 합니다!
-
+import { DEFAULT_MENUS } from './menuConfig.jsx';
 
 // 🔥 껍데기를 없애고 바로 진짜 로직 시작!
 const UserManagement = () => {
@@ -78,14 +71,12 @@ const UserManagement = () => {
 
         setIsLoading(true); // 삭제 중 로딩 스피너 작동
         try {
-            // 🔥 Auth 계정은 한 번에 묶어서(in) 지우는 기능이 없어서 반복문으로 안전하게 하나씩 날립니다.
+            // 🔥 Auth 계정 + profile 동시 삭제. Edge Function(user-admin) 안에서 둘 다 처리됨.
             for (const userId of selectedUsers) {
-                // 1. Supabase Auth (로그인 접속 권한) 영구 삭제
-                const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId);
-                if (authError) throw authError;
-
-                // 2. profiles 테이블 데이터 삭제 (Cascade 설정이 안 되어 있을 경우를 대비한 확인 사살)
-                await adminSupabase.from('profiles').delete().eq('id', userId);
+                await invokeFunction('user-admin', {
+                    action: 'delete',
+                    payload: { userId },
+                });
             }
 
             alert(`🗑️ ${selectedUsers.length}명의 사용자 계정이 완벽하게 삭제되었습니다.`);
@@ -360,7 +351,7 @@ const UserAddModal = ({ onClose, onReload }) => {
 
     // 🔥 신규: 메뉴 권한 모달 상태 및 기본값 설정
     const [menuModalOpen, setMenuModalOpen] = useState(false);
-    const [accessibleMenus, setAccessibleMenus] = useState(['dashboard', 'list', 'accident_dashboard', 'accident_list']);
+    const [accessibleMenus, setAccessibleMenus] = useState(DEFAULT_MENUS);
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -372,11 +363,16 @@ const UserAddModal = ({ onClose, onReload }) => {
         setIsSaving(true);
         try {
             const targetEmail = loginId.includes('@') ? loginId : `${loginId}@letus.com`;
-            const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({ email: targetEmail, password: password, email_confirm: true });
-            if (authError) throw authError;
+            // 1) Edge Function 으로 Auth 계정 생성 (서버측에서 관리자 권한 검증)
+            const authResult = await invokeFunction('user-admin', {
+                action: 'create',
+                payload: { email: targetEmail, password },
+            });
+            const newUserId = authResult?.user?.id;
+            if (!newUserId) throw new Error('Auth 계정 생성에 실패했습니다.');
 
-            const newUserId = authData.user.id;
-            const { error: profileError } = await adminSupabase.from('profiles').insert([
+            // 2) profiles INSERT 는 RLS(profiles_admin_all) 로 관리자만 통과
+            const { error: profileError } = await supabase.from('profiles').insert([
                 {
                     id: newUserId, name: name, login_id: loginId, role: group, status: status, brands: brand, team: team,
                     managed_vendors: managedVendors, managed_brands: managedBrands,
@@ -425,14 +421,14 @@ const UserAddModal = ({ onClose, onReload }) => {
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-gray-700">아이디 (ID) <span className="text-red-500">*</span></label>
                                 <div className="flex items-center border border-gray-300 rounded-[4px] overflow-hidden focus-within:border-letusBlue bg-white transition-all">
-                                    <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} required className="flex-1 px-3.5 py-2 text-xs focus:outline-none placeholder-slate-400" placeholder="admin" />
+                                    <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} required autoComplete="off" className="flex-1 px-3.5 py-2 text-xs focus:outline-none placeholder-slate-400" placeholder="admin" />
                                     <span className="bg-slate-50 px-3 py-2 text-xs text-slate-500 font-bold border-l border-gray-200 shrink-0">@letus.com</span>
                                 </div>
                             </div>
 
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-gray-700">비밀번호 <span className="text-red-500">*</span></label>
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white" placeholder="최소 6자리 이상" />
+                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white" placeholder="최소 6자리 이상" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 pt-1">
@@ -545,8 +541,8 @@ const UserBulkEditModal = ({ selectedUserIds, users, onClose, onReload }) => {
                 updateData.accessible_menus = accessibleMenus.join(',');
             }
 
-            // 선택된 유저 ID들에 대해 일괄 업데이트 쿼리 실행
-            const { error } = await adminSupabase.from('profiles').update(updateData).in('id', selectedUserIds);
+            // 선택된 유저 ID들에 대해 일괄 업데이트 (RLS: 관리자만 통과)
+            const { error } = await supabase.from('profiles').update(updateData).in('id', selectedUserIds);
             if (error) throw error;
 
             alert(`총 ${selectedUserIds.length}명의 정보가 일괄 수정되었습니다.`);
@@ -634,7 +630,7 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
                 '이름(필수)': '홍길동', '아이디(필수)': 'gildong', '비밀번호(필수/선택)': '123456',
                 '소속팀(필수)': '물류사업1팀', '소속브랜드': '퍼시스', '권한그룹': '사용자', '상태': '정상',
                 '담당브랜드': '퍼시스, 일룸', '담당업체': 'CJ대한통운',
-                '허용메뉴(ID)': 'dashboard,list,accident_dashboard,accident_list'
+                '허용메뉴(ID)': DEFAULT_MENUS.join(',')
             }
         ];
         const ws = XLSX.utils.json_to_sheet(templateData);
@@ -666,8 +662,8 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
 
                 let stats = { insert: 0, update: 0, fail: 0, logs: [] };
 
-                // 🚩 1. 기존 유저 목록 가져오기 (신규 가입 vs 덮어쓰기 판별용)
-                const { data: existingProfiles } = await adminSupabase.from('profiles').select('id, login_id');
+                // 🚩 1. 기존 유저 목록 가져오기 (RLS: 관리자는 전체 조회 가능)
+                const { data: existingProfiles } = await supabase.from('profiles').select('id, login_id');
                 const existingMap = {};
                 if (existingProfiles) {
                     existingProfiles.forEach(p => { existingMap[p.login_id] = p.id; });
@@ -701,19 +697,22 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
                         status: cleanRow['상태'] || '정상',
                         managed_brands: cleanRow['담당브랜드'] || '',
                         managed_vendors: cleanRow['담당업체'] || '',
-                        accessible_menus: cleanRow['허용메뉴(ID)'] || 'dashboard,list,accident_dashboard,accident_list'
+                        accessible_menus: cleanRow['허용메뉴(ID)'] || DEFAULT_MENUS.join(',')
                     };
 
                     try {
                         if (existingMap[loginId]) {
-                            // 🔄 [기존 사용자] 프로필 업데이트
+                            // 🔄 [기존 사용자] 프로필 업데이트 (RLS: 관리자만 통과)
                             const userId = existingMap[loginId];
-                            const { error } = await adminSupabase.from('profiles').update(payload).eq('id', userId);
+                            const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
                             if (error) throw error;
 
-                            // 엑셀에 비번이 적혀있으면 비번도 변경해줌
+                            // 엑셀에 비번이 적혀있으면 비번도 변경 (Edge Function 경유)
                             if (password && password.length >= 6) {
-                                await adminSupabase.auth.admin.updateUserById(userId, { password: password });
+                                await invokeFunction('user-admin', {
+                                    action: 'updatePassword',
+                                    payload: { userId, password },
+                                });
                             }
                             stats.update++;
                         } else {
@@ -723,17 +722,17 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
                             }
                             const targetEmail = loginId.includes('@') ? loginId : `${loginId}@letus.com`;
 
-                            const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
-                                email: targetEmail,
-                                password: password,
-                                email_confirm: true
+                            const authResult = await invokeFunction('user-admin', {
+                                action: 'create',
+                                payload: { email: targetEmail, password },
                             });
-                            if (authError) throw authError;
+                            const newUserId = authResult?.user?.id;
+                            if (!newUserId) throw new Error('Auth 계정 생성에 실패했습니다.');
 
-                            payload.id = authData.user.id;
+                            payload.id = newUserId;
                             payload.created_at = new Date().toISOString();
 
-                            const { error: profileError } = await adminSupabase.from('profiles').insert([payload]);
+                            const { error: profileError } = await supabase.from('profiles').insert([payload]);
                             if (profileError) throw profileError;
 
                             stats.insert++;

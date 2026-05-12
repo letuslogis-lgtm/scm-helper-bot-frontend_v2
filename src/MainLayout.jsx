@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient.js';
 import { Header } from './Header.jsx';
 import { Sidebar } from './Sidebar.jsx';
 import { AgentCommandCenter } from './AgentCommandCenter.jsx';
 import { TeamCalendar } from './TeamCalendar.jsx';
+import { RpaManagement } from './RpaManagement.jsx';
 
 
 

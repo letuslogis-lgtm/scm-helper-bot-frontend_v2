@@ -1,10 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from './supabaseClient.js';
 import { CloseIcon } from './SharedUI.jsx';
 import { CalendarEventModal } from './CalendarEventModal.jsx';
-
-
-
 
 // ---------------------------------------------------------
 // 🛠️ 홈/위젯 전용 모달들 (이사 목록)
@@ -24,14 +21,13 @@ const TodoModal = ({ todo, onClose, onSave, onDelete }) => {
     };
 
     const handleSelectAllDays = () => {
-        if (repeat.length === 7) setRepeat([]); // 모두 선택되어 있으면 전체 해제
-        else setRepeat([...DAYS]); // 아니면 전체 선택
+        if (repeat.length === 7) setRepeat([]);
+        else setRepeat([...DAYS]);
     };
 
     const handleSubmit = () => {
         if (!text.trim()) return alert('할 일을 입력해 주세요.');
 
-        // 🔥 선택된 요일이 0개면 빈 배열([]) 대신 null 저장
         const finalRepeat = repeat.length > 0 ? repeat : null;
 
         onSave({
@@ -121,7 +117,8 @@ const TodoModal = ({ todo, onClose, onSave, onDelete }) => {
 // 🏠 메인 홈 컴포넌트
 // ---------------------------------------------------------
 
-const MyDashboard = ({ userProfile, setPage, favorites }) => {
+// 🌟 추가: 부모로부터 setGlobalFilter를 Props로 받습니다.
+const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         todoIssues: 0, todoAccidents: 0, doneIssues: 0, doneAccidents: 0
@@ -152,7 +149,7 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
 
     const MENU_NAMES = {
         dashboard: '대시보드', list: '특이사항 LIST', accident_dashboard: '사고분석 대시보드', accident_list: '사고분석 LIST',
-        user_management: '사용자 관리', product_manager: 'ITEM DB 수동 업데이트', support: '지원센터'
+        user_management: '사용자 관리', product_manager: 'ITEM DB 수동 업데이트', support: '지원센터', rpa_management: 'RPA 자동화 관리'
     };
 
     useEffect(() => { if (userProfile) localStorage.setItem(`letus_widgets_${userProfile.id}`, JSON.stringify(widgets)); }, [widgets, userProfile]);
@@ -182,12 +179,10 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
 
                 setStats({ todoIssues: issueCount || 0, todoAccidents: accCount || 0, doneIssues: doneIssueCount || 0, doneAccidents: doneAccCount || 0 });
 
-                // 📅 캘린더 일정 불러오기 
-                // 🚩 [핵심 수정] 내가 작성했거나, 협업자에 내 이름이 포함된 일정만 가져오도록 필터(.or)를 걸어줍니다!
                 const { data: eventsData, error: eventsError } = await supabase
                     .from('calendar_events')
                     .select('*')
-                    .or(`creator_name.eq.${userProfile.name},collaborators.ilike.%${userProfile.name}%`)
+                    .ilike('collaborators', `%${userProfile.name}%`)
                     .order('start_date', { ascending: true });
 
                 if (!eventsError && eventsData) {
@@ -203,7 +198,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
                     setCalendarEvents(formattedEvents);
                 }
 
-                // 📝 TODO 마스터 리스트 불러오기 (🔥 createdAt 매핑 추가!)
                 const { data: todoData, error: todoError } = await supabase
                     .from('todos')
                     .select('*')
@@ -225,7 +219,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
                     setTodos(formattedTodos);
                 }
 
-                // ✅ TODO 날짜별 완료 로그 불러오기
                 const { data: logData, error: logError } = await supabase
                     .from('todo_logs')
                     .select('todo_id, completed_date')
@@ -245,7 +238,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
         fetchMyData();
     }, [userProfile]);
 
-    // --- TODO 핸들러 ---
     const handleSaveTodo = async (savedTodo) => {
         try {
             const pad = n => String(n).padStart(2, '0');
@@ -257,8 +249,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
                 repeat_days: savedTodo.repeat,
                 is_done: savedTodo.isDone,
                 creator_id: userProfile.id,
-                // ⭐ 신규 등록일 때만 우리가 선택한 날짜(targetDateStr)를 '생성일'로 보냅니다!
-                // 타임존 간섭을 없애기 위해 Z 없이 T00:00:00 포맷으로 저장
                 created_at: editingTodo ? undefined : `${targetDateStr}T00:00:00`
             };
 
@@ -269,7 +259,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
             } else {
                 const { data, error } = await supabase.from('todos').insert([todoPayload]).select();
                 if (error) throw error;
-                // 🚩 [수정 2] 화면(State)에도 우리가 선택한 날짜가 즉시 반영되도록 처리!
                 if (data && data.length > 0) {
                     setTodos([{ ...savedTodo, id: data[0].id, createdAt: targetDateStr }, ...todos]);
                 }
@@ -287,7 +276,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
         } catch (err) { alert('삭제 실패: ' + err.message); }
     };
 
-    // 🔥 완료 상태 토글
     const toggleTodoDone = async (id) => {
         const pad = n => String(n).padStart(2, '0');
         const dateStr = `${selectedTodoDate.getFullYear()}-${pad(selectedTodoDate.getMonth() + 1)}-${pad(selectedTodoDate.getDate())}`;
@@ -310,28 +298,23 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
         } catch (err) { alert('상태 변경 실패: ' + err.message); }
     };
 
-    // 🔥 [핵심 수정] 선택된 날짜에 맞게 필터링 및 동적 정렬(로그 기반)
     const padDate = n => String(n).padStart(2, '0');
     const selectedDateStr = `${selectedTodoDate.getFullYear()}-${padDate(selectedTodoDate.getMonth() + 1)}-${padDate(selectedTodoDate.getDate())}`;
     const dayOfWeekStrForSelected = ['일', '월', '화', '수', '목', '금', '토'][selectedTodoDate.getDay()];
 
     const priorityWeight = { '긴급': 0, '1': 1, '2': 2, '3': 3, '4': 4 };
 
-    // 1. 선택된 날짜에 보이는 TODO 필터링
     const filteredTodosForSelected = todos.filter(todo => {
-        // 반복 요일이 없는 일반 TODO는 생성된 날짜(createdAt)에만 딱! 나타나도록 수정
         if (!todo.repeat || todo.repeat.length === 0) return todo.createdAt === selectedDateStr;
         return todo.repeat.includes(dayOfWeekStrForSelected);
     });
 
-    // 2. 화면에 그릴 때, '해당 날짜의 완료 로그(todoDoneLogs)'를 기준으로 즉시 정렬
     const sortedAndFilteredTodos = [...filteredTodosForSelected].sort((a, b) => {
         const aCompleted = !!todoDoneLogs[`${a.id}_${selectedDateStr}`];
         const bCompleted = !!todoDoneLogs[`${b.id}_${selectedDateStr}`];
 
         if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
 
-        // 1순위: 중요도 정렬
         const pA = priorityWeight[a.priority] ?? 4;
         const pB = priorityWeight[b.priority] ?? 4;
         if (pA !== pB) return pA - pB;
@@ -339,7 +322,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
         return b.id - a.id;
     });
 
-    // --- 캘린더 핸들러 ---
     const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
     const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
@@ -356,14 +338,12 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
             };
 
             if (editingEvent) {
-                // ✏️ [수정 로직] 기존 데이터 덮어쓰기
                 const { error } = await supabase.from('calendar_events').update(payload).eq('id', savedEvent.id);
                 if (error) throw error;
 
                 setCalendarEvents(calendarEvents.map(ev => ev.id === savedEvent.id ? { ...savedEvent, id: savedEvent.id } : ev));
                 alert('✅ 일정이 성공적으로 수정되었습니다.');
             } else {
-                // ➕ [등록 로직] 신규 데이터 삽입
                 payload.creator_name = userProfile.name;
                 const { data, error } = await supabase.from('calendar_events').insert([payload]).select();
                 if (error) throw error;
@@ -375,7 +355,7 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
             }
 
             setIsCalendarModalOpen(false);
-            setEditingEvent(null); // 수정 상태 초기화
+            setEditingEvent(null);
         } catch (err) { alert('일정 저장 중 오류 발생: ' + err.message); }
     };
 
@@ -424,7 +404,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
         } catch (err) { alert('일정 이동 실패: ' + err.message); }
     };
 
-    // --- 위젯 핸들러 ---
     const openWidgetModal = (index) => { setSelectedSlotIndex(index); setIsWidgetModalOpen(true); };
     const selectWidget = (type) => {
         const newWidgets = [...widgets];
@@ -476,11 +455,24 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
             );
         }
 
+        // 🌟 수정 포인트: setGlobalFilter를 통해 타겟 페이지에 필터값을 미리 세팅!
         const WIDGET_UI = {
-            issue_todo: { title: '입고 대기건', count: stats.todoIssues, color: 'blue', onClick: () => setPage('list') },
-            acc_todo: { title: '사고 대기건', count: stats.todoAccidents, color: 'orange', onClick: () => setPage('accident_list') },
-            issue_done: { title: '이번달 입고처리', count: stats.doneIssues, color: 'green', onClick: () => { } },
-            acc_done: { title: '이번달 사고마감', count: stats.doneAccidents, color: 'purple', onClick: () => { } },
+            issue_todo: {
+                title: '입고 대기건', count: stats.todoIssues, color: 'blue',
+                onClick: () => { if (setGlobalFilter) setGlobalFilter('입고대기'); setPage('list'); }
+            },
+            acc_todo: {
+                title: '사고 대기건', count: stats.todoAccidents, color: 'orange',
+                onClick: () => { if (setGlobalFilter) setGlobalFilter('사고대기'); setPage('accident_list'); }
+            },
+            issue_done: {
+                title: '이번달 입고처리', count: stats.doneIssues, color: 'green',
+                onClick: () => { if (setGlobalFilter) setGlobalFilter('처리완료'); setPage('list'); }
+            },
+            acc_done: {
+                title: '이번달 사고마감', count: stats.doneAccidents, color: 'purple',
+                onClick: () => { if (setGlobalFilter) setGlobalFilter('처리완료'); setPage('accident_list'); }
+            },
         };
 
         const conf = WIDGET_UI[type];
@@ -627,7 +619,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
 
                                 const dayEvents = calendarEvents.filter(e => dateStr >= e.startDate && dateStr <= e.endDate);
 
-                                // 🔥 달력 점 찍기 최적화: 반복 아니면 생성일에만 표시!
                                 const dayTodos = todos.filter(t => {
                                     if (!t.repeat || t.repeat.length === 0) return t.createdAt === dateStr;
                                     return t.repeat.includes(dayOfWeekStr);
@@ -753,12 +744,14 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
                 />
             )}
 
+            {/* 🌟 수정 포인트: 하위 컴포넌트에 currentUser 넘기기 */}
             {isCalendarModalOpen && (
                 <CalendarEventModal
                     selectedDate={selectedDateForEvent}
-                    eventToEdit={editingEvent} // 👈 이 줄 추가!
-                    onClose={() => { setIsCalendarModalOpen(false); setEditingEvent(null); }} // 👈 닫을 때 초기화!
+                    eventToEdit={editingEvent}
+                    onClose={() => { setIsCalendarModalOpen(false); setEditingEvent(null); }}
                     onSave={handleSaveEvent}
+                    currentUser={userProfile?.name} // 👈 '본인 참석' 체크박스를 위해 필수!
                 />
             )}
 
@@ -785,13 +778,12 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
                                     {dayEventsModalData.events.map(ev => (
                                         <div key={ev.id} className={`p-3 rounded-lg border flex flex-col gap-1 relative group ${ev.isImportant ? 'bg-red-50 border-red-100' : 'bg-blue-50 border-blue-100'}`}>
                                             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all bg-white/80 backdrop-blur-sm rounded p-0.5 shadow-sm">
-                                                {/* ✏️ 수정 버튼 */}
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setEditingEvent(ev); // 현재 일정을 수정 모드로 세팅
-                                                        setDayEventsModalData({ isOpen: false, dateStr: '', events: [], todos: [] }); // 상세 모달 닫기
-                                                        setIsCalendarModalOpen(true); // 등록/수정 모달 열기
+                                                        setEditingEvent(ev);
+                                                        setDayEventsModalData({ isOpen: false, dateStr: '', events: [], todos: [] });
+                                                        setIsCalendarModalOpen(true);
                                                     }}
                                                     className="p-1 text-gray-400 hover:text-letusBlue transition-colors"
                                                     title="일정 수정"
@@ -799,7 +791,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
                                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                                 </button>
 
-                                                {/* 🗑️ 삭제 버튼 */}
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev.id); }}
                                                     className="p-1 text-gray-400 hover:text-red-500 transition-colors"
@@ -815,7 +806,6 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
                                                 </span>
                                                 <div className="flex gap-2">
                                                     {ev.collabTeams && <span className="text-[11px] text-gray-500 font-bold truncate max-w-[80px]">팀: {ev.collabTeams}</span>}
-                                                    {/* 🚩 태그된 사람 표시 */}
                                                     {ev.collaborators && <span className="text-[11px] text-green-600 font-bold truncate max-w-[100px]">👤 {ev.collaborators}</span>}
                                                 </div>
                                             </div>
@@ -857,6 +847,5 @@ const MyDashboard = ({ userProfile, setPage, favorites }) => {
     );
 };
 
-// 🌟 전역 등록
 export { TodoModal };
 export { MyDashboard };

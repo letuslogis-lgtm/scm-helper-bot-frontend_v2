@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient.js';
 ;
 
 
@@ -475,7 +475,8 @@ const WorkerBulkUploadModal = ({ onClose, onReload }) => {
                     return alert('필수 값(이름, 소속구분, 업체명)이 누락된 데이터가 있거나 양식이 잘못되었습니다.');
                 }
 
-                const { error } = await supabaseClient.from('workers').insert(standardData);
+                // 🌟 치명적 오타 수정: supabaseClient.from -> supabase.from 으로 변경!
+                const { error } = await supabase.from('workers').insert(standardData);
                 if (error) throw error;
 
                 alert(`🎉 총 ${standardData.length}건의 근무자 데이터가 성공적으로 등록되었습니다!`);
@@ -493,18 +494,21 @@ const WorkerBulkUploadModal = ({ onClose, onReload }) => {
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-[500px] overflow-hidden flex flex-col slide-up">
                 <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white">
                     <h3 className="text-sm font-bold text-gray-800 flex items-center"><span className="w-1.5 h-3.5 bg-green-500 rounded-full mr-2"></span>근무자 일괄 등록 (Excel)</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><CloseIcon /></button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+                        {/* 기존 <CloseIcon /> 대신 인라인 SVG 사용 (안전함) */}
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                 </div>
                 <div className="p-6 bg-slate-50 flex-1 space-y-4">
-                    <button onClick={handleDownloadTemplate} className="w-full flex justify-center gap-2 py-2.5 border border-green-500 text-green-600 text-[11px] font-bold rounded-lg hover:bg-green-50 shadow-sm">
+                    <button onClick={handleDownloadTemplate} className="w-full flex justify-center gap-2 py-2.5 border border-green-500 text-green-600 text-[11px] font-bold rounded-lg hover:bg-green-50 shadow-sm transition-colors">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         엑셀 업로드 양식 다운로드
                     </button>
                     <input type="file" accept=".xlsx, .xls" onChange={handleFileChange} className="block w-full text-[11px] text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded file:border-0 file:font-bold file:bg-blue-50 file:text-letusBlue hover:file:bg-blue-100 border border-gray-300 rounded-lg bg-white cursor-pointer" />
                 </div>
                 <div className="p-4 border-t bg-white flex justify-end gap-2">
-                    <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-[11px] font-bold rounded hover:bg-gray-50">취소</button>
-                    <button onClick={handleUpload} disabled={isUploading || !file} className="px-5 py-2 bg-letusBlue text-white text-[11px] font-bold rounded hover:bg-blue-600 flex items-center gap-1.5 disabled:opacity-50">
+                    <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-[11px] font-bold rounded hover:bg-gray-50 transition-colors">취소</button>
+                    <button onClick={handleUpload} disabled={isUploading || !file} className="px-5 py-2 bg-letusBlue text-white text-[11px] font-bold rounded hover:bg-blue-600 flex items-center gap-1.5 disabled:opacity-50 transition-colors">
                         {isUploading ? '처리 중...' : '데이터 분석 및 적용'}
                     </button>
                 </div>

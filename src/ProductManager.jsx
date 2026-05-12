@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase, adminSupabase } from './supabaseClient.js';
-
-
+import { supabase } from './supabaseClient.js';
 
 // --- ⚙️ 마스터 데이터 수동 업데이트 (ProductManager) ---
 const ProductManager = () => {
@@ -59,10 +57,10 @@ const ProductManager = () => {
                 // 현재 청크의 단품코드 리스트만 추출
                 const chunkItemCodes = [...new Set(chunk.map(r => clean(r['단품코드'])))];
 
-                // DB에서 해당 단품코드들만 정확히 핀셋 검색
+                // 🌟 DB에서 해당 단품코드 검색 시 outbound_warehouse 추가
                 const { data: existingData, error: fetchError } = await supabase
                     .from('products')
-                    .select('id, item_code, item_color, brand_category, company_division, vendor, production_line')
+                    .select('id, item_code, item_color, brand_category, company_division, vendor, production_line, outbound_warehouse')
                     .in('item_code', chunkItemCodes);
 
                 if (fetchError) throw fetchError;
@@ -84,27 +82,32 @@ const ProductManager = () => {
                     const companyDiv = clean(excelRow['사별회사구분']);
                     const vendor = clean(excelRow['공급업체']);
                     const prodLine = clean(excelRow['생산지창고']);
+                    const outboundWarehouse = clean(excelRow['출고창고']); // 🌟 엑셀에서 출고창고 데이터 추출
 
                     const key = `${itemCode}_${itemColor}`;
                     const existingRow = existingDBMap.get(key);
 
                     if (!existingRow) {
-                        // DB에 진짜 없는 경우 신규 등록
+                        // DB에 진짜 없는 경우 신규 등록 (출고창고 포함)
                         toInsert.push({
                             item_code: itemCode, item_color: itemColor, brand_category: brand,
-                            company_division: companyDiv, vendor: vendor, production_line: prodLine
+                            company_division: companyDiv, vendor: vendor, production_line: prodLine,
+                            outbound_warehouse: outboundWarehouse
                         });
                     } else {
-                        // 기존 데이터가 있으면 변경점 체크
-                        const isBrandChanged = existingRow.brand_category !== brand;
-                        const isCompanyDivChanged = existingRow.company_division !== companyDiv;
-                        const isVendorChanged = existingRow.vendor !== vendor;
-                        const isProdLineChanged = existingRow.production_line !== prodLine;
+                        // 🌟 기존 데이터가 있으면 변경점 체크 (출고창고 변경 여부 포함)
+                        // DB에 null로 저장되어 있을 수 있으므로 빈 문자열과 안전하게 비교
+                        const isBrandChanged = (existingRow.brand_category || '') !== brand;
+                        const isCompanyDivChanged = (existingRow.company_division || '') !== companyDiv;
+                        const isVendorChanged = (existingRow.vendor || '') !== vendor;
+                        const isProdLineChanged = (existingRow.production_line || '') !== prodLine;
+                        const isOutboundChanged = (existingRow.outbound_warehouse || '') !== outboundWarehouse;
 
-                        if (isBrandChanged || isCompanyDivChanged || isVendorChanged || isProdLineChanged) {
+                        if (isBrandChanged || isCompanyDivChanged || isVendorChanged || isProdLineChanged || isOutboundChanged) {
                             toUpdate.push({
                                 id: existingRow.id, item_code: itemCode, item_color: itemColor,
-                                brand_category: brand, company_division: companyDiv, vendor: vendor, production_line: prodLine
+                                brand_category: brand, company_division: companyDiv, vendor: vendor,
+                                production_line: prodLine, outbound_warehouse: outboundWarehouse
                             });
                         } else {
                             skipCount++;
@@ -149,8 +152,9 @@ const ProductManager = () => {
                 <p className="text-sm text-gray-600 mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                     💡 <strong>안내:</strong> 엑셀 데이터를 업로드하면 기존 DB와 전체 내용을 1:1로 비교합니다.<br />
                     코드가 없으면 <strong>신규 등록</strong>, 정보가 다르면 <strong>수정</strong>, 내용이 완전히 같으면 <strong>무시(Skip)</strong> 처리됩니다.<br />
+                    {/* 🌟 안내 문구에 출고창고 추가 */}
                     <span className="inline-block mt-2 font-bold text-letusBlue bg-blue-100/50 px-2 py-1 rounded">
-                        📥 추출 경로: {"[ERP > 단품정보추출 > 번호/단품코드/단품컬러/브랜드구분/사별회사구분/공급업체/생산지창고]"}
+                        📥 추출 경로: {"[ERP > 단품정보추출 > 번호/단품코드/단품컬러/브랜드구분/사별회사구분/공급업체/생산지창고/출고창고]"}
                     </span>
                 </p>
 

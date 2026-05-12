@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase, adminSupabase } from './supabaseClient.js';
-import { MENU_DATA } from './Sidebar.jsx';
+import { supabase } from './supabaseClient.js';
+import { ALL_MENUS } from './menuConfig.jsx';
 
 const Header = ({ page, userProfile, onLogout, notifications = [], isNotiOpen, toggleNoti, onNotiClick, onEditProfile, favorites, toggleFavorite, isSidebarOpen, setIsSidebarOpen, onMarkAllRead }) => {
     const [notiStatus, setNotiStatus] = useState(Notification.permission);
@@ -18,9 +18,10 @@ const Header = ({ page, userProfile, onLogout, notifications = [], isNotiOpen, t
         }
     };
 
-    // 메뉴 데이터에서 동적 조회
-    let pageTitle = '특이사항 LIST';
-    MENU_DATA.forEach(menu => {
+    // 🌟 ALL_MENUS를 사용하여 페이지 제목 동적 조회
+    let pageTitle = '특이사항 LIST'; // 기본값
+
+    ALL_MENUS.forEach(menu => {
         if (menu.children) {
             const matchedChild = menu.children.find(child => child.id === page);
             if (matchedChild) {

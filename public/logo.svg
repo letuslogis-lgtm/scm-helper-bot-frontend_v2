@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 
+    [LETUS LOGIS - Flat Minimal Logo]
+    비율과 여백이 완벽한 그리드 기반의 2D 평면 디자인입니다.
+  -->
+  
+  <!-- 'L' Shape (다크 스틸) - 물류의 뼈대 / 경로 -->
+  <path d="M 112 112 L 208 112 L 208 304 L 400 304 L 400 400 L 112 400 Z" 
+        fill="#334155" stroke="#334155" stroke-width="32" stroke-linejoin="round" />
+        
+  <!-- 'Box' Shape (레터스 오렌지) - 핵심 화물 / 포인트 -->
+  <rect x="304" y="112" width="96" height="96" 
+        fill="#ea580c" stroke="#ea580c" stroke-width="32" stroke-linejoin="round" />
+</svg>

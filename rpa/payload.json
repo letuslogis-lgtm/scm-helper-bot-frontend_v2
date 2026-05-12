@@ -1,0 +1,7 @@
+{
+    "event_type": "trigger_rpa_job",
+    "client_payload": {
+        "job_id": "615dbb94-cfb1-456c-975b-1aa2b856e424",
+        "script_url": "https://kbbkodmighrrgwtwrgdp.supabase.co/storage/v1/object/sign/rpa-scripts/erp_scraper_v2.py?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMzhhOGMwNy0wNTZiLTQzOGItODYyYi01OGM1NmFjYmRlZTMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJycGEtc2NyaXB0cy9lcnBfc2NyYXBlcl92Mi5weSIsImlhdCI6MTc3NzAxOTc3NCwiZXhwIjoxNzc3NjI0NTc0fQ.5MhphE9u6PRjGzLs-OMNwLePuM5f0OdRV3HrbLGCwoc"
+    }
+}

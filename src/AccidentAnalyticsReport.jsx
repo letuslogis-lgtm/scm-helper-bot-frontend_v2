@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import ReactMarkdown from 'react-markdown';
 
 
 
@@ -118,31 +119,93 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
 
 
     // 🤖 AI 리포트 생성 함수 (트리거)
-    const handleGenerateAiReport = () => {
+    const handleGenerateAiReport = async () => {
         if (accidents.length === 0) {
             alert('분석할 데이터가 없습니다.');
             return;
         }
 
         setIsAiLoading(true);
+        setAiReport(''); // 스트리밍을 위해 빈 문자열로 초기화
 
-        // 💡 실제로는 여기서 OpenAI나 Gemini API로 데이터를 쏴서 받아와야 합니다!
-        // 지금은 기훈님이 API를 연결하시기 전까지 테스트하실 수 있도록, 
-        // 현재 화면의 데이터를 바탕으로 "가상의 AI"가 그럴싸하게 분석해주는 로직을 넣었습니다.
-        setTimeout(() => {
-            const topSku = skuData[0] ? `${skuData[0].name}(${skuData[0].value}건)` : '특정 품목';
-            const topZone = zoneData[0] ? `${zoneData[0].name}(${zoneData[0].value}건)` : '특정 구역';
-            const topCause = aiCauseData[0] ? aiCauseData[0].name : '특정 원인';
+        const topSku = skuData[0] ? `${skuData[0].name}(${skuData[0].value}건)` : '특정 품목';
+        const topZone = zoneData[0] ? `${zoneData[0].name}(${zoneData[0].value}건)` : '특정 구역';
+        const topCause = aiCauseData[0] ? aiCauseData[0].name : '특정 원인';
 
-            const generatedText = `현재 조회하신 기간(${startDate} ~ ${endDate}) 동안 총 **${accidents.length}건**의 물류 사고가 발생했습니다. AI 데이터 패턴 분석 결과, 아래의 핵심 개선점을 제안합니다.
+        try {
+            // Supabase 세션을 가져와 Edge Function 호출 (fetch 직접 사용으로 스트리밍 처리)
+            const { data: { session } } = await window.supabase.auth.getSession();
+            const token = session?.access_token;
+            
+            // Supabase 프로젝트의 URL을 파싱하여 Edge Function 주소 생성
+            const supabaseUrl = window.supabase.supabaseUrl;
+            const functionUrl = `${supabaseUrl}/functions/v1/generate-insight-report`;
 
-1. **${topZone} 집중 관리 필요**: 전체 에러 발생의 가장 큰 비중을 차지하고 있습니다. 해당 구역의 동선 혼잡도, 바코드 스캐너(PDA) 통신 상태, 또는 조명 및 작업 환경에 대한 물리적 점검을 강력히 권장합니다.
-2. **요주의 품목 [${topSku}] 패키징 재검토**: 해당 품목에서 지속적인 에러가 탐지되었습니다. 제품 외관의 바코드 위치가 인식하기 어렵거나, 합포장 시 파손 위험이 높은 구조인지 포장(패키징) 프로세스를 재검토해야 합니다.
-3. **근본 원인 [${topCause}] 개선 방안**: 가장 빈번한 사고 원인이 '${topCause}'로 지목되었습니다. 이는 개별 작업자의 실수가 아닌 시스템/프로세스의 구조적 문제일 확률이 높습니다. 관련 부서(시공/전산 등)와의 크로스 체크 미팅을 제안합니다.`;
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    startDate,
+                    endDate,
+                    totalCount: accidents.length,
+                    topSku,
+                    topZone,
+                    topCause
+                })
+            });
 
-            setAiReport(generatedText);
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(errText);
+            }
+
+            // 🌟 스트리밍 데이터 읽기 처리
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                // SSE 형식의 chunk에서 실제 텍스트 내용만 추출 (data: {...})
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                                setAiReport(prev => (prev || '') + data.choices[0].delta.content);
+                            }
+                        } catch (e) {
+                            // 파싱 에러 무시 (청크가 잘린 경우 등)
+                        }
+                    } else if (!line.startsWith('data: ') && line.trim() !== '') {
+                        // 만약 스트리밍 형식이 아니라 단순 텍스트로 오면 그대로 이어붙임
+                        // (Edge Function에서 스트림 옵션을 켜면 data: 형식으로 오지만, 예외 상황 대비)
+                        if (line.includes('"delta":{"content"')) {
+                           try {
+                               const match = line.match(/"content":"(.*?)"/);
+                               if(match && match[1]) {
+                                   // 아주 간단한 정규식 추출 (안전망)
+                                   let text = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                                   setAiReport(prev => (prev || '') + text);
+                               }
+                           } catch(e) {}
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("AI 리포트 생성 실패:", err);
+            setAiReport(`⚠️ AI 인사이트 리포트를 생성하는 중 오류가 발생했습니다.\n\n[오류 내용]\n${err.message}\n\n* Supabase Edge Function 배포 상태 및 API Key 설정을 확인해 주세요.`);
+        } finally {
             setIsAiLoading(false);
-        }, 1500); // 1.5초 로딩 연출
+        }
     };
 
 
@@ -341,9 +404,11 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
                         </div>
 
                         {/* AI 분석 결과 출력창 */}
-                        {aiReport && (
-                            <div className="bg-white/70 backdrop-blur-sm rounded-lg p-5 border border-purple-100 shadow-inner mt-2 animate-fade-in text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
-                                {aiReport}
+                        {(aiReport !== null) && (
+                            <div className="bg-white/70 backdrop-blur-sm rounded-lg p-5 border border-purple-100 shadow-inner mt-2 animate-fade-in text-sm text-gray-800 leading-relaxed overflow-x-auto">
+                                <ReactMarkdown className="prose prose-sm prose-purple max-w-none">
+                                    {aiReport || "AI가 데이터를 분석하며 리포트를 작성하고 있습니다..."}
+                                </ReactMarkdown>
                             </div>
                         )}
                     </div>

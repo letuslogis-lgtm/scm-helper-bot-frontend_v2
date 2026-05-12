@@ -32,3 +32,6 @@ migrate.mjs
 .env
 .env.*
 !.env.example
+
+# 보안: service_role 키가 들어있는 임시 스크립트
+update_user_email.cjs

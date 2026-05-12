@@ -766,6 +766,7 @@ const AttendanceManagement = () => {
   const [expandedGroups, setExpandedGroups] = useState([]);
 
   const [selectedIds, setSelectedIds] = useState([]);
+  const [lastSelectedId, setLastSelectedId] = useState(null);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
 
@@ -1032,7 +1033,25 @@ const AttendanceManagement = () => {
 
   const toggleGroup = (name) => setExpandedGroups(prev => prev.includes(name) ? prev.filter(v => v !== name) : [...prev, name]);
   const handleSelectAll = (e) => setSelectedIds(e.target.checked ? filteredDetailData.map(i => i.id) : []);
-  const handleSelectOne = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const handleSelectOne = (e, id) => {
+      if (e && e.nativeEvent && e.nativeEvent.shiftKey && lastSelectedId) {
+          const startIdx = sortedDetailData.findIndex(i => i.id === lastSelectedId);
+          const endIdx = sortedDetailData.findIndex(i => i.id === id);
+          if (startIdx !== -1 && endIdx !== -1) {
+              const min = Math.min(startIdx, endIdx);
+              const max = Math.max(startIdx, endIdx);
+              const idsInRange = sortedDetailData.slice(min, max + 1).map(i => i.id);
+              setSelectedIds(prev => {
+                  const newSet = new Set(prev);
+                  idsInRange.forEach(x => newSet.add(x));
+                  return Array.from(newSet);
+              });
+              return;
+          }
+      }
+      setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+      setLastSelectedId(id);
+  };
 
   const currentStats = useMemo(() => {
     const targetData = activeTab === 'summary' ? filteredChartData : filteredDetailData;
@@ -1206,9 +1225,25 @@ const AttendanceManagement = () => {
 
         <div className="overflow-auto flex-1 custom-scrollbar bg-slate-50/30 relative">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-              <svg className="animate-spin w-8 h-8 mb-4 text-letusBlue" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-              <p className="font-bold text-sm">DB에서 데이터를 불러오고 있습니다...</p>
+            <div className="p-6 flex flex-col gap-4 animate-pulse">
+                {/* 집계 카드 스켈레톤 */}
+                <div className="grid grid-cols-5 gap-4 mb-4">
+                    {[1,2,3,4,5].map(i => (
+                        <div key={i} className="h-24 bg-slate-200 rounded-xl border border-slate-100"></div>
+                    ))}
+                </div>
+                {/* 테이블 헤더 스켈레톤 */}
+                <div className="h-12 bg-slate-200 rounded-t-lg border-b border-slate-300"></div>
+                {/* 테이블 로우 스켈레톤 */}
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="h-10 bg-slate-100 rounded-md mb-1.5 flex items-center px-4 gap-4">
+                        <div className="h-4 bg-slate-200 rounded w-1/12"></div>
+                        <div className="h-4 bg-slate-200 rounded w-2/12"></div>
+                        <div className="h-4 bg-slate-200 rounded w-3/12"></div>
+                        <div className="h-4 bg-slate-200 rounded w-2/12"></div>
+                        <div className="h-4 bg-slate-200 rounded w-full"></div>
+                    </div>
+                ))}
             </div>
           ) : (
             <>
@@ -1335,9 +1370,9 @@ const AttendanceManagement = () => {
                               const isSelected = selectedIds.includes(row.id);
                               const isDispatched = row.vendor_name !== row.worked_vendor;
                               return (
-                                <tr key={row.id} onClick={() => handleSelectOne(row.id)} className={`transition-colors cursor-pointer ${isSelected ? 'bg-blue-50' : 'hover:bg-blue-50/30'}`}>
+                                <tr key={row.id} onClick={(e) => handleSelectOne(e, row.id)} className={`transition-colors cursor-pointer ${isSelected ? 'bg-blue-50' : 'hover:bg-blue-50/30'}`}>
                                   <td className="p-3 text-center border-r border-gray-50" onClick={e => e.stopPropagation()}>
-                                    <input type="checkbox" checked={isSelected} onChange={() => handleSelectOne(row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                                    <input type="checkbox" checked={isSelected} onChange={(e) => handleSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                   </td>
                                   <td className="p-3 font-mono text-gray-500 text-center">{row.work_date}</td>
                                   <td className="p-3 text-center">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import * as XLSX from 'xlsx-js-style';
+import { supabase } from './supabaseClient.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line, ComposedChart, Area, AreaChart } from 'recharts';
 import { MainLayout } from './MainLayout.jsx';
 import { CloseIcon } from './SharedUI.jsx';
@@ -514,12 +514,29 @@ const AccidentList = ({ userProfile, initialFilter }) => {
     const [activeRow, setActiveRow] = useState(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
     const [isAiView, setIsAiView] = useState(false); // AI 분석 뷰 토글 상태
 
     // 🔥 신규: 누락되었던 모달 오픈용 상태값 추가
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+
+    // 🔗 딥링크 (바로가기) 모달 자동 팝업 로직
+    useEffect(() => {
+        const fetchTargetRow = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tId = urlParams.get('target_id');
+            if (tId) {
+                const { data, error } = await supabase.from('logistics_accidents').select('*').eq('id', tId).single();
+                if (data && !error) {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    setActiveRow(data);
+                }
+            }
+        };
+        fetchTargetRow();
+    }, []);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -582,8 +599,8 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
             if (appliedFilters.searchValue) {
                 const val = appliedFilters.searchValue.toLowerCase();
-                if (appliedFilters.searchType === '수주건명') filtered = filtered.filter(i => (i.order_no || '').toLowerCase().includes(val));
-                if (appliedFilters.searchType === '수주번호') filtered = filtered.filter(i => (i.order_name || '').toLowerCase().includes(val));
+                if (appliedFilters.searchType === '수주건명') filtered = filtered.filter(i => (i.order_name || '').toLowerCase().includes(val));
+                if (appliedFilters.searchType === '수주번호') filtered = filtered.filter(i => (i.order_no || '').toLowerCase().includes(val));
                 if (appliedFilters.searchType === '품목코드') filtered = filtered.filter(i => (i.item_code || '').toLowerCase().includes(val));
             }
 
@@ -634,7 +651,25 @@ const AccidentList = ({ userProfile, initialFilter }) => {
     };
 
     const handleSelectAll = (e) => setSelectedIds(e.target.checked ? sortedItems.map(i => i.id) : []);
-    const handleSelectOne = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    const handleSelectOne = (e, id) => {
+        if (e && e.nativeEvent && e.nativeEvent.shiftKey && lastSelectedId) {
+            const startIdx = sortedItems.findIndex(i => i.id === lastSelectedId);
+            const endIdx = sortedItems.findIndex(i => i.id === id);
+            if (startIdx !== -1 && endIdx !== -1) {
+                const min = Math.min(startIdx, endIdx);
+                const max = Math.max(startIdx, endIdx);
+                const idsInRange = sortedItems.slice(min, max + 1).map(i => i.id);
+                setSelectedIds(prev => {
+                    const newSet = new Set(prev);
+                    idsInRange.forEach(x => newSet.add(x));
+                    return Array.from(newSet);
+                });
+                return;
+            }
+        }
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+        setLastSelectedId(id);
+    };
 
     // 🔥 신규 추가: 일괄 삭제 기능 (청크 처리 완료)
     const handleDeleteSelected = async () => {
@@ -737,7 +772,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
             order_no: '수주번호', order_name: '수주건명', item_code: '품목코드', issue_qty: '이슈수량',
             action_result: '조치결과구분', is_delayed: '납기지연판별', zone: 'ZONE', worker_name: '작업자',
             shift_type: '주/야', status: '처리상태', responsible_dept: '귀책부서', cause_detail: '발생원인 상세',
-            handler_name: '최종처리자',
+            handler_team: '수행처', action_content: '조치내용', handler_name: '최종처리자',
             // 🤖 AI 분석 결과 4종 추가
             ai_analyzed_cause: 'AI 대분류',
             ai_cause_detail: 'AI 소분류',
@@ -758,6 +793,16 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         const ws = XLSX.utils.json_to_sheet(excelData);
         // 열 너비 자동 조절 (선택사항)
         ws['!cols'] = Object.keys(headersMap).map(() => ({ wch: 15 }));
+
+        // 모든 셀에 폰트 10pt 적용
+        for (const cell in ws) {
+            if (cell[0] === '!') continue;
+            if (ws[cell]) {
+                if (!ws[cell].s) ws[cell].s = {};
+                if (!ws[cell].s.font) ws[cell].s.font = {};
+                ws[cell].s.font.sz = 10;
+            }
+        }
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "사고분석_데이터");
@@ -857,7 +902,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                 let existingData = []; const FETCH_CHUNK = 200;
                 for (let i = 0; i < orderNos.length; i += FETCH_CHUNK) {
                     const chunkOrders = orderNos.slice(i, i + FETCH_CHUNK);
-                    const { data, error } = await supabase.from('logistics_accidents').select('id, order_no, item_code, zone, worker_name, shift_type').in('order_no', chunkOrders);
+                    const { data, error } = await supabase.from('logistics_accidents').select('id, order_no, item_code, location, zone, worker_name, shift_type').in('order_no', chunkOrders);
                     if (!error && data) existingData = [...existingData, ...data];
                 }
 
@@ -870,15 +915,17 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     let matchedWms = {};
                     if (wmsCandidates.length === 1) matchedWms = wmsCandidates[0];
                     else matchedWms = wmsCandidates.find(w => w.item.includes(row.item_code) || row.item_code.includes(w.item)) || wmsCandidates[0];
-                    const loc = matchedWms.loc; const newZone = loc ? String(loc)[0].toUpperCase() : '';
+                    const loc = matchedWms.loc; 
+                    const rawLocation = loc ? String(loc).trim() : '';
+                    const newZone = rawLocation.toUpperCase().startsWith('P-3') ? 'DPC' : (rawLocation ? rawLocation[0].toUpperCase() : '');
                     let newShift = '-';
                     if (matchedWms.time) {
                         let h; if (matchedWms.time instanceof Date) h = matchedWms.time.getHours();
                         else { const d = new Date(matchedWms.time); if (!isNaN(d.getTime())) h = d.getHours(); }
                         if (h !== undefined) newShift = (h >= 9 && h < 18) ? '주간' : '야간';
                     }
-                    if (row.zone !== newZone || row.worker_name !== matchedWms.worker || row.shift_type !== newShift) {
-                        toUpdateMap.set(row.id, { id: row.id, zone: newZone || row.zone, worker_name: matchedWms.worker || row.worker_name, shift_type: newShift !== '-' ? newShift : row.shift_type, updated_at: new Date().toISOString() });
+                    if (row.zone !== newZone || row.worker_name !== matchedWms.worker || row.shift_type !== newShift || row.location !== rawLocation) {
+                        toUpdateMap.set(row.id, { id: row.id, location: rawLocation || row.location, zone: newZone || row.zone, worker_name: matchedWms.worker || row.worker_name, shift_type: newShift !== '-' ? newShift : row.shift_type, updated_at: new Date().toISOString() });
                     }
                 });
 
@@ -940,7 +987,8 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     if (wmsCandidates.length === 1) matchedWms = wmsCandidates[0];
                     else if (wmsCandidates.length > 1) matchedWms = wmsCandidates.find(w => w.item.includes(item) || item.includes(w.item)) || wmsCandidates[0];
                     const loc = matchedWms.loc;
-                    const zone = loc ? String(loc)[0].toUpperCase() : '';
+                    const rawLocation = loc ? String(loc).trim() : '';
+                    const zone = rawLocation.toUpperCase().startsWith('P-3') ? 'DPC' : (rawLocation ? rawLocation[0].toUpperCase() : '');
                     let shift = '-';
                     if (matchedWms.time) {
                         let h; if (matchedWms.time instanceof Date) h = matchedWms.time.getHours();
@@ -950,7 +998,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     processed.push({
                         service_date: accDate && String(accDate).trim() !== '' ? accDate : null, brand: brandStr || '알수없음', service_center: row['서비스센터'] || '', service_type: row['시공/AS'] || '',
                         order_no: orderId, order_name: row['수주건명'] || '', item_code: finalItemCode, issue_qty: parseInt(row['이슈수량']) || 0,
-                        action_result: type, is_delayed: isDelayed, zone: zone, worker_name: matchedWms.worker || '', shift_type: shift, status: '원인 파악 중'
+                        action_result: type, is_delayed: isDelayed, location: rawLocation, zone: zone, worker_name: matchedWms.worker || '', shift_type: shift, status: '원인 파악 중'
                     });
                 });
 
@@ -960,7 +1008,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                 let existingData = []; const FETCH_CHUNK = 200;
                 for (let i = 0; i < orderNos.length; i += FETCH_CHUNK) {
                     const chunkOrders = orderNos.slice(i, i + FETCH_CHUNK);
-                    const { data, error } = await supabase.from('logistics_accidents').select('id, order_no, item_code, is_delayed, zone, worker_name, shift_type').in('order_no', chunkOrders);
+                    const { data, error } = await supabase.from('logistics_accidents').select('id, order_no, item_code, is_delayed, location, zone, worker_name, shift_type').in('order_no', chunkOrders);
                     if (!error && data) existingData = [...existingData, ...data];
                 }
 
@@ -974,12 +1022,12 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     else {
                         let finalDelayed = existingRow.is_delayed;
                         if (p.is_delayed === '재일정(지연)') finalDelayed = '재일정(지연)';
-                        let finalZone = existingRow.zone; let finalWorker = existingRow.worker_name; let finalShift = existingRow.shift_type;
-                        if (p.worker_name) { finalZone = p.zone; finalWorker = p.worker_name; finalShift = p.shift_type; }
+                        let finalZone = existingRow.zone; let finalLocation = existingRow.location; let finalWorker = existingRow.worker_name; let finalShift = existingRow.shift_type;
+                        if (p.worker_name) { finalZone = p.zone; finalLocation = p.location; finalWorker = p.worker_name; finalShift = p.shift_type; }
                         toUpdate.push({
                             id: existingRow.id, service_date: p.service_date, brand: p.brand, service_center: p.service_center, service_type: p.service_type,
                             order_no: p.order_no, order_name: p.order_name, item_code: p.item_code, issue_qty: p.issue_qty, action_result: p.action_result,
-                            is_delayed: finalDelayed, zone: finalZone, worker_name: finalWorker, shift_type: finalShift, updated_at: new Date().toISOString()
+                            is_delayed: finalDelayed, location: finalLocation, zone: finalZone, worker_name: finalWorker, shift_type: finalShift, updated_at: new Date().toISOString()
                         });
                     }
                 });
@@ -1286,7 +1334,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedIds.includes(row.id)}
-                                                    onChange={() => handleSelectOne(row.id)}
+                                                    onChange={(e) => handleSelectOne(e, row.id)}
                                                     className="w-4 h-4 cursor-pointer accent-letusBlue"
                                                 />
                                             </td>
@@ -1337,6 +1385,9 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                                                             {row.ai_confidence === 'low' && (
                                                                                 <span className="ml-1 text-amber-500" title="신뢰도 낮음 — 재분석 권장">⚠</span>
                                                                             )}
+                                                                            {row.ai_confidence === 'human' && (
+                                                                                <span className="ml-1 text-slate-500" title="관리자가 직접 보정한 결과입니다">⚙️</span>
+                                                                            )}
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -1356,7 +1407,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                                                             </div>
                                                                         )}
                                                                         <div className="mt-1.5 pt-1.5 border-t border-slate-600 text-[10px] text-slate-300">
-                                                                            신뢰도: {row.ai_confidence === 'high' ? '🟢 높음' : row.ai_confidence === 'medium' ? '🟡 보통' : '🔴 낮음'}
+                                                                            신뢰도: {row.ai_confidence === 'high' ? '🟢 높음' : row.ai_confidence === 'medium' ? '🟡 보통' : row.ai_confidence === 'low' ? '🔴 낮음' : row.ai_confidence === 'human' ? '⚙️ 관리자 보정' : '-'}
                                                                         </div>
                                                                         {/* 툴팁 꼬리 */}
                                                                         <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-slate-800"></div>

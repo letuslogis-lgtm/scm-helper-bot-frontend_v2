@@ -168,15 +168,15 @@ export const AgentCommandCenter = ({ session, userProfile }) => {
             {/* 플로팅 호출 버튼 */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`${isOpen ? 'bg-gray-800' : 'bg-letusBlue'} text-white w-14 h-14 rounded-full shadow-xl hover:scale-105 hover:shadow-2xl transition-all duration-300 flex items-center justify-center relative group`}
+                className={`${isOpen ? 'bg-gray-800' : 'bg-letusBlue'} text-white w-9 h-9 rounded-full shadow-xl hover:scale-105 hover:shadow-2xl transition-all duration-300 flex items-center justify-center relative group`}
             >
                 {!isOpen && (
                     <span className="absolute inset-0 rounded-full bg-letusBlue opacity-40 animate-ping"></span>
                 )}
                 {isOpen ? (
-                    <svg className="w-6 h-6 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                    <svg className="w-4 h-4 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                 ) : (
-                    <span className="text-2xl relative z-10">✨</span>
+                    <span className="text-base relative z-10">✨</span>
                 )}
             </button>
         </div>

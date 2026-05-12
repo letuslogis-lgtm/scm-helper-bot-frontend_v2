@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase, adminSupabase } from './supabaseClient.js';
+import { supabase, invokeFunction } from './supabaseClient.js';
 import { VendorSearchModal } from './CommonComponents.jsx';
 import { MenuPermissionModal } from './CommonComponents.jsx';
 
@@ -163,7 +163,10 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
 
         setIsSaving(true);
         try {
-            const { error: profileError } = await adminSupabase.from('profiles').update({
+            // profiles UPDATE — RLS:
+            //   - isProfileMode=true: 본인이 자기 프로필 수정 → profiles_self_update 통과
+            //   - isProfileMode=false: 관리자가 타인 프로필 수정 → profiles_admin_all 통과
+            const { error: profileError } = await supabase.from('profiles').update({
                 name, login_id: loginId, role: group, status, brands: brand, team,
                 managed_vendors: managedVendors, managed_brands: managedBrands,
                 accessible_menus: accessibleMenus.join(','),
@@ -171,8 +174,11 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
             if (profileError) throw profileError;
 
             if (password) {
-                const { error: pwError } = await adminSupabase.auth.admin.updateUserById(user.id, { password });
-                if (pwError) throw pwError;
+                // 비밀번호 변경은 Edge Function 경유 (본인 OR 관리자만 통과)
+                await invokeFunction('user-admin', {
+                    action: 'updatePassword',
+                    payload: { userId: user.id, password },
+                });
             }
 
             alert('사용자 정보가 수정되었습니다.');
@@ -215,14 +221,14 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-gray-700">아이디 (ID) <span className="text-red-500">*</span></label>
                                 <div className="flex items-center border border-gray-300 rounded-[4px] overflow-hidden focus-within:border-letusBlue bg-white transition-all">
-                                    <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} required disabled={isProfileMode} className={`flex-1 px-3.5 py-2 text-xs focus:outline-none ${isProfileMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'placeholder-slate-400'}`} />
+                                    <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} required disabled={isProfileMode} autoComplete="off" className={`flex-1 px-3.5 py-2 text-xs focus:outline-none ${isProfileMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'placeholder-slate-400'}`} />
                                     <span className="bg-slate-50 px-3 py-2 text-xs text-slate-500 font-bold border-l border-gray-200 shrink-0">@letus.com</span>
                                 </div>
                             </div>
 
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-gray-700">새 비밀번호 <span className="text-slate-400 font-normal">(변경 시에만 입력)</span></label>
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white" placeholder="변경하지 않으려면 비워두세요" />
+                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} autoComplete="new-password" className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white" placeholder="변경하지 않으려면 비워두세요" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 pt-1">
@@ -238,29 +244,29 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
                                 </div>
                             </div>
 
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-gray-700">담당 브랜드 및 업체 관리</label>
+                                <div className="min-h-[60px] border border-gray-300 rounded-[4px] bg-white px-2.5 py-2 flex flex-col gap-2">
+                                    <div className="flex flex-wrap gap-1.5 items-center">
+                                        <span className="text-[9px] font-black text-orange-400 bg-orange-50 px-1 rounded">BRAND</span>
+                                        {managedBrands ? managedBrands.split(',').filter(Boolean).map((b, i) => (
+                                            <span key={i} className="bg-orange-50 text-letusOrange border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">{b.trim()}</span>
+                                        )) : <span className="text-gray-300 text-[10px]">미설정</span>}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 items-center">
+                                        <span className="text-[9px] font-black text-blue-400 bg-blue-50 px-1 rounded">VENDOR</span>
+                                        {managedVendors ? managedVendors.split(',').filter(Boolean).map((v, i) => (
+                                            <span key={i} className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">{v.trim()}</span>
+                                        )) : <span className="text-gray-300 text-[10px]">미설정</span>}
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => setVendorModalOpen(true)} className="flex items-center gap-1.5 text-[11px] font-bold text-letusBlue border border-letusBlue/40 bg-blue-50 hover:bg-blue-100 rounded-[4px] px-3 py-1.5 transition-colors w-fit">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> 업체 검색 및 추가
+                                </button>
+                            </div>
+
                             {!isProfileMode && (
                                 <>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-bold text-gray-700">담당 브랜드 및 업체 관리</label>
-                                        <div className="min-h-[60px] border border-gray-300 rounded-[4px] bg-white px-2.5 py-2 flex flex-col gap-2">
-                                            <div className="flex flex-wrap gap-1.5 items-center">
-                                                <span className="text-[9px] font-black text-orange-400 bg-orange-50 px-1 rounded">BRAND</span>
-                                                {managedBrands ? managedBrands.split(',').filter(Boolean).map((b, i) => (
-                                                    <span key={i} className="bg-orange-50 text-letusOrange border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">{b.trim()}</span>
-                                                )) : <span className="text-gray-300 text-[10px]">미설정</span>}
-                                            </div>
-                                            <div className="flex flex-wrap gap-1.5 items-center">
-                                                <span className="text-[9px] font-black text-blue-400 bg-blue-50 px-1 rounded">VENDOR</span>
-                                                {managedVendors ? managedVendors.split(',').filter(Boolean).map((v, i) => (
-                                                    <span key={i} className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">{v.trim()}</span>
-                                                )) : <span className="text-gray-300 text-[10px]">미설정</span>}
-                                            </div>
-                                        </div>
-                                        <button type="button" onClick={() => setVendorModalOpen(true)} className="flex items-center gap-1.5 text-[11px] font-bold text-letusBlue border border-letusBlue/40 bg-blue-50 hover:bg-blue-100 rounded-[4px] px-3 py-1.5 transition-colors w-fit">
-                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> 업체 검색 및 추가
-                                        </button>
-                                    </div>
-
                                     <div className="grid grid-cols-2 gap-4 pb-1">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[11px] font-bold text-gray-700">권한 그룹</label>
