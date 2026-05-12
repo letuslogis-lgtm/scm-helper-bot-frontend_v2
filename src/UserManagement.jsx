@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import { supabase, invokeFunction } from './supabaseClient.js';
 import { VendorSearchModal, VendorListModal, MenuPermissionModal } from './CommonComponents.jsx';
 import { TableSkeleton, CloseIcon, formatDateTime, UserEditModal } from './SharedUI.jsx';
 import { DEFAULT_MENUS } from './menuConfig.jsx';
+import { loadXLSX } from './utils.js';
 
 // 🔥 껍데기를 없애고 바로 진짜 로직 시작!
 const UserManagement = () => {
@@ -24,9 +24,10 @@ const UserManagement = () => {
 
     const isAllSelected = users.length > 0 && selectedUsers.length === users.length;
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         const targetData = selectedUserIds.length > 0 ? users.filter(u => selectedUserIds.includes(u.id)) : users;
         if (targetData.length === 0) return alert('추출할 데이터가 없습니다.');
+        const XLSX = await loadXLSX();
 
         // 엑셀 시트에 들어갈 JSON 데이터 배열 생성
         const excelData = targetData.map(row => ({
@@ -624,7 +625,8 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadStats, setUploadStats] = useState(null);
 
-    const handleDownloadTemplate = () => {
+    const handleDownloadTemplate = async () => {
+        const XLSX = await loadXLSX();
         const templateData = [
             {
                 '이름(필수)': '홍길동', '아이디(필수)': 'gildong', '비밀번호(필수/선택)': '123456',
@@ -653,6 +655,7 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
+                const XLSX = await loadXLSX();
                 const data = e.target.result;
                 let wb = XLSX.read(data, { type: 'binary' });
                 const sheetName = wb.SheetNames[0];

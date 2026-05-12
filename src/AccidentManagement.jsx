@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx-js-style';
 import { supabase } from './supabaseClient.js';
+import { loadXLSXStyle } from './utils.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line, ComposedChart, Area, AreaChart } from 'recharts';
 import { MainLayout } from './MainLayout.jsx';
 import { CloseIcon } from './SharedUI.jsx';
@@ -763,8 +763,9 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         }
     };
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (selectedIds.length === 0) return alert('다운로드할 항목을 선택해 주세요.');
+        const XLSX = await loadXLSXStyle();
         const targetItems = sortedItems.filter(item => selectedIds.includes(item.id));
 
         const headersMap = {
@@ -840,6 +841,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
     const handleFileUpload = async (filesObj) => {
         setIsLoading(true); setIsUploadModalOpen(false);
+        const XLSX = await loadXLSXStyle();
         const applyFilters = filesObj.applyFilters;
 
         const readExcel = (file) => new Promise(res => {

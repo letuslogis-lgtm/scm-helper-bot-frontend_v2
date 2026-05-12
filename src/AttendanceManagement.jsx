@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx';
+import { loadXLSX } from './utils.js';
 
 const supabaseClient = window.supabase;
 
@@ -104,6 +104,7 @@ const AttendanceUploadModal = ({ onClose, onReload }) => {
     let failedFiles = [];
 
     try {
+      const XLSX = await loadXLSX();
       const { data: workerMaster, error: masterError } = await supabaseClient
         .from('workers')
         .select('name, support_status, managed_brand');

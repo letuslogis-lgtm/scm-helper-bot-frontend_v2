@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import { supabase } from './supabaseClient.js';
+import { loadXLSX } from './utils.js';
 
 // --- ⚙️ 마스터 데이터 수동 업데이트 (ProductManager) ---
 const ProductManager = () => {
@@ -15,6 +15,7 @@ const ProductManager = () => {
         setResultStats(null);
 
         try {
+            const XLSX = await loadXLSX();
             // 1. 엑셀 데이터 로드
             const rawData = await new Promise((resolve) => {
                 const reader = new FileReader();

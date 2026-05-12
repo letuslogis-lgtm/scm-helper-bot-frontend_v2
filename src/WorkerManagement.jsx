@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import { supabase } from './supabaseClient.js';
+import { loadXLSX } from './utils.js';
 ;
 
 
@@ -419,7 +419,8 @@ const WorkerBulkUploadModal = ({ onClose, onReload }) => {
     const [file, setFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
 
-    const handleDownloadTemplate = () => {
+    const handleDownloadTemplate = async () => {
+        const XLSX = await loadXLSX();
         const templateData = [
             { '이름(필수)': '김철수', '연락처': '010-1234-5678', '소속구분(필수)': '사내협력사', '지원여부': '미지원', '업체명(필수)': '바로서비스', '근무지': '양지1센터', '담당브랜드': '일룸, 퍼시스', '업무': '상차', '근로형태': '현장직', '상태': '재직' }
         ];
@@ -443,6 +444,7 @@ const WorkerBulkUploadModal = ({ onClose, onReload }) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
+                const XLSX = await loadXLSX();
                 const data = e.target.result;
                 let wb = XLSX.read(data, { type: 'binary' });
                 let rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
@@ -792,9 +794,10 @@ const WorkerManagement = () => {
         );
     };
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         const targetData = selectedIds.length > 0 ? sortedWorkers.filter(w => selectedIds.includes(w.id)) : sortedWorkers;
         if (targetData.length === 0) return alert('추출할 데이터가 없습니다.');
+        const XLSX = await loadXLSX();
 
         const excelData = targetData.map((row, idx) => ({
             'No': idx + 1,

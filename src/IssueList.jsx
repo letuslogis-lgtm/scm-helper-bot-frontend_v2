@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import { supabase } from './supabaseClient.js';
 import { StatusBadge, CategoryBadge, formatDateTime } from './SharedUI.jsx';
 import { RequestModal, HandleModal } from './SupportCenter.jsx';
+import { loadXLSX } from './utils.js';
 
 
 
@@ -165,8 +165,9 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         return null;
     };
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (sortedIssues.length === 0) return alert('데이터가 없습니다.');
+        const XLSX = await loadXLSX();
 
         // 엑셀 시트에 들어갈 JSON 데이터 배열 생성
         const excelData = sortedIssues.map(row => ({
