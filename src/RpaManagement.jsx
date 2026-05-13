@@ -1,6 +1,31 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon, formatDateTime } from './SharedUI.jsx'; // 기존 SharedUI 사용
+import { CloseIcon, formatDateTime } from './SharedUI.jsx';
+import { RpaRunHistoryModal } from './RpaRunHistoryModal.jsx';
+
+// ============================================================
+// 자주 쓰는 cron 표현식 예시 — 모달에서 사용자가 빠르게 고를 수 있게
+// ============================================================
+const CRON_PRESETS = [
+    { label: '매일 새벽 3시', value: '0 3 * * *' },
+    { label: '매일 오전 9시', value: '0 9 * * *' },
+    { label: '평일 오전 8시', value: '0 8 * * 1-5' },
+    { label: '매시간 정각', value: '0 * * * *' },
+    { label: '5분마다', value: '*/5 * * * *' },
+];
+
+// rpa_jobs 에 처음 INSERT 할 때의 기본값
+const EMPTY_FORM = {
+    id: null,
+    rpa_name: '',
+    description: '',
+    trigger_type: 'manual',     // 'manual' | 'auto'
+    cron_expr: '',
+    script_command: '',
+    working_dir: '',
+    runner_type: 'local',       // 'local' | 'github_actions'
+    enabled: true,
+};
 
 export const RpaManagement = () => {
     const [jobs, setJobs] = useState([]);
@@ -10,11 +35,15 @@ export const RpaManagement = () => {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
-    // 모달 상태
+    // 모달 (신규/편집 통합)
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newRpa, setNewRpa] = useState({ rpa_name: '', trigger_type: 'manual', cron_expr: '' });
+    const [form, setForm] = useState(EMPTY_FORM);
+    const isEditMode = Boolean(form.id);
 
-    // 필터 상태
+    // 실행 이력 모달 (rpa_runs 조회)
+    const [historyTarget, setHistoryTarget] = useState(null);
+
+    // 필터
     const initialFilters = { triggerType: '전체', status: '전체', searchValue: '' };
     const [savedFilters, setSavedFilters] = useState(initialFilters);
     const [draftFilters, setDraftFilters] = useState(initialFilters);
@@ -22,20 +51,28 @@ export const RpaManagement = () => {
     useEffect(() => { fetchRpaJobs(); }, []);
     const handleSearch = () => { setSavedFilters({ ...draftFilters }); };
 
+    // ============================================================
+    // 데이터 로드
+    // ============================================================
     const fetchRpaJobs = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.from('rpa_jobs').select('*').order('last_run_at', { ascending: false, nullsFirst: false });
+            const { data, error } = await supabase
+                .from('rpa_jobs')
+                .select('*')
+                .order('last_run_at', { ascending: false, nullsFirst: false });
             if (error) throw error;
             setJobs(data || []);
-        } catch (error) {
-            console.error('RPA 리스트 조회 실패:', error.message);
+        } catch (err) {
+            console.error('RPA 리스트 조회 실패:', err.message);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // --- IssueList와 동일한 MultiSelect 컴포넌트 ---
+    // ============================================================
+    // MultiSelect (기존과 동일)
+    // ============================================================
     const MultiSelect = ({ label, options, selected, onChange }) => {
         const [isOpen, setIsOpen] = useState(false);
         const toggleOption = (opt) => {
@@ -47,7 +84,6 @@ export const RpaManagement = () => {
                 onChange(newSelected.length === 0 ? '전체' : newSelected);
             }
         };
-
         const currentArr = Array.isArray(selected) ? selected : (selected === '전체' ? [] : [selected]);
 
         return (
@@ -81,19 +117,18 @@ export const RpaManagement = () => {
         );
     };
 
-    // 메모리 내 필터링 로직
+    // ============================================================
+    // 필터 + 정렬
+    // ============================================================
     const filteredJobs = useMemo(() => {
         return jobs.filter(job => {
             const filterTrigger = Array.isArray(savedFilters.triggerType) ? savedFilters.triggerType : (savedFilters.triggerType === '전체' ? [] : [savedFilters.triggerType]);
             const filterStatus = Array.isArray(savedFilters.status) ? savedFilters.status : (savedFilters.status === '전체' ? [] : [savedFilters.status]);
-
-            // DB의 enum 값을 한글로 매핑해서 비교
             const triggerMap = { 'manual': '수동', 'auto': '스케줄' };
             const statusMap = { 'idle': '대기', 'running': '실행 중', 'error': '오류' };
 
             if (filterTrigger.length > 0 && !filterTrigger.includes(triggerMap[job.trigger_type])) return false;
             if (filterStatus.length > 0 && !filterStatus.includes(statusMap[job.status])) return false;
-
             if (savedFilters.searchValue) {
                 if (!job.rpa_name?.toLowerCase().includes(savedFilters.searchValue.toLowerCase())) return false;
             }
@@ -101,7 +136,6 @@ export const RpaManagement = () => {
         });
     }, [jobs, savedFilters]);
 
-    // 정렬 로직
     const sortedJobs = useMemo(() => {
         let items = [...filteredJobs];
         if (sortConfig.key && sortConfig.direction !== 'none') {
@@ -125,7 +159,9 @@ export const RpaManagement = () => {
         setSortConfig({ key: direction === 'none' ? null : key, direction });
     };
 
-    // 체크박스 핸들러
+    // ============================================================
+    // 체크박스 선택
+    // ============================================================
     const handleSelectAll = (e) => setSelectedIds(e.target.checked ? sortedJobs.map(i => i.id) : []);
     const handleSelectOne = (e, id) => {
         if (e && e.nativeEvent && e.nativeEvent.shiftKey && lastSelectedId) {
@@ -153,64 +189,148 @@ export const RpaManagement = () => {
         return null;
     };
 
-    // RPA 제어 핸들러
+    // ============================================================
+    // 신규/편집 모달 열기
+    // ============================================================
+    const openNewModal = () => { setForm(EMPTY_FORM); setIsModalOpen(true); };
+    const openEditModal = (job) => {
+        setForm({
+            id: job.id,
+            rpa_name: job.rpa_name || '',
+            description: job.description || '',
+            trigger_type: job.trigger_type || 'manual',
+            cron_expr: job.cron_expr || '',
+            script_command: job.script_command || '',
+            working_dir: job.working_dir || '',
+            runner_type: job.runner_type || 'local',
+            enabled: job.enabled !== false,
+        });
+        setIsModalOpen(true);
+    };
+
+    // ============================================================
+    // RPA 저장 (insert / update)
+    // ============================================================
     const handleSaveRpa = async () => {
-        if (!newRpa.rpa_name.trim()) return alert('RPA 봇 이름을 입력해주세요.');
-        if (newRpa.trigger_type === 'auto' && !newRpa.cron_expr.trim()) return alert('스케줄(Cron)을 입력해주세요.');
+        if (!form.rpa_name.trim()) return alert('RPA 봇 이름을 입력해주세요.');
+        if (form.trigger_type === 'auto' && !form.cron_expr.trim()) {
+            return alert('자동 실행이면 Cron 표현식이 필요합니다.');
+        }
+        if (form.runner_type === 'local' && !form.script_command.trim()) {
+            return alert("로컬 Worker 실행이면 'script_command' 가 필요합니다.\n예) node scripts/sync_products.mjs");
+        }
+
+        const payload = {
+            rpa_name: form.rpa_name.trim(),
+            description: form.description.trim() || null,
+            trigger_type: form.trigger_type,
+            cron_expr: form.trigger_type === 'auto' ? form.cron_expr.trim() : null,
+            script_command: form.script_command.trim() || null,
+            working_dir: form.working_dir.trim() || null,
+            runner_type: form.runner_type,
+            enabled: form.enabled,
+        };
 
         try {
-            const { error } = await supabase.from('rpa_jobs').insert([{
-                rpa_name: newRpa.rpa_name, trigger_type: newRpa.trigger_type,
-                cron_expr: newRpa.trigger_type === 'auto' ? newRpa.cron_expr : null, status: 'idle'
-            }]);
-            if (error) throw error;
+            if (isEditMode) {
+                const { error } = await supabase.from('rpa_jobs').update(payload).eq('id', form.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('rpa_jobs').insert([{ ...payload, status: 'idle' }]);
+                if (error) throw error;
+            }
             setIsModalOpen(false);
-            setNewRpa({ rpa_name: '', trigger_type: 'manual', cron_expr: '' });
+            setForm(EMPTY_FORM);
             fetchRpaJobs();
-        } catch (error) { alert('RPA 등록 실패: ' + error.message); }
+        } catch (err) {
+            alert(`${isEditMode ? '수정' : '등록'} 실패: ${err.message}`);
+        }
     };
 
-    const handleRunRpa = async (id) => {
-        if (!window.confirm('▶️ 이 RPA를 즉시 실행하시겠습니까?')) return;
+    // ============================================================
+    // ON/OFF 토글 (auto 모드일 때만 의미 있지만 UI 는 항상 노출)
+    // ============================================================
+    const handleToggleEnabled = async (job) => {
         try {
-            const { error } = await supabase.from('rpa_jobs').update({ status: 'running' }).eq('id', id);
+            const { error } = await supabase
+                .from('rpa_jobs')
+                .update({ enabled: !job.enabled })
+                .eq('id', job.id);
             if (error) throw error;
             fetchRpaJobs();
-        } catch (error) { alert('실행 요청 실패: ' + error.message); }
+        } catch (err) {
+            alert('ON/OFF 변경 실패: ' + err.message);
+        }
     };
 
+    // ============================================================
+    // 수동 실행 — rpa_runs INSERT pending → Worker 가 Realtime 감지
+    // ============================================================
+    const handleRunRpa = async (job) => {
+        if (job.status === 'running') {
+            return alert('이미 실행 중입니다.');
+        }
+        if (job.runner_type === 'local' && !job.script_command) {
+            return alert("이 봇은 'script_command' 가 비어있어 로컬 Worker 가 실행할 수 없습니다.\n편집해서 채워주세요.");
+        }
+        if (!window.confirm(`▶️ '${job.rpa_name}' 을(를) 지금 실행할까요?\n\n(${job.runner_type === 'local' ? '사내 PC 의 Worker' : 'GitHub Actions'} 가 받아서 실행합니다)`)) {
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from('rpa_runs')
+                .insert([{
+                    definition_id: job.id,
+                    status: 'pending',
+                    triggered_by: 'manual',
+                    params: {},
+                    created_at: new Date().toISOString(),
+                }]);
+            if (error) throw error;
+            alert('✅ 실행 요청이 큐에 등록되었습니다. 결과는 [실행 이력] 에서 확인하세요.');
+            fetchRpaJobs();
+        } catch (err) {
+            alert('실행 요청 실패: ' + err.message);
+        }
+    };
+
+    // ============================================================
+    // 선택 삭제
+    // ============================================================
     const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return alert('삭제할 봇을 선택해 주세요.');
-        if (!window.confirm(`선택하신 ${selectedIds.length}개의 봇을 정말 삭제하시겠습니까?`)) return;
+        if (!window.confirm(`선택하신 ${selectedIds.length}개의 봇을 정말 삭제하시겠습니까?\n관련 실행 이력(rpa_runs) 도 함께 삭제됩니다.`)) return;
         try {
             const { error } = await supabase.from('rpa_jobs').delete().in('id', selectedIds);
             if (error) throw error;
             setSelectedIds([]);
             fetchRpaJobs();
-        } catch (error) { alert('삭제 실패: ' + error.message); }
+        } catch (err) {
+            alert('삭제 실패: ' + err.message);
+        }
     };
 
+    // ============================================================
+    // RENDER
+    // ============================================================
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* 1. 검색 박스 구역 (IssueList 완벽 동일 스타일) */}
+            {/* 1. 검색 박스 */}
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex items-center z-30 shrink-0 justify-between">
                 <div className="flex items-center gap-5 w-full flex-wrap">
-
                     <MultiSelect label="실행 방식" options={['수동', '스케줄']} selected={draftFilters.triggerType} onChange={(val) => setDraftFilters({ ...draftFilters, triggerType: val })} />
                     <MultiSelect label="처리상태" options={['대기', '실행 중', '오류']} selected={draftFilters.status} onChange={(val) => setDraftFilters({ ...draftFilters, status: val })} />
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">봇 이름</label>
-                        <div className="flex gap-0 h-[30px]">
-                            <input
-                                type="text" value={draftFilters.searchValue}
-                                onChange={e => setDraftFilters({ ...draftFilters, searchValue: e.target.value })}
-                                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                className="border border-gray-200 rounded-[3px] text-xs px-2.5 w-48 focus:outline-none focus:border-letusOrange h-full"
-                                placeholder="RPA 이름 검색"
-                            />
-                        </div>
+                        <input
+                            type="text" value={draftFilters.searchValue}
+                            onChange={e => setDraftFilters({ ...draftFilters, searchValue: e.target.value })}
+                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                            className="border border-gray-200 rounded-[3px] text-xs px-2.5 w-48 h-[30px] focus:outline-none focus:border-letusOrange"
+                            placeholder="RPA 이름 검색"
+                        />
                     </div>
 
                     <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -219,15 +339,14 @@ export const RpaManagement = () => {
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                             조회하기
                         </button>
-                        {/* 🌟 신규 등록 버튼 추가 */}
-                        <button onClick={() => setIsModalOpen(true)} className="bg-letusBlue text-white hover:bg-blue-600 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs flex items-center justify-center shadow-sm ml-2">
+                        <button onClick={openNewModal} className="bg-letusBlue text-white hover:bg-blue-600 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs flex items-center justify-center shadow-sm ml-2">
                             + 신규 봇 등록
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* 2. 선택실행 드롭다운 */}
+            {/* 2. 선택실행 */}
             <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0">
                 <div className="relative">
                     <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
@@ -247,16 +366,25 @@ export const RpaManagement = () => {
                 </div>
             </div>
 
-            {/* 3. 표 구역 (IssueList와 동일한 UI 구조) */}
+            {/* 3. 테이블 */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
-                    <table className="w-full text-left whitespace-nowrap table-fixed min-w-[1000px]">
+                    <table className="w-full text-left whitespace-nowrap table-fixed min-w-[1200px]">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="p-4 pl-6 w-10 text-center">
                                     <input type="checkbox" checked={sortedJobs.length > 0 && selectedIds.length === sortedJobs.length} onChange={handleSelectAll} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                 </th>
-                                {[{ label: 'RPA 봇 이름', key: 'rpa_name', w: '300px' }, { label: '실행 방식', key: 'trigger_type', w: '120px' }, { label: '스케줄 (Cron)', key: 'cron_expr', w: '180px' }, { label: '상태', key: 'status', w: '120px' }, { label: '마지막 실행 일시', key: 'last_run_at', w: '180px' }, { label: '액션', key: null, w: '120px' }].map((col, idx) => (
+                                {[
+                                    { label: '활성', key: null, w: '70px' },
+                                    { label: 'RPA 봇 이름', key: 'rpa_name', w: '240px' },
+                                    { label: '설명', key: null, w: '220px' },
+                                    { label: '실행 방식', key: 'trigger_type', w: '110px' },
+                                    { label: '스케줄 (Cron)', key: 'cron_expr', w: '150px' },
+                                    { label: '상태', key: 'status', w: '110px' },
+                                    { label: '마지막 실행', key: 'last_run_at', w: '170px' },
+                                    { label: '액션', key: null, w: '180px' },
+                                ].map((col, idx) => (
                                     <th key={idx} className={`p-4 text-center select-none ${col.key ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`} style={{ width: col.w }} onClick={() => col.key && requestSort(col.key)}>
                                         <div className="flex items-center justify-center">{col.label} {col.key && getSortIcon(col.key)}</div>
                                     </th>
@@ -266,7 +394,7 @@ export const RpaManagement = () => {
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="7" className="py-32 text-center align-middle">
+                                    <td colSpan="9" className="py-32 text-center align-middle">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div>
                                             <p className="text-gray-500 font-bold text-[13px]">데이터를 불러오는 중입니다...</p>
@@ -274,33 +402,68 @@ export const RpaManagement = () => {
                                     </td>
                                 </tr>
                             ) : sortedJobs.length === 0 ? (
-                                <tr><td colSpan="7" className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
+                                <tr><td colSpan="9" className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : sortedJobs.map((row) => (
                                 <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`} onClick={(e) => handleSelectOne(e, row.id)}>
                                     <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                         <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={(e) => handleSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                     </td>
+
+                                    {/* 활성 토글 */}
+                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
+                                        <button
+                                            onClick={() => handleToggleEnabled(row)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${row.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                                            title={row.enabled ? 'ON (자동 실행 활성)' : 'OFF (자동 실행 비활성)'}
+                                        >
+                                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${row.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </td>
+
                                     <td className="p-4 font-bold text-gray-800 text-center">{row.rpa_name}</td>
+                                    <td className="p-4 text-gray-500 text-[11.5px] truncate" title={row.description}>{row.description || '-'}</td>
+
                                     <td className="p-4 text-center">
                                         <span className={`text-[11px] font-bold px-2 py-1 rounded ${row.trigger_type === 'auto' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
                                             {row.trigger_type === 'auto' ? '⏱️ 스케줄' : '🖐️ 수동'}
                                         </span>
                                     </td>
+
                                     <td className="p-4 text-gray-600 text-center font-mono text-xs">{row.cron_expr || '-'}</td>
+
                                     <td className="p-4 text-center">
                                         {row.status === 'idle' && <span className="text-gray-500 font-bold">🟢 대기</span>}
                                         {row.status === 'running' && <span className="text-letusBlue font-black animate-pulse">🔄 실행 중</span>}
                                         {row.status === 'error' && <span className="text-red-500 font-bold">🔴 오류</span>}
+                                        {!['idle','running','error'].includes(row.status) && <span className="text-gray-400">-</span>}
                                     </td>
+
                                     <td className="p-4 text-gray-500 font-mono text-xs text-center">{row.last_run_at ? formatDateTime(row.last_run_at) : '-'}</td>
+
                                     <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                                        <button
-                                            onClick={() => handleRunRpa(row.id)}
-                                            disabled={row.status === 'running'}
-                                            className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${row.status === 'running' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-green-600 border-green-200 hover:bg-green-50'}`}
-                                        >
-                                            실행
-                                        </button>
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            <button
+                                                onClick={() => handleRunRpa(row)}
+                                                disabled={row.status === 'running'}
+                                                className={`text-xs font-bold border px-2.5 py-1.5 rounded transition-colors shadow-sm ${row.status === 'running' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-green-600 border-green-200 hover:bg-green-50'}`}
+                                            >
+                                                ▶ 실행
+                                            </button>
+                                            <button
+                                                onClick={() => setHistoryTarget(row)}
+                                                className="text-xs font-bold border px-2 py-1.5 rounded transition-colors shadow-sm bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                                title="실행 이력"
+                                            >
+                                                📜
+                                            </button>
+                                            <button
+                                                onClick={() => openEditModal(row)}
+                                                className="text-xs font-bold border px-2 py-1.5 rounded transition-colors shadow-sm bg-white text-letusBlue border-blue-200 hover:bg-blue-50"
+                                                title="편집"
+                                            >
+                                                ⚙
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -309,59 +472,144 @@ export const RpaManagement = () => {
                 </div>
             </div>
 
-            {/* 신규 등록 모달 */}
+            {/* 신규/편집 모달 */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-                    <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-sm slide-up border border-gray-100 overflow-hidden flex flex-col">
-                        <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+                    <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-md slide-up border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
                             <h3 className="font-bold text-sm text-gray-800 flex items-center gap-2">
                                 <span className="w-1.5 h-3.5 bg-letusBlue rounded-full"></span>
-                                새로운 RPA 봇 등록
+                                {isEditMode ? 'RPA 봇 편집' : '새로운 RPA 봇 등록'}
                             </h3>
                             <button onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><CloseIcon /></button>
                         </div>
 
-                        <div className="p-5 space-y-4">
+                        <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+                            {/* 봇 이름 */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-gray-700">RPA 봇 이름 <span className="text-letusOrange">*</span></label>
                                 <input
-                                    type="text" value={newRpa.rpa_name} onChange={e => setNewRpa({ ...newRpa, rpa_name: e.target.value })}
-                                    placeholder="예: 관세청 배송조회 크롤러" autoFocus
+                                    type="text" value={form.rpa_name} onChange={e => setForm({ ...form, rpa_name: e.target.value })}
+                                    placeholder="예: 사내DB 단품마스터 동기화" autoFocus
                                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white"
                                 />
                             </div>
 
+                            {/* 설명 */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">설명</label>
+                                <input
+                                    type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
+                                    placeholder="이 봇이 하는 일 한 줄 설명"
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white"
+                                />
+                            </div>
+
+                            {/* Runner 타입 */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">실행 환경 (Runner)</label>
+                                <select
+                                    value={form.runner_type}
+                                    onChange={e => setForm({ ...form, runner_type: e.target.value })}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white cursor-pointer"
+                                >
+                                    <option value="local">🖥️ 사내 PC (Windows Worker — 사내망 접근 OK)</option>
+                                    <option value="github_actions">☁️ GitHub Actions (외부 환경)</option>
+                                </select>
+                            </div>
+
+                            {/* 실행 명령어 (local 일 때 강조) */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">
+                                    실행 명령어 (script_command){form.runner_type === 'local' && <span className="text-letusOrange"> *</span>}
+                                </label>
+                                <input
+                                    type="text" value={form.script_command} onChange={e => setForm({ ...form, script_command: e.target.value })}
+                                    placeholder="예: node scripts/sync_products.mjs"
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white font-mono"
+                                />
+                                <p className="text-[10px] text-gray-400 font-medium">프로젝트 루트 기준의 명령어. Worker 가 shell 로 그대로 실행합니다.</p>
+                            </div>
+
+                            {/* working_dir (선택) */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">작업 폴더 (선택, 기본: 프로젝트 루트)</label>
+                                <input
+                                    type="text" value={form.working_dir} onChange={e => setForm({ ...form, working_dir: e.target.value })}
+                                    placeholder="예: scripts (비워두면 프로젝트 루트)"
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white font-mono"
+                                />
+                            </div>
+
+                            {/* 실행 방식 */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-gray-700">실행 방식 (Trigger)</label>
                                 <select
-                                    value={newRpa.trigger_type}
-                                    onChange={e => setNewRpa({ ...newRpa, trigger_type: e.target.value })}
+                                    value={form.trigger_type}
+                                    onChange={e => setForm({ ...form, trigger_type: e.target.value })}
                                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white cursor-pointer"
                                 >
-                                    <option value="manual">🖐️ 수동 실행 (버튼 클릭 시)</option>
+                                    <option value="manual">🖐️ 수동 실행 (버튼 클릭 시에만)</option>
                                     <option value="auto">⏱️ 자동 스케줄 (Cron)</option>
                                 </select>
                             </div>
 
-                            {newRpa.trigger_type === 'auto' && (
+                            {/* Cron */}
+                            {form.trigger_type === 'auto' && (
                                 <div className="flex flex-col gap-1.5 animate-fade-in-up">
                                     <label className="text-xs font-bold text-gray-700">Cron 표현식 <span className="text-letusOrange">*</span></label>
                                     <input
-                                        type="text" value={newRpa.cron_expr} onChange={e => setNewRpa({ ...newRpa, cron_expr: e.target.value })}
-                                        placeholder="예: 0 9 * * * (매일 오전 9시)"
+                                        type="text" value={form.cron_expr} onChange={e => setForm({ ...form, cron_expr: e.target.value })}
+                                        placeholder="예: 0 3 * * *"
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white font-mono"
                                     />
+                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                        {CRON_PRESETS.map(p => (
+                                            <button
+                                                key={p.value}
+                                                onClick={() => setForm({ ...form, cron_expr: p.value })}
+                                                className="text-[10px] px-2 py-1 rounded border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-600 transition-colors"
+                                                title={p.value}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 font-medium mt-1">시간대: Asia/Seoul. 형식: 분 시 일 월 요일</p>
+                                </div>
+                            )}
+
+                            {/* enabled (auto 일 때만 의미) */}
+                            {form.trigger_type === 'auto' && (
+                                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                                    <div>
+                                        <div className="text-xs font-bold text-gray-700">자동 실행 활성화</div>
+                                        <div className="text-[10px] text-gray-500">OFF 면 cron 시간이 와도 실행 안 됨</div>
+                                    </div>
+                                    <button
+                                        onClick={() => setForm({ ...form, enabled: !form.enabled })}
+                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                                    >
+                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                                    </button>
                                 </div>
                             )}
                         </div>
 
-                        <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+                        <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 shrink-0">
                             <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">취소</button>
-                            <button onClick={handleSaveRpa} className="px-5 py-2 bg-letusBlue text-white text-xs font-bold rounded-lg shadow-sm hover:bg-blue-600 transition-colors">저장</button>
+                            <button onClick={handleSaveRpa} className="px-5 py-2 bg-letusBlue text-white text-xs font-bold rounded-lg shadow-sm hover:bg-blue-600 transition-colors">
+                                {isEditMode ? '수정 저장' : '신규 등록'}
+                            </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* 실행 이력 모달 */}
+            {historyTarget && (
+                <RpaRunHistoryModal job={historyTarget} onClose={() => setHistoryTarget(null)} />
             )}
         </div>
     );
