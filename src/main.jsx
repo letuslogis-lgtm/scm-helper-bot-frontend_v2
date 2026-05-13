@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './index.css';
+import { supabase } from './supabaseClient.js';
 
 import { MainLayout } from './MainLayout.jsx';
 import { LoginView } from './LoginView.jsx';
@@ -132,15 +133,14 @@ const ProtectedMobileRoute = () => {
     const [completedNotiCount, setCompletedNotiCount] = React.useState(0);
 
     React.useEffect(() => {
-        if (!session?.user?.email) return;
-        const email = session.user.email;
+        if (!userProfile?.name) return;
 
         const channel = supabase.channel('mobile_issue_updates')
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
                 table: 'logistics_issues',
-                filter: `reporter=eq.${email}`,
+                filter: `reporter=eq.${userProfile.name}`,
             }, (payload) => {
                 if (payload.new?.status === '조치완료' && payload.old?.status !== '조치완료') {
                     setCompletedNotiCount(prev => prev + 1);
@@ -149,7 +149,7 @@ const ProtectedMobileRoute = () => {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [session]);
+    }, [userProfile]);
 
     if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center font-bold text-blue-300">세션 확인 중...</div>;
     if (!session) return <MobileLoginView />;
@@ -164,7 +164,7 @@ const ProtectedMobileRoute = () => {
             } />
             <Route path="register" element={<MobileIssueRegister />} />
             <Route path="my-issues" element={
-                <MobileMyIssues onNotificationsRead={() => setCompletedNotiCount(0)} />
+                <MobileMyIssues userProfile={userProfile} onNotificationsRead={() => setCompletedNotiCount(0)} />
             } />
             <Route path="notice" element={<MobileNotice />} />
             <Route path="*" element={<Navigate to="/mobile" replace />} />

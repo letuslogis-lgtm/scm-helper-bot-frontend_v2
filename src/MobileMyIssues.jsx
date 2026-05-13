@@ -14,27 +14,19 @@ const formatDate = (dt) => {
     return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export const MobileMyIssues = ({ onNotificationsRead }) => {
+export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const navigate = useNavigate();
     const [issues, setIssues] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [userEmail, setUserEmail] = useState(null);
 
-    useEffect(() => {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user?.email) setUserEmail(user.email);
-        });
-    }, []);
-
-    const fetchIssues = async (email) => {
-        const target = email || userEmail;
-        if (!target) return;
+    const fetchIssues = async () => {
+        if (!userProfile?.name) return;
         setIsLoading(true);
         try {
             const { data, error } = await supabase
                 .from('logistics_issues')
                 .select('id, reception_no, brand, issue_type, status, created_at, request_content')
-                .eq('reporter', target)
+                .eq('reporter', userProfile.name)
                 .order('created_at', { ascending: false })
                 .limit(50);
             if (error) throw error;
@@ -47,11 +39,11 @@ export const MobileMyIssues = ({ onNotificationsRead }) => {
     };
 
     useEffect(() => {
-        if (userEmail) {
-            fetchIssues(userEmail);
+        if (userProfile?.name) {
+            fetchIssues();
             onNotificationsRead?.();
         }
-    }, [userEmail]);
+    }, [userProfile]);
 
     return (
         <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -69,7 +61,7 @@ export const MobileMyIssues = ({ onNotificationsRead }) => {
                     <p className="text-slate-800 font-black text-base">내 등록 이력</p>
                 </div>
                 <button
-                    onClick={() => fetchIssues()}
+                    onClick={fetchIssues}
                     className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
                 >
                     <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

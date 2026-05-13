@@ -104,14 +104,17 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid JSON body' }, 400)
     }
 
-    // 요청자 식별 — JWT에서 이메일 추출 (실패해도 등록은 허용)
-    let reporterEmail = '모바일 작업자'
+    // 요청자 식별 — JWT → profiles 테이블에서 이름 조회 (실패해도 등록은 허용)
+    let reporterName = '모바일 작업자'
     try {
       const authHeader = req.headers.get('Authorization') ?? ''
       const token = authHeader.replace('Bearer ', '')
       if (token) {
         const { data: { user } } = await admin.auth.getUser(token)
-        if (user?.email) reporterEmail = user.email
+        if (user?.id) {
+          const { data: profile } = await admin.from('profiles').select('name').eq('id', user.id).single()
+          if (profile?.name) reporterName = profile.name
+        }
       }
     } catch { /* 인증 실패 시 기본값 유지 */ }
 
@@ -180,7 +183,7 @@ Deno.serve(async (req) => {
         product_code: productCode || null,
         vendor: vendor || null,
         request_content: detail,
-        reporter: reporterEmail,
+        reporter: reporterName,
         status: '조치대기',
         image_url: photoUrls.length > 0 ? photoUrls.join(',') : null,
         created_at: new Date().toISOString(),
