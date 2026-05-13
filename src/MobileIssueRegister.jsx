@@ -22,35 +22,26 @@ const generateReceptionNo = () => {
 
 export const MobileIssueRegister = () => {
     const navigate = useNavigate();
-    // 폼 상태
     const [brand, setBrand] = useState('');
     const [issueType, setIssueType] = useState('');
     const [productCode, setProductCode] = useState('');
     const [vendor, setVendor] = useState('');
     const [detail, setDetail] = useState('');
 
-    // 사진 상태
-    const [photos, setPhotos] = useState([]); // { file, preview }[]
+    const [photos, setPhotos] = useState([]);
     const fileRef = useRef(null);
 
-    // AI 바코드 분석
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
 
-    // 제출
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
 
-    // 사진 촬영/선택 핸들러
     const handlePhotoCapture = (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-
-        const newPhotos = files.map(file => ({
-            file,
-            preview: URL.createObjectURL(file)
-        }));
-        setPhotos(prev => [...prev, ...newPhotos].slice(0, 5)); // 최대 5장
+        const newPhotos = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
+        setPhotos(prev => [...prev, ...newPhotos].slice(0, 5));
     };
 
     const removePhoto = (idx) => {
@@ -63,7 +54,6 @@ export const MobileIssueRegister = () => {
         setAiResult(null);
     };
 
-    // 📐 이미지 압축 (폰 원본 5~10MB → ~100KB로 축소하여 전송 속도 대폭 향상)
     const compressImage = (file, maxWidth = 1024, quality = 0.6) => {
         return new Promise((resolve) => {
             const img = new Image();
@@ -72,45 +62,33 @@ export const MobileIssueRegister = () => {
                 const ratio = Math.min(maxWidth / img.width, maxWidth / img.height, 1);
                 canvas.width = img.width * ratio;
                 canvas.height = img.height * ratio;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                // Base64에서 data:image/jpeg;base64, 접두사 제거
-                const base64 = canvas.toDataURL('image/jpeg', quality).split(',')[1];
-                resolve(base64);
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
             };
             img.src = URL.createObjectURL(file);
         });
     };
 
-    // AI 바코드 인식 (Render 파이썬 서버 — 기존 카카오봇과 동일한 Gemini 분석)
     const handleAiBarcode = async () => {
         if (photos.length === 0) return alert('사진을 먼저 촬영해주세요.');
         setIsAnalyzing(true);
         setAiResult(null);
-
         try {
-            // 이미지 압축 후 Base64 변환 (원본 대비 ~95% 용량 감소)
             const base64 = await compressImage(photos[0].file);
-
             const response = await fetch('https://scm-helper-bot.onrender.com/api/barcode', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: base64 })
             });
-
             const data = await response.json();
-
             if (data?.product_code) {
                 setProductCode(data.product_code);
-                // AI가 브랜드/공급사도 찾아주면 자동 입력
                 if (data.brand) setBrand(data.brand);
                 if (data.vendor) setVendor(data.vendor);
                 setAiResult({ success: true, code: data.product_code, description: data.description || '' });
             } else {
                 setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
             }
-
-            // AI 분석 결과 로깅 — 비동기 fire-and-forget (UI 블로킹 없음)
             supabase.from('ai_analysis_logs').insert({
                 source_menu: 'MobileBarcode',
                 original_text: `바코드 스캔 | 브랜드: ${brand || '미선택'} | 이슈: ${issueType || '미선택'}`,
@@ -132,32 +110,21 @@ export const MobileIssueRegister = () => {
         }
     };
 
-    // 등록 — 사진 압축본 + 폼 데이터를 Edge Function(submit-mobile-issue)에 한 번에 전송.
-    // 서버 측에서 검증 → Storage 업로드 → logistics_issues INSERT 까지 처리됨.
     const handleSubmit = async () => {
         if (!brand) return alert('브랜드를 선택해주세요.');
         if (!issueType) return alert('이슈 유형을 선택해주세요.');
         if (!detail.trim()) return alert('상세 내용을 입력해주세요.');
-
         setIsSubmitting(true);
         try {
-            // 사진들을 1024px JPEG 압축본 + base64 로 변환해서 함께 전송
             const photoPayload = await Promise.all(
-                photos.map(async (p) => ({
-                    base64: await compressImage(p.file),
-                    mimeType: 'image/jpeg',
-                }))
+                photos.map(async (p) => ({ base64: await compressImage(p.file), mimeType: 'image/jpeg' }))
             );
-
             await invokeFunction('submit-mobile-issue', {
-                brand,
-                issue_type: issueType,
+                brand, issue_type: issueType,
                 product_code: productCode || null,
                 vendor: vendor || null,
-                detail,
-                photos: photoPayload,
+                detail, photos: photoPayload,
             });
-
             setSubmitted(true);
         } catch (err) {
             alert('등록 실패: ' + err.message);
@@ -169,101 +136,105 @@ export const MobileIssueRegister = () => {
     // 등록 완료 화면
     if (submitted) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-6 animate-bounce">
-                    <svg className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-10 h-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
                 </div>
-                <h2 className="text-2xl font-black text-white mb-2">등록 완료!</h2>
-                <p className="text-blue-200 text-sm mb-8">특이사항이 성공적으로 접수되었습니다.<br/>담당자가 확인 후 조치합니다.</p>
+                <h2 className="text-2xl font-black text-slate-800 mb-2">등록 완료!</h2>
+                <p className="text-slate-500 text-sm mb-8">특이사항이 성공적으로 접수되었습니다.<br />담당자가 확인 후 조치합니다.</p>
                 <button
                     onClick={() => {
                         setBrand(''); setIssueType(''); setProductCode(''); setVendor(''); setDetail('');
                         setPhotos([]); setAiResult(null); setSubmitted(false);
                     }}
-                    className="bg-white text-slate-900 font-bold text-base px-8 py-4 rounded-2xl shadow-lg active:scale-95 transition-transform"
+                    className="bg-letusOrange hover:bg-orange-500 active:bg-orange-600 text-white font-bold text-base px-8 py-4 rounded-xl shadow-md active:scale-95 transition-all"
                 >
                     + 새로운 특이사항 등록
+                </button>
+                <button
+                    onClick={() => navigate('/mobile')}
+                    className="mt-3 text-slate-400 text-sm font-medium py-2 px-4"
+                >
+                    메뉴로 돌아가기
                 </button>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col">
+        <div className="min-h-screen bg-slate-100 flex flex-col">
             {/* 헤더 */}
-            <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-white/10 px-5 py-4 flex items-center justify-between">
-                <button
-                    onClick={() => navigate('/mobile')}
-                    className="p-2 rounded-xl bg-white/5 active:bg-white/10 transition-colors mr-2"
-                >
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                    </div>
+            <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-orange-600" />
+                <div className="px-4 py-3 flex items-center gap-3">
+                    <button
+                        onClick={() => navigate('/mobile')}
+                        className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
+                    >
+                        <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
                     <div>
-                        <h1 className="text-white font-black text-base tracking-tight">입고 특이사항</h1>
-                        <p className="text-blue-300/70 text-[10px] font-bold">LETUS LOGIS · Mobile</p>
+                        <h1 className="text-slate-800 font-black text-base leading-none">입고 특이사항 등록</h1>
+                        <p className="text-slate-400 text-[11px] font-medium mt-0.5">LETUS LOGIS · Mobile</p>
                     </div>
                 </div>
             </header>
 
             {/* 메인 폼 */}
-            <div className="flex-1 overflow-y-auto px-5 pt-5 pb-28 space-y-5">
+            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-3">
 
                 {/* 1. 사진 촬영 */}
-                <section className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5">
-                    <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
-                        <span className="w-6 h-6 bg-blue-500/30 rounded-lg flex items-center justify-center text-xs">📸</span>
+                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                    <h3 className="text-slate-700 font-bold text-sm mb-3 flex items-center gap-2">
+                        <span className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center text-sm">📸</span>
                         현장 사진
                     </h3>
-
-                    {/* 촬영 버튼 */}
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-2.5">
                         {photos.map((p, idx) => (
-                            <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border-2 border-white/20">
+                            <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200">
                                 <img src={p.preview} alt={`사진${idx + 1}`} className="w-full h-full object-cover" />
                                 <button
                                     onClick={() => removePhoto(idx)}
-                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow"
                                 >✕</button>
                             </div>
                         ))}
                         {photos.length < 5 && (
                             <button
                                 onClick={() => fileRef.current?.click()}
-                                className="aspect-square rounded-xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-1 text-white/50 active:bg-white/10 transition-colors"
+                                className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1 text-slate-400 active:bg-slate-50 transition-colors"
                             >
-                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
                                 <span className="text-[10px] font-bold">촬영/선택</span>
                             </button>
                         )}
                     </div>
                     <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple onChange={handlePhotoCapture} className="hidden" />
 
-                    {/* AI 바코드 인식 버튼 */}
                     {photos.length > 0 && (
                         <button
                             onClick={handleAiBarcode}
                             disabled={isAnalyzing}
-                            className={`w-full mt-4 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${isAnalyzing ? 'bg-purple-800/50 text-purple-300' : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white active:scale-[0.98]'}`}
+                            className={`w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm ${isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-letusBlue hover:bg-blue-800 active:scale-[0.98] text-white'}`}
                         >
                             {isAnalyzing ? (
-                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> AI 분석 중...</>
-                            ) : (
-                                <>🤖 AI 바코드 인식</>
-                            )}
+                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>AI 분석 중...</>
+                            ) : <>🤖 AI 바코드 인식</>}
                         </button>
                     )}
 
-                    {/* AI 분석 결과 */}
                     {aiResult && (
-                        <div className={`mt-3 p-3 rounded-xl text-sm font-bold ${aiResult.success ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+                        <div className={`mt-3 p-3 rounded-xl text-sm font-bold border ${aiResult.success ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                             {aiResult.success ? (
-                                <>✅ 인식 완료: <span className="text-white">{aiResult.code}</span>{aiResult.description && <p className="text-[11px] text-green-200/70 mt-1 font-medium">{aiResult.description}</p>}</>
+                                <>✅ 인식 완료: <span className="text-slate-800">{aiResult.code}</span>
+                                {aiResult.description && <p className="text-xs text-green-600 mt-1 font-medium">{aiResult.description}</p>}</>
                             ) : (
                                 <>⚠️ {aiResult.message}</>
                             )}
@@ -272,96 +243,92 @@ export const MobileIssueRegister = () => {
                 </section>
 
                 {/* 2. 브랜드 선택 */}
-                <section className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5">
-                    <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
-                        <span className="w-6 h-6 bg-orange-500/30 rounded-lg flex items-center justify-center text-xs">🏷️</span>
-                        브랜드 <span className="text-red-400">*</span>
+                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                    <h3 className="text-slate-700 font-bold text-sm mb-3 flex items-center gap-2">
+                        <span className="w-6 h-6 bg-orange-50 rounded-lg flex items-center justify-center text-sm">🏷️</span>
+                        브랜드 <span className="text-red-400 font-black">*</span>
                     </h3>
                     <div className="grid grid-cols-3 gap-2">
                         {BRANDS.map(b => (
                             <button
                                 key={b}
                                 onClick={() => setBrand(b)}
-                                className={`py-3 rounded-xl text-sm font-bold transition-all ${brand === b ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 scale-[1.02]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
+                                className={`py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] ${brand === b ? 'bg-letusBlue text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                             >{b}</button>
                         ))}
                     </div>
                 </section>
 
                 {/* 3. 이슈 유형 */}
-                <section className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5">
-                    <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
-                        <span className="w-6 h-6 bg-red-500/30 rounded-lg flex items-center justify-center text-xs">⚡</span>
-                        이슈 유형 <span className="text-red-400">*</span>
+                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                    <h3 className="text-slate-700 font-bold text-sm mb-3 flex items-center gap-2">
+                        <span className="w-6 h-6 bg-red-50 rounded-lg flex items-center justify-center text-sm">⚡</span>
+                        이슈 유형 <span className="text-red-400 font-black">*</span>
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
                         {ISSUE_TYPES.map(t => (
                             <button
                                 key={t.label}
                                 onClick={() => setIssueType(t.label)}
-                                className={`py-3 px-3 rounded-xl text-[13px] font-bold flex items-center gap-2 transition-all ${issueType === t.label ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 scale-[1.02]' : 'bg-white/10 text-white/70 active:bg-white/20'}`}
+                                className={`py-3 px-3 rounded-xl text-[13px] font-bold flex items-center gap-2 transition-all active:scale-[0.97] ${issueType === t.label ? 'bg-letusOrange text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                             >
-                                <span>{t.icon}</span> {t.label}
+                                <span>{t.icon}</span>{t.label}
                             </button>
                         ))}
                     </div>
                 </section>
 
                 {/* 4. 상세 입력 */}
-                <section className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5 space-y-4">
-                    <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                        <span className="w-6 h-6 bg-cyan-500/30 rounded-lg flex items-center justify-center text-xs">📝</span>
+                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 space-y-3.5">
+                    <h3 className="text-slate-700 font-bold text-sm flex items-center gap-2">
+                        <span className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center text-sm">📝</span>
                         상세 정보
                     </h3>
-
                     <div>
-                        <label className="text-white/60 text-xs font-bold mb-1.5 block">품목코드</label>
+                        <label className="text-slate-500 text-xs font-bold mb-1.5 block">품목코드</label>
                         <input
                             type="text"
                             value={productCode}
                             onChange={e => setProductCode(e.target.value)}
                             placeholder="AI 인식 또는 직접 입력"
-                            className="w-full bg-white/10 border border-white/15 rounded-xl px-4 py-3.5 text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-400/50 focus:bg-white/15 transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all"
                         />
                     </div>
-
                     <div>
-                        <label className="text-white/60 text-xs font-bold mb-1.5 block">공급업체</label>
+                        <label className="text-slate-500 text-xs font-bold mb-1.5 block">공급업체</label>
                         <input
                             type="text"
                             value={vendor}
                             onChange={e => setVendor(e.target.value)}
                             placeholder="공급업체명"
-                            className="w-full bg-white/10 border border-white/15 rounded-xl px-4 py-3.5 text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-400/50 focus:bg-white/15 transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all"
                         />
                     </div>
-
                     <div>
-                        <label className="text-white/60 text-xs font-bold mb-1.5 block">상세 내용 <span className="text-red-400">*</span></label>
+                        <label className="text-slate-500 text-xs font-bold mb-1.5 block">
+                            상세 내용 <span className="text-red-400 font-black">*</span>
+                        </label>
                         <textarea
                             value={detail}
                             onChange={e => setDetail(e.target.value)}
                             placeholder="특이사항 상세 내용을 입력해주세요"
                             rows={4}
-                            className="w-full bg-white/10 border border-white/15 rounded-xl px-4 py-3.5 text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-400/50 focus:bg-white/15 transition-all resize-none"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all resize-none"
                         />
                     </div>
                 </section>
             </div>
 
             {/* 하단 고정 등록 버튼 */}
-            <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent pt-10">
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white/95 to-transparent pt-8">
                 <button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
-                    className={`w-full py-4.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-2xl transition-all ${isSubmitting ? 'bg-blue-800/50 text-blue-300' : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white active:scale-[0.98] shadow-blue-500/40'}`}
-                    style={{ paddingTop: '18px', paddingBottom: '18px' }}
+                    className={`w-full py-[18px] rounded-xl font-black text-base flex items-center justify-center gap-2 shadow-lg transition-all ${isSubmitting ? 'bg-slate-200 text-slate-400' : 'bg-letusOrange hover:bg-orange-500 active:bg-orange-600 active:scale-[0.98] text-white shadow-orange-200'}`}
                 >
                     {isSubmitting ? (
-                        <><svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 등록 중...</>
-                    ) : (
-                        <>📋 특이사항 등록하기</>
-                    )}
+                        <><svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>등록 중...</>
+                    ) : <>📋 특이사항 등록하기</>}
                 </button>
             </div>
         </div>
