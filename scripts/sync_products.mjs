@@ -14,18 +14,20 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     console.error("Missing Supabase credentials in .env file.");
+    console.error("Required: VITE_SUPABASE_URL, VITE_SUPABASE_SERVICE_ROLE_KEY");
     process.exit(1);
 }
 
 // Initialize Supabase Admin Client
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// 🔒 사내 MS-SQL 접속 정보는 .env 에서 읽음 (평문 하드코딩 금지)
 const mssqlConfig = {
-    user: 'gihoon_moon',
-    password: 'Fursys!23#moon#gihoon',
-    database: 'fgdw',
-    server: '192.9.201.23',
-    port: 1672,
+    user: process.env.MSSQL_USER,
+    password: process.env.MSSQL_PASSWORD,
+    database: process.env.MSSQL_DATABASE,
+    server: process.env.MSSQL_SERVER,
+    port: parseInt(process.env.MSSQL_PORT, 10),
     pool: {
         max: 10,
         min: 0,
@@ -37,155 +39,92 @@ const mssqlConfig = {
     }
 };
 
+if (!mssqlConfig.user || !mssqlConfig.password || !mssqlConfig.server || !mssqlConfig.database || !mssqlConfig.port) {
+    console.error("Missing MS-SQL credentials in .env file.");
+    console.error("Required: MSSQL_USER, MSSQL_PASSWORD, MSSQL_SERVER, MSSQL_PORT, MSSQL_DATABASE");
+    process.exit(1);
+}
+
 const clean = (val) => val ? String(val).trim() : '';
 
+// Supabase UPSERT 한 번 호출 당 처리할 row 수.
+// (item_code, item_color) UNIQUE 제약이 있어야 onConflict 기반 UPSERT 가능.
+const CHUNK_SIZE = 2000;
+
 async function syncProducts() {
+    const startedAt = Date.now();
     console.log(`[${new Date().toISOString()}] Starting MS-SQL to Supabase Sync...`);
     let pool;
     try {
         console.log('Connecting to MS-SQL (fgdw)...');
         pool = await sql.connect(mssqlConfig);
-        
+
         console.log('Fetching data from [group].[DM_단품마스터+소속법인사별단품마스터]...');
-        // Query only the required columns to save memory and network
         const result = await pool.request().query(`
-            SELECT 
-                단품코드, 
-                단품색상, 
-                브랜드, 
-                회사, 
-                공급업체, 
-                생산지창고, 
-                출고창고 
+            SELECT
+                단품코드,
+                단품색상,
+                브랜드,
+                회사,
+                공급업체,
+                생산지창고,
+                출고창고
             FROM [group].[DM_단품마스터+소속법인사별단품마스터]
         `);
-        
-        const rawData = result.recordset;
-        console.log(`Successfully fetched ${rawData.length} rows from MS-SQL.`);
 
-        // Deduplicate locally just in case (same item_code & item_color, keeping the last one)
+        const rawData = result.recordset;
+        console.log(`Successfully fetched ${rawData.length.toLocaleString()} rows from MS-SQL.`);
+
+        // 1) MS-SQL 결과를 Supabase 컬럼 스키마로 매핑 + (item_code, item_color) 중복 제거
         const uniqueMap = new Map();
         rawData.forEach(row => {
             const itemCode = clean(row['단품코드']);
             const itemColor = clean(row['단품색상']);
-            if (itemCode) {
-                uniqueMap.set(`${itemCode}_${itemColor}`, row);
-            }
+            if (!itemCode) return; // item_code 없는 row 는 무시
+            uniqueMap.set(`${itemCode}_${itemColor}`, {
+                item_code: itemCode,
+                item_color: itemColor,
+                brand_category: clean(row['브랜드']),
+                company_division: clean(row['회사']),
+                vendor: clean(row['공급업체']),
+                production_line: clean(row['생산지창고']),
+                outbound_warehouse: clean(row['출고창고']),
+            });
         });
-        
         const uniqueData = Array.from(uniqueMap.values());
-        console.log(`After deduplication: ${uniqueData.length} unique items to process.`);
+        console.log(`After deduplication: ${uniqueData.length.toLocaleString()} unique items to upsert.`);
 
-        let insertResult = 0;
-        let updateResult = 0;
-        let skipCount = 0;
-
-        const chunkSize = 500; // Process 500 items at a time
-        
-        for (let i = 0; i < uniqueData.length; i += chunkSize) {
-            const chunk = uniqueData.slice(i, i + chunkSize);
-            const chunkItemCodes = [...new Set(chunk.map(r => clean(r['단품코드'])))];
-
-            // Fetch existing data from Supabase for this chunk
-            const { data: existingData, error: fetchError } = await supabase
+        // 2) Supabase UPSERT (chunked)
+        //    ON CONFLICT (item_code, item_color) → 자동으로 INSERT or UPDATE 분기
+        //    - 기존 SELECT → 비교 → INSERT/UPDATE 의 3단계 호출이 1단계로 줄어듦
+        //    - 변경 안 된 row 도 UPSERT 되지만, PostgreSQL 의 동일값 UPDATE 는 매우 저렴함
+        let processed = 0;
+        for (let i = 0; i < uniqueData.length; i += CHUNK_SIZE) {
+            const chunk = uniqueData.slice(i, i + CHUNK_SIZE);
+            const { error } = await supabase
                 .from('products')
-                .select('id, item_code, item_color, brand_category, company_division, vendor, production_line, outbound_warehouse')
-                .in('item_code', chunkItemCodes);
+                .upsert(chunk, { onConflict: 'item_code,item_color' });
 
-            if (fetchError) {
-                console.error(`Error fetching from Supabase at chunk ${i}:`, fetchError);
-                throw fetchError;
+            if (error) {
+                console.error(`Upsert error at chunk starting ${i.toLocaleString()}:`, error);
+                throw error;
             }
 
-            const existingDBMap = new Map();
-            existingData.forEach(row => {
-                const key = `${row.item_code}_${row.item_color || ''}`.trim();
-                existingDBMap.set(key, row);
-            });
-
-            const toInsert = [];
-            const toUpdate = [];
-
-            chunk.forEach(row => {
-                const itemCode = clean(row['단품코드']);
-                const itemColor = clean(row['단품색상']);
-                const brand = clean(row['브랜드']);
-                const companyDiv = clean(row['회사']);
-                const vendor = clean(row['공급업체']);
-                const prodLine = clean(row['생산지창고']);
-                const outboundWarehouse = clean(row['출고창고']);
-
-                const key = `${itemCode}_${itemColor}`;
-                const existingRow = existingDBMap.get(key);
-
-                if (!existingRow) {
-                    toInsert.push({
-                        item_code: itemCode, 
-                        item_color: itemColor, 
-                        brand_category: brand,
-                        company_division: companyDiv, 
-                        vendor: vendor, 
-                        production_line: prodLine,
-                        outbound_warehouse: outboundWarehouse
-                    });
-                } else {
-                    const isBrandChanged = (existingRow.brand_category || '') !== brand;
-                    const isCompanyDivChanged = (existingRow.company_division || '') !== companyDiv;
-                    const isVendorChanged = (existingRow.vendor || '') !== vendor;
-                    const isProdLineChanged = (existingRow.production_line || '') !== prodLine;
-                    const isOutboundChanged = (existingRow.outbound_warehouse || '') !== outboundWarehouse;
-
-                    if (isBrandChanged || isCompanyDivChanged || isVendorChanged || isProdLineChanged || isOutboundChanged) {
-                        toUpdate.push({
-                            id: existingRow.id, 
-                            item_code: itemCode, 
-                            item_color: itemColor,
-                            brand_category: brand, 
-                            company_division: companyDiv, 
-                            vendor: vendor,
-                            production_line: prodLine, 
-                            outbound_warehouse: outboundWarehouse
-                        });
-                    } else {
-                        skipCount++;
-                    }
-                }
-            });
-
-            // Execute Insert
-            if (toInsert.length > 0) {
-                const { error: insertError } = await supabase.from('products').insert(toInsert);
-                if (insertError) {
-                    console.error(`Insert Error at chunk ${i}:`, insertError);
-                    throw insertError;
-                }
-                insertResult += toInsert.length;
-            }
-
-            // Execute Update (Upsert by ID)
-            if (toUpdate.length > 0) {
-                const { error: updateError } = await supabase.from('products').upsert(toUpdate, { onConflict: 'id' });
-                if (updateError) {
-                    console.error(`Update Error at chunk ${i}:`, updateError);
-                    throw updateError;
-                }
-                updateResult += toUpdate.length;
-            }
-
-            // Log progress
-            if ((i + chunkSize) % 5000 === 0 || (i + chunkSize) >= uniqueData.length) {
-                console.log(`Progress: ${Math.min(i + chunkSize, uniqueData.length)} / ${uniqueData.length} items processed...`);
+            processed += chunk.length;
+            if (processed % 10000 === 0 || processed >= uniqueData.length) {
+                const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+                console.log(`Progress: ${processed.toLocaleString()} / ${uniqueData.length.toLocaleString()} (${elapsed}s elapsed)`);
             }
         }
 
-        console.log(`\n[${new Date().toISOString()}] Sync Completed Successfully!`);
-        console.log(`- Total unique items: ${uniqueData.length}`);
-        console.log(`- New items inserted: ${insertResult}`);
-        console.log(`- Existing items updated: ${updateResult}`);
-        console.log(`- Unchanged items skipped: ${skipCount}`);
+        const totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
+        console.log(`\n[${new Date().toISOString()}] Sync Completed Successfully in ${totalSec}s.`);
+        console.log(`- Total fetched from MS-SQL: ${rawData.length.toLocaleString()}`);
+        console.log(`- Unique items upserted    : ${uniqueData.length.toLocaleString()}`);
 
     } catch (err) {
         console.error(`\n[${new Date().toISOString()}] Sync Failed:`, err);
+        process.exitCode = 1;
     } finally {
         if (pool) {
             await pool.close();
