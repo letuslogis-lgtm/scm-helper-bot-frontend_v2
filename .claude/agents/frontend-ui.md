@@ -47,7 +47,10 @@ src/
 ### 1-3. 페이지/라우트 (총 17개)
 | 경로 | 컴포넌트 | 메모 |
 |---|---|---|
-| `/mobile` | MobileIssueRegister | **모바일 PWA 전용** — MainLayout 바깥에 독립 배치 |
+| `/mobile` | MobileMenuScreen (index) | **모바일 PWA 전용** — MainLayout 바깥에 독립 배치, ProtectedMobileRoute 로 감쌈 |
+| `/mobile/register` | MobileIssueRegister | 입고 특이사항 등록 |
+| `/mobile/my-issues` | MobileMyIssues | 내 등록 이력 + 조치 내용 바텀시트 |
+| `/mobile/notice` | MobileNotice | 공지사항 |
 | `/home` | MyDashboard | TODO, 위젯 |
 | `/team_calendar` | TeamCalendar | |
 | `/dashboard` | Dashboard (LogisticsDashboard.jsx) | 입고 특이사항 |
@@ -104,7 +107,7 @@ await invokeFunction('submit-mobile-issue', {
 - `user-admin` (관리자 권한 검증 + auth.admin.*)
 - `submit-mobile-issue` (모바일 익명, --no-verify-jwt 로 배포됨)
 - `analyze-accidents` (Gemini 배치 분석 + ai_analysis_logs 적재)
-- `analyze-barcode` (Gemini Vision, 미사용 — 모바일은 Render Python 사용 중)
+- `analyze-barcode` (Gemini Vision, --no-verify-jwt, 모바일 PWA 바코드 인식용 — `supabase.functions.invoke('analyze-barcode')` 로 호출)
 - `generate-insight-report` (SSE 스트리밍 마크다운 리포트)
 - `chat-assistant` (AgentCommandCenter 용)
 

@@ -15,12 +15,12 @@ tools: Read, Edit, Write, Glob, Grep, Bash, WebFetch
 | 기능 | 모델 | 위치 | 트리거 |
 |---|---|---|---|
 | **사고 원인 분류** | Gemini 2.5 Flash | `supabase/functions/analyze-accidents/index.ts` | AccidentList 에서 사용자가 "AI 분석" 버튼 |
-| **바코드/품목코드 인식** | Gemini 2.5 Flash Vision | Render Python (`scm-helper-bot.onrender.com/api/barcode`) **+ 미사용 Edge Function `analyze-barcode`** | 모바일 PWA (`/mobile`) 사진 촬영 후 "🤖 AI 바코드 인식" |
+| **바코드/품목코드 인식** | Gemini 2.5 Flash Vision (thinking 비활성) | Edge Function `analyze-barcode` (`--no-verify-jwt`) | 모바일 PWA (`/mobile/register`) 사진 촬영 후 "🤖 AI 바코드 인식" |
 | **인사이트 리포트 생성** | OpenAI/Gemini 자동 분기 | `supabase/functions/generate-insight-report/index.ts` | AccidentAnalyticsReport 에서 사용자가 "AI 인사이트 도출" |
 | **챗봇 비서** | (미상, chat-assistant Edge Function) | 대시보드의 chat-assistant Edge Function | AgentCommandCenter 플로팅 위젯 |
 | **카카오 챗봇** | Gemini | Render Python (`scm-helper-bot.onrender.com`) | 외부 카카오 채널 |
 
-⚠️ **이중 구조 주의**: 바코드 인식은 현재 Render Python 만 사용 중. Edge Function `analyze-barcode` 는 만들어졌지만 모바일 클라이언트는 Render 를 호출. 카카오 챗봇 종료 시점에 Edge Function 으로 일원화 예정 (장기 과제).
+✅ **바코드 인식은 Edge Function 으로 일원화 완료** (2026-05). Render Python 의 `/api/barcode` 는 더 이상 사용하지 않음. 카카오 챗봇 웹훅은 Render 에 잔존 (별도 관리).
 
 ---
 
@@ -161,16 +161,14 @@ low 로 지정한 경우 low_confidence_reason 에 확신할 수 없는 이유�
 
 ---
 
-## 6. Render Python 서버 (`scm-helper-bot`)
+## 6. Render Python 서버 (`scm-helper-bot`) — 카카오 챗봇 전용
 
 - 호스팅: Render 무료 플랜 (15분 무요청 시 콜드 스타트 30초+)
-- 엔드포인트:
-  - `POST /api/barcode` — Gemini Vision 으로 바코드/품목코드 인식
-  - 카카오 챗봇 웹훅 (별도)
-- 헬퍼: `log_barcode_analysis()` → Supabase `ai_analysis_logs` 에 source_menu='MobileBarcode' 로 적재 (성공/DB미등록/인식실패 3 케이스)
+- 현재 역할: 카카오 챗봇 웹훅만 운영 중
+- `/api/barcode` 엔드포인트는 2026-05 에 Edge Function 으로 이전 완료 — 더 이상 호출되지 않음
 - 환경변수: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` (service_role)
 
-⚠️ Render Python 코드는 별도 저장소(`Logis scm test`) 일 가능성 — 이 프로젝트에는 직접 들어있지 않음. 코드 변경 필요 시 사용자에게 해당 저장소 위치 확인 요청.
+⚠️ Render Python 코드는 별도 저장소(`Logis scm test`) — 이 프로젝트에는 직접 들어있지 않음.
 
 ---
 
