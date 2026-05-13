@@ -3,14 +3,45 @@ import { useNavigate } from 'react-router-dom';
 import { supabase, invokeFunction } from './supabaseClient.js';
 
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
-const ISSUE_TYPES = [
-    { label: '파손 및 불량', icon: '💥' },
-    { label: '바코드 불량', icon: '📛' },
-    { label: '수량부족', icon: '📉' },
-    { label: '계획 미생성', icon: '📋' },
-    { label: '계획 부족(실물 과다)', icon: '📦' },
-    { label: '계획 과다(실물 부족)', icon: '🔻' },
-    { label: '기타 특이사항', icon: '📌' },
+const ISSUE_TYPE_GROUPS = [
+    {
+        group: '계획·수량',
+        items: [
+            { label: '계획 없음/누락' },
+            { label: '수량 부족 (계획>실물)' },
+            { label: '과입고 (계획<실물)' },
+            { label: '계획 연기·컷·미출' },
+        ],
+    },
+    {
+        group: '품질·포장',
+        items: [
+            { label: '파손·불량' },
+            { label: '바코드 오류' },
+            { label: '포장 불량·혼적' },
+            { label: '표기·규격 미흡' },
+        ],
+    },
+    {
+        group: '반송·오입고',
+        items: [
+            { label: '반송품 처리' },
+            { label: '오반품·잘못 입고' },
+        ],
+    },
+    {
+        group: '전산·시스템',
+        items: [
+            { label: '전산-실물 불일치' },
+            { label: 'WMS·전산 오류' },
+        ],
+    },
+    {
+        group: '기타',
+        items: [
+            { label: '기타 특이사항' },
+        ],
+    },
 ];
 
 const generateReceptionNo = () => {
@@ -33,6 +64,22 @@ export const MobileIssueRegister = () => {
 
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
+
+    const [openGroups, setOpenGroups] = useState(new Set(['계획·수량']));
+
+    const toggleGroup = (groupName) => {
+        setOpenGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupName)) next.delete(groupName);
+            else next.add(groupName);
+            return next;
+        });
+    };
+
+    const handleIssueSelect = (label, groupName) => {
+        setIssueType(label);
+        setOpenGroups(prev => new Set([...prev, groupName]));
+    };
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -260,21 +307,58 @@ export const MobileIssueRegister = () => {
                 </section>
 
                 {/* 3. 이슈 유형 */}
-                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-                    <h3 className="text-slate-700 font-bold text-sm mb-3 flex items-center gap-2">
-                        <span className="w-6 h-6 bg-red-50 rounded-lg flex items-center justify-center text-sm">⚡</span>
-                        이슈 유형 <span className="text-red-400 font-black">*</span>
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                        {ISSUE_TYPES.map(t => (
-                            <button
-                                key={t.label}
-                                onClick={() => setIssueType(t.label)}
-                                className={`py-3 px-3 rounded-xl text-[13px] font-bold flex items-center gap-2 transition-all active:scale-[0.97] ${issueType === t.label ? 'bg-letusOrange text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                            >
-                                <span>{t.icon}</span>{t.label}
-                            </button>
-                        ))}
+                <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="px-4 pt-4 pb-3">
+                        <h3 className="text-slate-700 font-bold text-sm flex items-center gap-2">
+                            <span className="w-6 h-6 bg-red-50 rounded-lg flex items-center justify-center text-sm">⚡</span>
+                            이슈 유형 <span className="text-red-400 font-black">*</span>
+                        </h3>
+                        {issueType && (
+                            <p className="mt-2.5 text-xs text-letusOrange font-bold bg-orange-50 px-3 py-1.5 rounded-lg">
+                                선택: {issueType}
+                            </p>
+                        )}
+                    </div>
+                    <div className="border-t border-slate-100">
+                        {ISSUE_TYPE_GROUPS.map((group, idx) => {
+                            const isOpen = openGroups.has(group.group);
+                            const hasSelected = group.items.some(i => i.label === issueType);
+                            return (
+                                <div key={group.group} className={idx > 0 ? 'border-t border-slate-100' : ''}>
+                                    <button
+                                        onClick={() => toggleGroup(group.group)}
+                                        className="w-full px-4 py-3 flex items-center justify-between active:bg-slate-50 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-sm font-bold ${hasSelected ? 'text-letusOrange' : 'text-slate-700'}`}>
+                                                {group.group}
+                                            </span>
+                                            {hasSelected && <span className="w-1.5 h-1.5 rounded-full bg-letusOrange" />}
+                                            <span className="text-[11px] text-slate-400 font-medium">{group.items.length}개</span>
+                                        </div>
+                                        <svg
+                                            className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {isOpen && (
+                                        <div className="px-4 pb-3 grid grid-cols-2 gap-2">
+                                            {group.items.map(t => (
+                                                <button
+                                                    key={t.label}
+                                                    onClick={() => handleIssueSelect(t.label, group.group)}
+                                                    className={`py-2.5 px-3 rounded-xl text-[13px] font-bold text-left transition-all active:scale-[0.97] ${issueType === t.label ? 'bg-letusOrange text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                                >
+                                                    {t.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </section>
 
