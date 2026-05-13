@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { subscribePush } from './hooks/usePushNotification.js';
 
@@ -37,10 +37,36 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
     const [installPrompt, setInstallPrompt] = useState(null);
     const [installed, setInstalled] = useState(isStandalone);
     const [showGuide, setShowGuide] = useState(false);
+    const [showExitToast, setShowExitToast] = useState(false);
+    const canExitRef = useRef(false);
+    const exitTimerRef = useRef(null);
 
     useEffect(() => {
         if (userProfile?.name) subscribePush(userProfile.name)
     }, [userProfile?.name])
+
+    useEffect(() => {
+        window.history.pushState(null, '', window.location.href);
+        const handlePopState = () => {
+            if (canExitRef.current) {
+                window.history.go(-1);
+            } else {
+                canExitRef.current = true;
+                setShowExitToast(true);
+                window.history.pushState(null, '', window.location.href);
+                clearTimeout(exitTimerRef.current);
+                exitTimerRef.current = setTimeout(() => {
+                    canExitRef.current = false;
+                    setShowExitToast(false);
+                }, 2000);
+            }
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            clearTimeout(exitTimerRef.current);
+        };
+    }, []);
 
     useEffect(() => {
         if (window.deferredPrompt) setInstallPrompt(window.deferredPrompt);
@@ -212,6 +238,12 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
             <div className="pb-10 text-center text-[11px] text-slate-300 font-medium">
                 © 2026 LETUS. All rights reserved.
             </div>
+
+            {showExitToast && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-700/90 text-white text-sm font-medium px-5 py-3 rounded-full shadow-lg z-50 whitespace-nowrap">
+                    한번 더 뒤로가기를 하면 종료됩니다.
+                </div>
+            )}
         </div>
     );
 };

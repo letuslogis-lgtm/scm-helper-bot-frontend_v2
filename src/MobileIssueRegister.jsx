@@ -65,7 +65,7 @@ export const MobileIssueRegister = () => {
 const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
 
-    const [openGroups, setOpenGroups] = useState(new Set(['계획·수량']));
+    const [openGroups, setOpenGroups] = useState(new Set());
 
     const toggleGroup = (groupName) => {
         setOpenGroups(prev => {
@@ -158,7 +158,6 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
     const handleSubmit = async () => {
         if (!brand) return alert('브랜드를 선택해주세요.');
         if (!issueType) return alert('이슈 유형을 선택해주세요.');
-        if (!detail.trim()) return alert('상세 내용을 입력해주세요.');
         setIsSubmitting(true);
         try {
             const photoPayload = await Promise.all(
@@ -215,7 +214,7 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-orange-600" />
                 <div className="px-4 py-3 flex items-center gap-3">
                     <button
-                        onClick={() => navigate('/mobile')}
+                        onClick={() => navigate(-1)}
                         className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
                     >
                         <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -388,7 +387,7 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                     </div>
                     <div>
                         <label className="text-slate-500 text-xs font-bold mb-1.5 block">
-                            상세 내용 <span className="text-red-400 font-black">*</span>
+                            상세 내용
                         </label>
                         <textarea
                             value={detail}

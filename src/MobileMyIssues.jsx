@@ -50,7 +50,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
             {/* 헤더 */}
             <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
                 <button
-                    onClick={() => navigate('/mobile')}
+                    onClick={() => navigate(-1)}
                     className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
                 >
                     <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
