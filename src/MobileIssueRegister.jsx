@@ -62,6 +62,10 @@ export const MobileIssueRegister = () => {
     const [photos, setPhotos] = useState([]);
     const fileRef = useRef(null);
 
+    useEffect(() => {
+        fetch('https://scm-helper-bot.onrender.com/', { method: 'GET' }).catch(() => {});
+    }, []);
+
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
 
