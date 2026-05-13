@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase, invokeFunction } from './supabaseClient.js';
 
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
@@ -20,6 +21,7 @@ const generateReceptionNo = () => {
 };
 
 export const MobileIssueRegister = () => {
+    const navigate = useNavigate();
     // 폼 상태
     const [brand, setBrand] = useState('');
     const [issueType, setIssueType] = useState('');
@@ -190,6 +192,14 @@ export const MobileIssueRegister = () => {
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col">
             {/* 헤더 */}
             <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-white/10 px-5 py-4 flex items-center justify-between">
+                <button
+                    onClick={() => navigate('/mobile')}
+                    className="p-2 rounded-xl bg-white/5 active:bg-white/10 transition-colors mr-2"
+                >
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
                         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
