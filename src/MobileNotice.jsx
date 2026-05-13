@@ -35,68 +35,69 @@ export const MobileNotice = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col">
+        <div className="min-h-screen bg-slate-100 flex flex-col">
             {/* 헤더 */}
-            <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-white/10 px-5 py-4 flex items-center gap-3">
+            <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 shadow-sm">
                 <button
                     onClick={() => navigate('/mobile')}
-                    className="p-2 rounded-xl bg-white/5 active:bg-white/10 transition-colors"
+                    className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
                 >
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
                 <div className="flex-1">
-                    <p className="text-white font-black text-base">공지사항</p>
-                    <p className="text-blue-300/70 text-xs">팀 공지 및 업무 지시</p>
+                    <p className="text-slate-800 font-black text-base">공지사항</p>
                 </div>
             </header>
 
             {/* 목록 */}
-            <div className="flex-1 px-5 py-4">
+            <div className="flex-1 px-4 py-4">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-24">
-                        <div className="w-8 h-8 border-4 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                        <p className="text-blue-300 text-sm font-bold mt-3">불러오는 중...</p>
+                        <div className="w-8 h-8 border-4 border-slate-200 border-t-letusOrange rounded-full animate-spin" />
+                        <p className="text-slate-500 text-sm font-bold mt-3">불러오는 중...</p>
                     </div>
                 ) : notices.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-24 text-center">
-                        <span className="text-6xl mb-4">📢</span>
-                        <p className="text-white font-bold text-base">공지사항이 없습니다</p>
-                        <p className="text-white/40 text-sm mt-1">새로운 공지가 등록되면<br />여기에 표시됩니다.</p>
+                        <div className="w-16 h-16 rounded-2xl bg-slate-200 flex items-center justify-center mb-4">
+                            <span className="text-3xl">📢</span>
+                        </div>
+                        <p className="text-slate-700 font-bold text-base">공지사항이 없습니다</p>
+                        <p className="text-slate-400 text-sm mt-1">새 공지가 등록되면 여기에 표시됩니다.</p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2.5">
                         {notices.map(notice => (
                             <div
                                 key={notice.id}
-                                className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden active:bg-white/8 transition-colors"
+                                className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden"
                                 onClick={() => setExpandedId(expandedId === notice.id ? null : notice.id)}
                             >
                                 <div className="p-4 flex items-start gap-3">
                                     {notice.is_important && (
-                                        <span className="mt-0.5 px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[11px] font-bold border border-orange-500/30 flex-shrink-0">
+                                        <span className="mt-0.5 px-2 py-0.5 rounded-full bg-letusOrange/10 text-letusOrange text-[11px] font-bold border border-letusOrange/20 flex-shrink-0">
                                             중요
                                         </span>
                                     )}
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-white font-bold text-sm leading-snug">{notice.title}</p>
+                                        <p className="text-slate-800 font-bold text-sm leading-snug">{notice.title}</p>
                                         <div className="flex items-center gap-1.5 mt-1">
-                                            <p className="text-white/35 text-xs">{notice.author_name}</p>
-                                            <span className="text-white/20 text-xs">·</span>
-                                            <p className="text-white/35 text-xs">{formatDate(notice.created_at)}</p>
+                                            <p className="text-slate-400 text-xs">{notice.author_name}</p>
+                                            <span className="text-slate-300 text-xs">·</span>
+                                            <p className="text-slate-400 text-xs">{formatDate(notice.created_at)}</p>
                                         </div>
                                     </div>
                                     <svg
-                                        className={`w-4 h-4 text-white/25 flex-shrink-0 mt-0.5 transition-transform duration-200 ${expandedId === notice.id ? 'rotate-180' : ''}`}
+                                        className={`w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5 transition-transform duration-200 ${expandedId === notice.id ? 'rotate-180' : ''}`}
                                         fill="none" viewBox="0 0 24 24" stroke="currentColor"
                                     >
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
                                 {expandedId === notice.id && (
-                                    <div className="px-4 pb-5 border-t border-white/8 pt-3">
-                                        <p className="text-white/70 text-sm leading-relaxed whitespace-pre-wrap">
+                                    <div className="px-4 pb-4 border-t border-slate-100 pt-3 bg-slate-50">
+                                        <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">
                                             {notice.content}
                                         </p>
                                     </div>
