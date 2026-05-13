@@ -23,6 +23,9 @@ import { RpaManagement } from './RpaManagement.jsx';
 import { LoadingMap } from './LoadingMap.jsx';
 import { AiInsightLab } from './AiInsightLab.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
+import { MobileMenuScreen } from './MobileMenuScreen.jsx';
+import { MobileMyIssues } from './MobileMyIssues.jsx';
+import { MobileNotice } from './MobileNotice.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 import { useAuth } from './hooks/useAuth.jsx';
@@ -124,10 +127,18 @@ const AppContent = () => {
 };
 
 const ProtectedMobileRoute = () => {
-    const { session, authLoading } = useAuth();
-    if (authLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-letusBlue">세션 확인 중...</div>;
+    const { session, authLoading, userProfile, handleLogout } = useAuth();
+    if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center font-bold text-blue-300">세션 확인 중...</div>;
     if (!session) return <LoginView />;
-    return <MobileIssueRegister />;
+    return (
+        <Routes>
+            <Route index element={<MobileMenuScreen userProfile={userProfile} handleLogout={handleLogout} />} />
+            <Route path="register" element={<MobileIssueRegister />} />
+            <Route path="my-issues" element={<MobileMyIssues />} />
+            <Route path="notice" element={<MobileNotice />} />
+            <Route path="*" element={<Navigate to="/mobile" replace />} />
+        </Routes>
+    );
 };
 
 const App = () => {
@@ -136,7 +147,7 @@ const App = () => {
             <BrowserRouter>
                 <Routes>
                     {/* 모바일 전용 경로 — 인증 후 독립 렌더링 */}
-                    <Route path="/mobile" element={<ProtectedMobileRoute />} />
+                    <Route path="/mobile/*" element={<ProtectedMobileRoute />} />
                     {/* 기존 데스크톱 앱 */}
                     <Route path="/*" element={<AppContent />} />
                 </Routes>
