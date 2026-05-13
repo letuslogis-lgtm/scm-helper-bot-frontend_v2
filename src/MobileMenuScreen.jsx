@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
 
 const MENU_ITEMS = [
     {
@@ -30,6 +33,38 @@ const MENU_ITEMS = [
 
 export const MobileMenuScreen = ({ userProfile, handleLogout }) => {
     const navigate = useNavigate();
+    const [installPrompt, setInstallPrompt] = useState(null);
+    const [installed, setInstalled] = useState(isStandalone);
+    const [showGuide, setShowGuide] = useState(false);
+
+    useEffect(() => {
+        if (window.deferredPrompt) setInstallPrompt(window.deferredPrompt);
+        const handler = (e) => {
+            e.preventDefault();
+            window.deferredPrompt = e;
+            setInstallPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        window.addEventListener('appinstalled', () => {
+            setInstalled(true);
+            window.deferredPrompt = null;
+            setInstallPrompt(null);
+        });
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
+    const handleInstall = async () => {
+        if (installPrompt) {
+            installPrompt.prompt();
+            const { outcome } = await installPrompt.userChoice;
+            if (outcome === 'accepted') {
+                setInstallPrompt(null);
+                setInstalled(true);
+            }
+        } else {
+            setShowGuide(v => !v);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -76,9 +111,61 @@ export const MobileMenuScreen = ({ userProfile, handleLogout }) => {
                     </button>
                 ))}
 
-                {/* 로그아웃 */}
+                {/* 계정 */}
                 <div className="mt-3">
                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-2.5">계정</p>
+
+                    {/* 홈 화면 바로가기 추가 */}
+                    {!installed && (
+                        <div className="mb-2.5">
+                            <button
+                                onClick={handleInstall}
+                                className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+                            >
+                                <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-slate-800 font-bold text-[15px]">홈 화면에 추가</p>
+                                    <p className="text-slate-400 text-xs mt-0.5">
+                                        {installPrompt ? '탭하면 바로 설치됩니다' : '설치 방법을 안내합니다'}
+                                    </p>
+                                </div>
+                                {!installPrompt && (
+                                    <svg
+                                        className={`w-4 h-4 text-slate-300 flex-shrink-0 transition-transform duration-200 ${showGuide ? 'rotate-90' : ''}`}
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                )}
+                            </button>
+
+                            {/* 수동 설치 안내 */}
+                            {showGuide && !installPrompt && (
+                                <div className="mt-1.5 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                    {isIOS ? (
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-bold text-slate-600 mb-2">Safari에서 설치하는 방법</p>
+                                            <p className="text-xs text-slate-500">① 하단 <span className="font-bold text-slate-700">공유 버튼</span> (□↑) 탭</p>
+                                            <p className="text-xs text-slate-500">② <span className="font-bold text-slate-700">"홈 화면에 추가"</span> 선택</p>
+                                            <p className="text-xs text-slate-500">③ 오른쪽 상단 <span className="font-bold text-slate-700">"추가"</span> 탭</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-bold text-slate-600 mb-2">브라우저에서 설치하는 방법</p>
+                                            <p className="text-xs text-slate-500">① 브라우저 우측 상단 <span className="font-bold text-slate-700">메뉴(⋮ 또는 ≡)</span> 탭</p>
+                                            <p className="text-xs text-slate-500">② <span className="font-bold text-slate-700">"홈 화면에 추가"</span> 선택</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 로그아웃 */}
                     <button
                         onClick={handleLogout}
                         className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
