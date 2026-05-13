@@ -14,12 +14,21 @@ export const MobileLoginView = () => {
     const [showIOSGuide, setShowIOSGuide] = useState(false);
 
     useEffect(() => {
+        // index.html에서 이미 캡처된 경우 바로 사용
+        if (window.deferredPrompt) {
+            setInstallPrompt(window.deferredPrompt);
+        }
+
         const handler = (e) => {
             e.preventDefault();
+            window.deferredPrompt = e;
             setInstallPrompt(e);
         };
         window.addEventListener('beforeinstallprompt', handler);
-        window.addEventListener('appinstalled', () => setInstalled(true));
+        window.addEventListener('appinstalled', () => {
+            setInstalled(true);
+            window.deferredPrompt = null;
+        });
         return () => {
             window.removeEventListener('beforeinstallprompt', handler);
         };
