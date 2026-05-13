@@ -1,121 +1,132 @@
-// ============================================================
-// 📌 Supabase Edge Function: analyze-barcode (v1)
-// ============================================================
-// 모바일 PWA에서 촬영한 사진의 바코드를 Gemini Vision으로 인식
-// ============================================================
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+async function checkAndGetInfo(
+  admin: ReturnType<typeof createClient>,
+  code: string
+): Promise<{ is_valid: boolean; brand: string | null; vendor: string | null }> {
+  if (!code) return { is_valid: false, brand: null, vendor: null }
+  const parts = code.split('-')
+  try {
+    let query = admin.from('products').select('brand_category,brand,vendor,production_line,supplier')
+    if (parts.length > 1) {
+      query = query.eq('item_code', parts.slice(0, -1).join('-')).eq('item_color', parts[parts.length - 1])
+    } else {
+      query = query.eq('item_code', code)
+    }
+    const { data } = await query.limit(1).single()
+    if (!data) return { is_valid: false, brand: null, vendor: null }
+    const brand = data.brand_category || data.brand || null
+    const vendor = data.vendor || data.production_line || data.supplier || null
+    return { is_valid: true, brand, vendor }
+  } catch {
+    return { is_valid: false, brand: null, vendor: null }
+  }
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const { image, mimeType } = await req.json()
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
 
-    if (!image) {
-      return new Response(
-        JSON.stringify({ message: '이미지가 제공되지 않았습니다.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (!SUPABASE_URL || !SERVICE_KEY || !GEMINI_API_KEY) {
+      return json({ error: 'Server misconfigured' }, 500)
     }
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!apiKey) throw new Error('GEMINI_API_KEY가 등록되지 않았습니다.')
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
 
-    const prompt = `당신은 물류 창고에서 사용되는 바코드/라벨 인식 전문가입니다.
-이 이미지에서 바코드, QR코드, 또는 제품 라벨에 적힌 품목코드/제품코드를 찾아주세요.
+    const { image, mimeType } = await req.json()
+    if (!image) return json({ message: '이미지가 제공되지 않았습니다.' }, 400)
 
-[출력 형식 — 반드시 아래 JSON만 출력]
-{
-  "product_code": "인식된 품목코드 문자열 (없으면 null)",
-  "description": "라벨에 적힌 제품 설명이 있다면 간단히 (없으면 빈 문자열)",
-  "barcode_type": "code128 | qr | ean13 | datamatrix | text_label | unknown",
-  "confidence": "high | medium | low"
-}
+    const prompt = `당신은 최고 수준의 물류 SCM 라벨 판독기입니다. 첨부된 사진을 분석하여 오직 JSON 형식으로만 응답하세요.
+바코드가 가장 명확하게 보이는 부분을 찾아 아래 규칙대로 판독하세요.
 
-[규칙]
-1. 바코드가 보이면 디코딩하여 product_code에 넣으세요.
-2. 바코드가 없지만 텍스트로 된 품목코드(예: 제품 라벨)가 보이면 그것을 넣으세요.
-3. 아무것도 인식할 수 없으면 product_code를 null로 반환하세요.
-4. 여러 바코드가 있으면 가장 선명한 것을 선택하세요.
+[핵심 추출 규칙]
+1. 바코드 주변에서 '품목코드'와 '색상코드'를 찾아 반드시 중간에 하이픈(-)을 넣어 "품목코드-색상코드" 형태로 결합하세요.
+2. 예외: 품목코드 자체에 이미 하이픈과 색상코드가 결합되어 있다면 별도 색상코드는 무시하세요.
 
-JSON 응답:`
+[절대 무시 규칙] 괄호 기호 안의 내용, 생산일자, 벤더 영문 코드, 로트 번호 등 무시.
+[예시] 입력: "HSOC1140DTRA 2026-03-16 F", 옆에 "WW" → 정답: {"product_code": "HSOC1140DTRA-WW"}
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+오직 아래 JSON 형식으로만 응답하세요:
+{"product_code": "추출된코드 또는 null", "barcode_type": "code128 | qr | ean13 | text_label | unknown"}`
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [
-              {
-                inlineData: {
-                  mimeType: mimeType || 'image/jpeg',
-                  data: image
-                }
-              },
-              { text: prompt }
-            ]
+              { inlineData: { mimeType: mimeType || 'image/jpeg', data: image } },
+              { text: prompt },
+            ],
           }],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json"
-          },
+          generationConfig: { temperature: 0.1 },
         }),
       }
     )
 
-    const result = await res.json()
-
-    if (!result.candidates) {
-      const errorMsg = result.error?.message || 'Gemini API 응답 없음'
-      console.error('Gemini 에러:', errorMsg)
-      return new Response(
-        JSON.stringify({ product_code: null, message: errorMsg }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    const geminiData = await geminiRes.json()
+    if (!geminiData.candidates) {
+      const msg = geminiData.error?.message || 'Gemini API 응답 없음'
+      console.error('Gemini 에러:', msg)
+      return json({ product_code: null, message: msg })
     }
 
-    const rawText = result.candidates[0]?.content?.parts?.[0]?.text || ''
-    
-    // JSON 파싱
-    let parsed = null
+    const rawText = geminiData.candidates[0]?.content?.parts?.[0]?.text || ''
+    let parsed: { product_code?: string | null; barcode_type?: string } | null = null
     try {
       const cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
       const match = cleaned.match(/\{[\s\S]*\}/)
       if (match) parsed = JSON.parse(match[0])
-    } catch (e) {
+    } catch {
       console.warn('JSON 파싱 실패:', rawText)
     }
 
-    if (parsed && parsed.product_code) {
-      return new Response(
-        JSON.stringify({
-          product_code: String(parsed.product_code),
-          description: parsed.description || '',
-          barcode_type: parsed.barcode_type || 'unknown',
-          confidence: parsed.confidence || 'medium'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    } else {
-      return new Response(
-        JSON.stringify({
-          product_code: null,
-          message: '바코드 또는 품목코드를 인식하지 못했습니다. 다른 각도에서 다시 촬영해주세요.'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    const rawCode = parsed?.product_code ? String(parsed.product_code).trim().toUpperCase() : null
+
+    if (!rawCode || rawCode === 'NULL') {
+      return json({
+        product_code: null,
+        message: '바코드 또는 품목코드를 인식하지 못했습니다. 다른 각도에서 다시 촬영해주세요.',
+      })
     }
-  } catch (error: any) {
-    console.error('🚨 에러:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+
+    const { is_valid, brand, vendor } = await checkAndGetInfo(admin, rawCode)
+
+    return json({
+      product_code: rawCode,
+      is_valid,
+      brand,
+      vendor,
+      description: is_valid
+        ? `브랜드: ${brand ?? '미확인'} / 공급사: ${vendor ?? '미확인'}`
+        : 'DB 미등록 코드',
+      barcode_type: parsed?.barcode_type || 'unknown',
+    })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal error'
+    console.error('🚨 에러:', message)
+    return json({ error: message }, 500)
   }
 })

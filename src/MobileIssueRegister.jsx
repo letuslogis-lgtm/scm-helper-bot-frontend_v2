@@ -62,11 +62,7 @@ export const MobileIssueRegister = () => {
     const [photos, setPhotos] = useState([]);
     const fileRef = useRef(null);
 
-    useEffect(() => {
-        fetch('https://scm-helper-bot.onrender.com/', { method: 'GET' }).catch(() => {});
-    }, []);
-
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
+const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
 
     const [openGroups, setOpenGroups] = useState(new Set(['계획·수량']));
@@ -126,12 +122,10 @@ export const MobileIssueRegister = () => {
         setAiResult(null);
         try {
             const base64 = await compressImage(photos[0].file);
-            const response = await fetch('https://scm-helper-bot.onrender.com/api/barcode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: base64 })
+            const { data, error } = await supabase.functions.invoke('analyze-barcode', {
+                body: { image: base64, mimeType: 'image/jpeg' },
             });
-            const data = await response.json();
+            if (error) throw error;
             if (data?.product_code) {
                 setProductCode(data.product_code);
                 if (data.brand) setBrand(data.brand);
