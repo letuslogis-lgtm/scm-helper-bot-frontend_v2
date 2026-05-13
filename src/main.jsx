@@ -26,6 +26,7 @@ import { MobileIssueRegister } from './MobileIssueRegister.jsx';
 import { MobileMenuScreen } from './MobileMenuScreen.jsx';
 import { MobileMyIssues } from './MobileMyIssues.jsx';
 import { MobileNotice } from './MobileNotice.jsx';
+import { MobileLoginView } from './MobileLoginView.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 import { useAuth } from './hooks/useAuth.jsx';
@@ -129,7 +130,7 @@ const AppContent = () => {
 const ProtectedMobileRoute = () => {
     const { session, authLoading, userProfile, handleLogout } = useAuth();
     if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center font-bold text-blue-300">세션 확인 중...</div>;
-    if (!session) return <LoginView />;
+    if (!session) return <MobileLoginView />;
     return (
         <Routes>
             <Route index element={<MobileMenuScreen userProfile={userProfile} handleLogout={handleLogout} />} />
