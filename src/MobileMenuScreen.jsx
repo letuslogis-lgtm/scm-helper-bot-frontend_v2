@@ -31,7 +31,7 @@ const MENU_ITEMS = [
     },
 ];
 
-export const MobileMenuScreen = ({ userProfile, handleLogout }) => {
+export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount = 0 }) => {
     const navigate = useNavigate();
     const [installPrompt, setInstallPrompt] = useState(null);
     const [installed, setInstalled] = useState(isStandalone);
@@ -105,6 +105,11 @@ export const MobileMenuScreen = ({ userProfile, handleLogout }) => {
                             <p className="text-slate-800 font-bold text-[15px]">{item.title}</p>
                             <p className="text-slate-400 text-xs mt-0.5">{item.subtitle}</p>
                         </div>
+                        {item.id === 'my-issues' && completedNotiCount > 0 && (
+                            <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center flex-shrink-0">
+                                {completedNotiCount > 9 ? '9+' : completedNotiCount}
+                            </span>
+                        )}
                         <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                         </svg>

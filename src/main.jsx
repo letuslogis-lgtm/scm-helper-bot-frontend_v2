@@ -129,13 +129,43 @@ const AppContent = () => {
 
 const ProtectedMobileRoute = () => {
     const { session, authLoading, userProfile, handleLogout } = useAuth();
+    const [completedNotiCount, setCompletedNotiCount] = React.useState(0);
+
+    React.useEffect(() => {
+        if (!session?.user?.email) return;
+        const email = session.user.email;
+
+        const channel = supabase.channel('mobile_issue_updates')
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'logistics_issues',
+                filter: `reporter=eq.${email}`,
+            }, (payload) => {
+                if (payload.new?.status === '조치완료' && payload.old?.status !== '조치완료') {
+                    setCompletedNotiCount(prev => prev + 1);
+                }
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [session]);
+
     if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center font-bold text-blue-300">세션 확인 중...</div>;
     if (!session) return <MobileLoginView />;
     return (
         <Routes>
-            <Route index element={<MobileMenuScreen userProfile={userProfile} handleLogout={handleLogout} />} />
+            <Route index element={
+                <MobileMenuScreen
+                    userProfile={userProfile}
+                    handleLogout={handleLogout}
+                    completedNotiCount={completedNotiCount}
+                />
+            } />
             <Route path="register" element={<MobileIssueRegister />} />
-            <Route path="my-issues" element={<MobileMyIssues />} />
+            <Route path="my-issues" element={
+                <MobileMyIssues onNotificationsRead={() => setCompletedNotiCount(0)} />
+            } />
             <Route path="notice" element={<MobileNotice />} />
             <Route path="*" element={<Navigate to="/mobile" replace />} />
         </Routes>
