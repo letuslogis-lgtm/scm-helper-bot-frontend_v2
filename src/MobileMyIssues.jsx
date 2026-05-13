@@ -49,6 +49,13 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                         </span>
                     </div>
 
+                    {issue.product_code && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-slate-400">품목코드</span>
+                            <span className="text-sm font-mono font-bold text-slate-700">{issue.product_code}</span>
+                        </div>
+                    )}
+
                     <div className="h-px bg-slate-100" />
 
                     {/* 접수 내용 */}
@@ -122,7 +129,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
         try {
             const { data, error } = await supabase
                 .from('logistics_issues')
-                .select('id, reception_no, brand, issue_type, status, created_at, request_content, action_content, final_handler, resolved_at')
+                .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, action_content, final_handler, resolved_at')
                 .eq('reporter', userProfile.name)
                 .order('created_at', { ascending: false })
                 .limit(50);
@@ -212,6 +219,11 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                                         {issue.status}
                                     </span>
                                 </div>
+                                {issue.product_code && (
+                                    <p className="text-xs text-slate-400 font-mono mb-1">
+                                        {issue.product_code}
+                                    </p>
+                                )}
                                 <p className="text-slate-700 text-sm leading-snug line-clamp-2">
                                     {issue.request_content || '(내용 없음)'}
                                 </p>
