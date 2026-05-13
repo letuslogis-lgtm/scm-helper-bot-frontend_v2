@@ -107,6 +107,21 @@ export const MobileIssueRegister = () => {
             } else {
                 setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
             }
+
+            // AI 분석 결과 로깅 — 비동기 fire-and-forget (UI 블로킹 없음)
+            supabase.from('ai_analysis_logs').insert({
+                source_menu: 'MobileBarcode',
+                original_text: `바코드 스캔 | 브랜드: ${brand || '미선택'} | 이슈: ${issueType || '미선택'}`,
+                ai_analyzed_cause: data?.product_code || 'RECOGNITION_FAILED',
+                ai_cause_detail: data?.barcode_type || null,
+                ai_cause_summary: data?.product_code
+                    ? `인식 성공 — ${data.description || data.product_code}`
+                    : (data?.message || '바코드 인식 실패'),
+                ai_confidence: data?.product_code ? 'high' : 'low',
+                low_confidence_reason: data?.product_code ? null : (data?.message || '인식 불가'),
+            }).then(({ error }) => {
+                if (error) console.warn('바코드 로그 저장 실패:', error.message);
+            });
         } catch (err) {
             console.error('AI 바코드 분석 실패:', err);
             setAiResult({ success: false, message: '분석 중 오류가 발생했습니다.' });
