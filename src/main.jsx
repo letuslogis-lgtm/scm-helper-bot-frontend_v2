@@ -123,13 +123,20 @@ const AppContent = () => {
     );
 };
 
+const ProtectedMobileRoute = () => {
+    const { session, authLoading } = useAuth();
+    if (authLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-letusBlue">세션 확인 중...</div>;
+    if (!session) return <LoginView />;
+    return <MobileIssueRegister />;
+};
+
 const App = () => {
     return (
         <ErrorBoundary>
             <BrowserRouter>
                 <Routes>
-                    {/* 모바일 전용 경로 — 사이드바/헤더 없이 독립 렌더링 */}
-                    <Route path="/mobile" element={<MobileIssueRegister />} />
+                    {/* 모바일 전용 경로 — 인증 후 독립 렌더링 */}
+                    <Route path="/mobile" element={<ProtectedMobileRoute />} />
                     {/* 기존 데스크톱 앱 */}
                     <Route path="/*" element={<AppContent />} />
                 </Routes>
