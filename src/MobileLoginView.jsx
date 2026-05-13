@@ -5,7 +5,7 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
 
 export const MobileLoginView = () => {
-    const [email, setEmail] = useState('');
+    const [loginId, setLoginId] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -49,7 +49,8 @@ export const MobileLoginView = () => {
         setIsLoading(true);
         setError('');
         try {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            const targetEmail = loginId.includes('@') ? loginId : `${loginId}@letus.com`;
+            const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
             if (error) throw error;
         } catch {
             setError('이메일 또는 비밀번호를 확인해주세요.');
@@ -117,15 +118,15 @@ export const MobileLoginView = () => {
                     <p className="text-slate-800 font-black text-base mb-4">로그인</p>
                     <form onSubmit={handleLogin} className="flex flex-col gap-3">
                         <div>
-                            <label className="text-xs font-bold text-slate-500 mb-1.5 block">이메일</label>
+                            <label className="text-xs font-bold text-slate-500 mb-1.5 block">아이디 (ID)</label>
                             <input
-                                type="email"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                placeholder="이메일 주소를 입력하세요"
+                                type="text"
+                                value={loginId}
+                                onChange={e => setLoginId(e.target.value)}
+                                placeholder="아이디를 입력하세요"
                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue"
                                 required
-                                autoComplete="email"
+                                autoComplete="username"
                             />
                         </div>
                         <div>
