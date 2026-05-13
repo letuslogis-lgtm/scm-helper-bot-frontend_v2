@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { subscribePush } from './hooks/usePushNotification.js';
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
@@ -36,6 +37,10 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
     const [installPrompt, setInstallPrompt] = useState(null);
     const [installed, setInstalled] = useState(isStandalone);
     const [showGuide, setShowGuide] = useState(false);
+
+    useEffect(() => {
+        if (userProfile?.name) subscribePush(userProfile.name)
+    }, [userProfile?.name])
 
     useEffect(() => {
         if (window.deferredPrompt) setInstallPrompt(window.deferredPrompt);

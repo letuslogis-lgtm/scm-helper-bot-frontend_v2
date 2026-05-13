@@ -6,29 +6,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['pwa-192x192.png', 'pwa-512x512.png'],
-      workbox: {
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-        // 큰 lazy 청크(엑셀)는 첫 방문 시 precache 하지 않음 → 첫 로딩 부담 ↓
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globIgnores: ['**/excel-*.js'],
-        // 사용자가 엑셀 기능을 실제로 호출한 시점에 받아서, 그 다음부터는 캐시에서 즉시 응답
-        runtimeCaching: [
-          {
-            urlPattern: /\/assets\/excel-.*\.js$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'excel-chunk-cache',
-              expiration: {
-                maxEntries: 4,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1년
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
       },
       manifest: {
         name: 'LETUS LOGIS',
