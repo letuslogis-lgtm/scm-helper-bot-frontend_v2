@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
+import { loadXLSXStyle } from './utils.js';
 
 const INCIDENT_REASONS     = ['시공팀 상차 누락', '센터 과/오출', '확인 중', '미출고', '연기건 미상차', '반품건 미적재'];
 const CONSTRUCTION_ACTIONS = ['조치 완료', '센터 반납'];
@@ -35,9 +36,9 @@ const StepIndicator = ({ row }) => {
         !!(row.is_completed),
     ];
     const colors = [
-        { on: 'bg-amber-100 text-amber-700 border-amber-300',   off: 'bg-gray-100 text-gray-300 border-gray-200' },
-        { on: 'bg-blue-100 text-blue-700 border-blue-300',      off: 'bg-gray-100 text-gray-300 border-gray-200' },
-        { on: 'bg-green-100 text-green-700 border-green-300',   off: 'bg-gray-100 text-gray-300 border-gray-200' },
+        { on: 'bg-amber-100 text-amber-700 border-amber-300',    off: 'bg-gray-100 text-gray-300 border-gray-200' },
+        { on: 'bg-blue-100 text-blue-700 border-blue-300',       off: 'bg-gray-100 text-gray-300 border-gray-200' },
+        { on: 'bg-green-100 text-green-700 border-green-300',    off: 'bg-gray-100 text-gray-300 border-gray-200' },
         { on: 'bg-purple-100 text-purple-700 border-purple-300', off: 'bg-gray-100 text-gray-300 border-gray-200' },
     ];
     return (
@@ -197,7 +198,7 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
                         <Field label="조치 여부">{sel('receive_action', RECEIVE_ACTIONS, disabled4)}</Field>
                         <Field label="완결 여부" span={3}>
                             <div className={`flex items-center h-[30px] px-2.5 border rounded-[3px] text-xs ${form.is_completed ? 'bg-green-50 border-green-200 text-green-700 font-bold' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
-                                {form.is_completed ? '완결 (Y)' : '미완결 (N) — 수령 완료 선택 시 자동 처리'}
+                                {form.is_completed ? '완결 (Y)' : '미완결 (N) — 조치여부 선택 시 자동 처리'}
                             </div>
                         </Field>
                     </Section>
@@ -230,8 +231,8 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
         writer: userProfile?.name || '',
         brand: '', item_code: '', color: '', quantity: '',
     });
-    const [isSaving, setIsSaving]       = useState(false);
-    const [isLooking, setIsLooking]     = useState(false);
+    const [isSaving, setIsSaving]         = useState(false);
+    const [isLooking, setIsLooking]       = useState(false);
     const [lookupResult, setLookupResult] = useState(null);
     const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
 
@@ -319,6 +320,72 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
     );
 };
 
+// ── 일괄 변경 모달 ───────────────────────────────────────────────────────────
+const ReturnsBulkEditModal = ({ selectedIds, onClose, onReload }) => {
+    const FIELD_OPTIONS = {
+        incident_reason:    { label: '발생사유',          options: INCIDENT_REASONS },
+        construction_action:{ label: '조치여부 (시공)',    options: CONSTRUCTION_ACTIONS },
+        receive_action:     { label: '조치여부 (수신)',    options: RECEIVE_ACTIONS },
+    };
+    const [field, setField] = useState('incident_reason');
+    const [value, setValue] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async () => {
+        if (!value) return alert('변경 값을 선택해주세요.');
+        setIsSaving(true);
+        try {
+            const updateData = { [field]: value, updated_at: new Date().toISOString() };
+            if (field === 'receive_action' && value) updateData.is_completed = true;
+            const CHUNK = 200;
+            for (let i = 0; i < selectedIds.length; i += CHUNK) {
+                const chunk = selectedIds.slice(i, i + CHUNK);
+                const { error } = await supabase.from('logistics_returns').update(updateData).in('id', chunk);
+                if (error) throw error;
+            }
+            alert(`${selectedIds.length}건이 일괄 변경되었습니다.`);
+            onReload(); onClose();
+        } catch (e) { alert('저장 실패: ' + e.message); }
+        finally { setIsSaving(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-sm border border-gray-100 overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="font-black text-gray-900 text-sm">일괄 변경 ({selectedIds.length}건)</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="p-5 space-y-4">
+                    <div>
+                        <label className="text-[11px] font-bold text-gray-600 mb-1 block">변경 항목</label>
+                        <select value={field} onChange={e => { setField(e.target.value); setValue(''); }}
+                            className="w-full border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue cursor-pointer text-gray-700 bg-white">
+                            {Object.entries(FIELD_OPTIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[11px] font-bold text-gray-600 mb-1 block">변경 값</label>
+                        <select value={value} onChange={e => setValue(e.target.value)}
+                            className="w-full border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue cursor-pointer text-gray-700 bg-white">
+                            <option value="">선택</option>
+                            {(FIELD_OPTIONS[field]?.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded-[3px] hover:bg-gray-100">취소</button>
+                    <button onClick={handleSave} disabled={isSaving}
+                        className="px-4 py-2 bg-letusBlue text-white text-xs font-bold rounded-[3px] hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+                        {isSaving ? '저장 중...' : '일괄 변경'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 const ReturnsManagement = ({ userProfile }) => {
     const [items, setItems]                   = useState([]);
@@ -327,10 +394,13 @@ const ReturnsManagement = ({ userProfile }) => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [activeRow, setActiveRow]           = useState(null);
     const [selectedIds, setSelectedIds]       = useState(new Set());
+    const [isActionMenuOpen, setIsActionMenuOpen]   = useState(false);
+    const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+    const [sortConfig, setSortConfig]         = useState({ key: null, direction: 'none' });
 
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const today = new Date().toISOString().split('T')[0];
-    const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', completed: '전체' };
+    const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', returnCenter: '전체', completed: '전체' };
     const [draftFilters, setDraftFilters]     = useState(initialFilters);
     const [appliedFilters, setAppliedFilters] = useState(initialFilters);
 
@@ -339,7 +409,7 @@ const ReturnsManagement = ({ userProfile }) => {
     useEffect(() => { fetchWorkplaces(); }, []);
     useEffect(() => { fetchData(); }, [appliedFilters]);
 
-    const handleSearchClick = () => setAppliedFilters({ ...draftFilters });
+    const handleSearchClick = () => { setAppliedFilters({ ...draftFilters }); setSelectedIds(new Set()); };
 
     const fetchWorkplaces = async () => {
         const { data } = await supabase.from('workers').select('workplace').not('workplace', 'is', null);
@@ -350,12 +420,13 @@ const ReturnsManagement = ({ userProfile }) => {
         setIsLoading(true);
         try {
             let q = supabase.from('logistics_returns').select('*').order('created_at', { ascending: false });
-            if (appliedFilters.startDate) q = q.gte('incident_date', appliedFilters.startDate);
-            if (appliedFilters.endDate)   q = q.lte('incident_date', appliedFilters.endDate);
-            if (appliedFilters.center !== '전체')  q = q.eq('incident_center', appliedFilters.center);
-            if (appliedFilters.reason !== '전체')  q = q.eq('incident_reason', appliedFilters.reason);
-            if (appliedFilters.completed === 'Y') q = q.eq('is_completed', true);
-            if (appliedFilters.completed === 'N') q = q.eq('is_completed', false);
+            if (appliedFilters.startDate)              q = q.gte('incident_date', appliedFilters.startDate);
+            if (appliedFilters.endDate)                q = q.lte('incident_date', appliedFilters.endDate);
+            if (appliedFilters.center !== '전체')       q = q.eq('incident_center', appliedFilters.center);
+            if (appliedFilters.reason !== '전체')       q = q.eq('incident_reason', appliedFilters.reason);
+            if (appliedFilters.returnCenter !== '전체') q = q.eq('return_center', appliedFilters.returnCenter);
+            if (appliedFilters.completed === 'Y')      q = q.eq('is_completed', true);
+            if (appliedFilters.completed === 'N')      q = q.eq('is_completed', false);
             const { data, error } = await q;
             if (error) throw error;
             setItems(data || []);
@@ -363,19 +434,99 @@ const ReturnsManagement = ({ userProfile }) => {
         finally { setIsLoading(false); }
     };
 
+    // ── 정렬 ──
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key) {
+            if (sortConfig.direction === 'asc') direction = 'desc';
+            else if (sortConfig.direction === 'desc') direction = 'none';
+        }
+        setSortConfig({ key: direction === 'none' ? null : key, direction });
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return null;
+        return sortConfig.direction === 'asc'
+            ? <span className="ml-1 text-letusBlue">↑</span>
+            : <span className="ml-1 text-letusBlue">↓</span>;
+    };
+
+    const sortedItems = useMemo(() => {
+        const sortable = [...items];
+        if (sortConfig.key && sortConfig.direction !== 'none') {
+            sortable.sort((a, b) => {
+                const aVal = a[sortConfig.key] ?? '';
+                const bVal = b[sortConfig.key] ?? '';
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortable;
+    }, [items, sortConfig]);
+
+    // ── 삭제 ──
+    const handleDeleteSelected = async () => {
+        if (!isAdmin) return alert('삭제 권한이 없습니다. 관리자에게 문의하세요.');
+        if (selectedIds.size === 0) return alert('삭제할 항목을 체크해 주세요.');
+        if (!window.confirm(`선택하신 ${selectedIds.size}건의 데이터를 삭제하시겠습니까?\n이 작업은 복구할 수 없습니다.`)) return;
+        try {
+            const ids = Array.from(selectedIds);
+            const CHUNK = 200;
+            for (let i = 0; i < ids.length; i += CHUNK) {
+                const chunk = ids.slice(i, i + CHUNK);
+                const { error } = await supabase.from('logistics_returns').delete().in('id', chunk);
+                if (error) throw error;
+            }
+            alert(`${ids.length}건이 삭제되었습니다.`);
+            setSelectedIds(new Set());
+            fetchData();
+        } catch (e) { alert('삭제 중 오류: ' + e.message); }
+    };
+
+    // ── 엑셀 추출 ──
+    const handleExportExcel = async () => {
+        if (selectedIds.size === 0) return alert('다운로드할 항목을 선택해 주세요.');
+        const XLSX = await loadXLSXStyle();
+        const ids = Array.from(selectedIds);
+        const targetItems = sortedItems.filter(item => ids.includes(item.id));
+        const headersMap = {
+            incident_date: '발생일', incident_center: '발생센터', writer: '작성자',
+            brand: '브랜드', item_code: '품목코드', color: '색상', quantity: '수량',
+            incident_reason: '발생사유', construction_handler: '확인 담당자', construction_action: '조치여부(시공)',
+            return_center: '반납센터', return_date: '반납일자', return_handler: '반납 담당자',
+            receive_center: '수신센터', receiver: '수신자', receive_action: '조치여부(수신)',
+            is_completed: '완결여부', created_at: '등록일시',
+        };
+        const excelData = targetItems.map(row => {
+            const r = {};
+            Object.keys(headersMap).forEach(key => {
+                r[headersMap[key]] = key === 'is_completed' ? (row[key] ? 'Y' : 'N') : (row[key] ?? '');
+            });
+            return r;
+        });
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        ws['!cols'] = Object.keys(headersMap).map(() => ({ wch: 15 }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '회수품_데이터');
+        XLSX.writeFile(wb, `회수품_데이터_${today}.xlsx`);
+    };
+
     const filterSel = 'border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700 bg-white';
 
     const COLS = [
-        { isCheckbox: true, w: '44px'  },
-        { label: '발생일',  w: '90px'  },
-        { label: '발생센터', w: '110px' },
-        { label: '브랜드',  w: '80px'  },
-        { label: '품목코드', w: '130px' },
-        { label: '수량',    w: '70px'  },
-        { label: '발생 사유', w: '140px' },
-        { label: '진행 단계', w: '110px' },
-        { label: '완결',    w: '60px'  },
+        { isCheckbox: true,  key: null,              w: '44px'  },
+        { label: '발생일',    key: 'incident_date',   w: '90px'  },
+        { label: '발생센터',  key: 'incident_center', w: '110px' },
+        { label: '브랜드',    key: 'brand',            w: '80px'  },
+        { label: '품목코드',  key: 'item_code',        w: '130px' },
+        { label: '수량',      key: 'quantity',         w: '70px'  },
+        { label: '발생 사유', key: 'incident_reason',  w: '140px' },
+        { label: '진행 단계', key: null,               w: '110px' },
+        { label: '완결',      key: 'is_completed',     w: '60px'  },
     ];
+
+    const selectedArr = Array.from(selectedIds);
 
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
@@ -404,6 +555,13 @@ const ReturnsManagement = ({ userProfile }) => {
                         </select>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600">반납센터</label>
+                        <select value={draftFilters.returnCenter} onChange={e => setDraftFilters(p => ({ ...p, returnCenter: e.target.value }))} className={filterSel}>
+                            <option value="전체">전체</option>
+                            {RETURN_CENTER_LIST.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[11px] font-bold text-gray-600">완결여부</label>
                         <select value={draftFilters.completed} onChange={e => setDraftFilters(p => ({ ...p, completed: e.target.value }))} className={filterSel}>
                             <option value="전체">전체</option>
@@ -426,6 +584,57 @@ const ReturnsManagement = ({ userProfile }) => {
                 </div>
             </div>
 
+            {/* ── 선택실행 드롭박스 ── */}
+            <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0">
+                <div className="relative z-50">
+                    <button
+                        onClick={() => setIsActionMenuOpen(!isActionMenuOpen)}
+                        className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]"
+                    >
+                        선택실행 {selectedIds.size > 0 && `(${selectedIds.size})`}
+                        <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+
+                    {isActionMenuOpen && (
+                        <>
+                            <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)} />
+                            <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5">
+
+                                <button
+                                    onClick={() => { setIsActionMenuOpen(false); if (selectedIds.size === 0) return alert('항목을 체크해 주세요.'); setIsBulkEditModalOpen(true); }}
+                                    className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors ${selectedIds.size > 0 ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                >
+                                    일괄 변경
+                                </button>
+
+                                <div className="h-px bg-gray-100 my-1" />
+
+                                <button
+                                    onClick={() => { setIsActionMenuOpen(false); handleExportExcel(); }}
+                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.size > 0 ? 'text-green-600 hover:bg-green-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                >
+                                    엑셀 추출
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                </button>
+
+                                {isAdmin && (
+                                    <>
+                                        <div className="h-px bg-gray-100 my-1" />
+                                        <button
+                                            onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
+                                            className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.size > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        >
+                                            삭제
+                                            {selectedIds.size > 0 && <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
             {/* ── 테이블 ── */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar">
@@ -433,14 +642,24 @@ const ReturnsManagement = ({ userProfile }) => {
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
                                 {COLS.map((col, i) => (
-                                    <th key={i} className="p-4 text-center" style={{ width: col.w }}>
+                                    <th
+                                        key={i}
+                                        className={`p-4 text-center select-none ${col.key ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
+                                        style={{ width: col.w }}
+                                        onClick={() => col.key && requestSort(col.key)}
+                                    >
                                         {col.isCheckbox ? (
                                             <input type="checkbox"
-                                                checked={items.length > 0 && selectedIds.size === items.length}
-                                                onChange={e => setSelectedIds(e.target.checked ? new Set(items.map(r => r.id)) : new Set())}
+                                                checked={sortedItems.length > 0 && selectedIds.size === sortedItems.length}
+                                                onChange={e => setSelectedIds(e.target.checked ? new Set(sortedItems.map(r => r.id)) : new Set())}
                                                 className="w-4 h-4 cursor-pointer accent-letusBlue"
+                                                onClick={e => e.stopPropagation()}
                                             />
-                                        ) : col.label}
+                                        ) : (
+                                            <div className="flex items-center justify-center gap-1">
+                                                {col.label}{col.key && getSortIcon(col.key)}
+                                            </div>
+                                        )}
                                     </th>
                                 ))}
                             </tr>
@@ -453,12 +672,12 @@ const ReturnsManagement = ({ userProfile }) => {
                                         <p className="text-gray-500 font-bold">데이터 로딩 중...</p>
                                     </div>
                                 </td></tr>
-                            ) : items.length === 0 ? (
+                            ) : sortedItems.length === 0 ? (
                                 <tr><td colSpan={COLS.length} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
-                            ) : items.map((row, idx) => (
+                            ) : sortedItems.map(row => (
                                 <tr key={row.id}
                                     onClick={() => setActiveRow(row)}
-                                    className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${row.is_completed ? 'opacity-60' : ''}`}>
+                                    className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.has(row.id) ? 'bg-blue-50/50' : ''} ${row.is_completed ? 'opacity-60' : ''}`}>
                                     <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
                                         <input type="checkbox"
                                             checked={selectedIds.has(row.id)}
@@ -511,6 +730,15 @@ const ReturnsManagement = ({ userProfile }) => {
                     onSave={fetchData}
                     workplaceList={workplaceList}
                     userProfile={userProfile}
+                />
+            )}
+
+            {/* ── 일괄 변경 모달 ── */}
+            {isBulkEditModalOpen && (
+                <ReturnsBulkEditModal
+                    selectedIds={selectedArr}
+                    onClose={() => { setIsBulkEditModalOpen(false); setSelectedIds(new Set()); }}
+                    onReload={fetchData}
                 />
             )}
         </div>
