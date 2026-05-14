@@ -59,14 +59,7 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
         receive:      isAdmin || row.receive_center === myWorkplace,
     };
 
-    const [form, setForm] = useState(() => {
-        const initial = { ...row };
-        if (secs.field        && !initial.writer)               initial.writer               = myName;
-        if (secs.construction && !initial.construction_handler) initial.construction_handler = myName;
-        if (secs.field        && !initial.return_handler)       initial.return_handler       = myName;
-        if (secs.receive      && !initial.receiver)             initial.receiver             = myName;
-        return initial;
-    });
+    const [form, setForm]         = useState({ ...row });
     const [isSaving, setIsSaving] = useState(false);
 
     const set = (field, value) => setForm(prev => {
@@ -78,8 +71,13 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            const payload = { ...form, updated_at: new Date().toISOString() };
+            if (secs.field        && !payload.writer)               payload.writer               = myName;
+            if (secs.construction && !payload.construction_handler) payload.construction_handler = myName;
+            if (secs.field        && !payload.return_handler)       payload.return_handler       = myName;
+            if (secs.receive      && !payload.receiver)             payload.receiver             = myName;
             const { error } = await supabase.from('logistics_returns')
-                .update({ ...form, updated_at: new Date().toISOString() })
+                .update(payload)
                 .eq('id', row.id);
             if (error) throw error;
             onSaved();
@@ -163,7 +161,7 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
                         borderColor="border-amber-200" bgColor="bg-amber-50/40" titleColor="text-amber-700">
                         <Field label="발생일">{inp('incident_date', 'date', disabled1)}</Field>
                         <Field label="발생센터">{sel('incident_center', workplaceList, disabled1)}</Field>
-                        <Field label="작성자">{inp('writer', 'text', disabled1)}</Field>
+                        <Field label="작성자">{inp('writer', 'text', true)}</Field>
                         <Field label="브랜드">{inp('brand', 'text', disabled1)}</Field>
                         <Field label="품목코드">{inp('item_code', 'text', disabled1)}</Field>
                         <Field label="색상">{inp('color', 'text', disabled1)}</Field>
@@ -175,7 +173,7 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
                     <Section no="②" title="센터 시공 관리자 작성" canEdit={secs.construction}
                         borderColor="border-blue-200" bgColor="bg-blue-50/40" titleColor="text-blue-700">
                         <Field label="발생 사유">{sel('incident_reason', INCIDENT_REASONS, disabled2)}</Field>
-                        <Field label="확인 담당자">{inp('construction_handler', 'text', disabled2)}</Field>
+                        <Field label="확인 담당자">{inp('construction_handler', 'text', true)}</Field>
                         <Field label="조치 여부">{sel('construction_action', CONSTRUCTION_ACTIONS, disabled2)}</Field>
                     </Section>
 
@@ -184,14 +182,14 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
                         borderColor="border-green-200" bgColor="bg-green-50/40" titleColor="text-green-700">
                         <Field label="반납 센터">{sel('return_center', workplaceList, disabled1)}</Field>
                         <Field label="반납 일자">{inp('return_date', 'date', disabled1)}</Field>
-                        <Field label="반납 담당자">{inp('return_handler', 'text', disabled1)}</Field>
+                        <Field label="반납 담당자">{inp('return_handler', 'text', true)}</Field>
                     </Section>
 
                     {/* ④ 수신센터 */}
                     <Section no="④" title='수신센터 담당자 작성 (과출/오출 일시)' canEdit={secs.receive}
                         borderColor="border-purple-200" bgColor="bg-purple-50/40" titleColor="text-purple-700">
                         <Field label="수신센터">{sel('receive_center', workplaceList, disabled4)}</Field>
-                        <Field label="수신자">{inp('receiver', 'text', disabled4)}</Field>
+                        <Field label="수신자">{inp('receiver', 'text', true)}</Field>
                         <Field label="조치 여부">{sel('receive_action', RECEIVE_ACTIONS, disabled4)}</Field>
                         <Field label="완결 여부" span={3}>
                             <div className={`flex items-center h-[30px] px-2.5 border rounded-[3px] text-xs ${form.is_completed ? 'bg-green-50 border-green-200 text-green-700 font-bold' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
