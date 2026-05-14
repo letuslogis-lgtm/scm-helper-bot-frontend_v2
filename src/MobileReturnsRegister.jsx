@@ -79,10 +79,15 @@ export const MobileReturnsRegister = ({ userProfile }) => {
             });
             if (error) throw error;
             if (data?.product_code) {
-                setItemCode(data.product_code);
+                const fullCode = data.product_code;
+                const hyphenIdx = fullCode.indexOf('-');
+                const codePart  = hyphenIdx !== -1 ? fullCode.substring(0, hyphenIdx) : fullCode;
+                const colorPart = hyphenIdx !== -1 ? fullCode.substring(hyphenIdx + 1) : '';
+                setItemCode(codePart);
+                if (colorPart) setColor(colorPart);
                 if (data.brand) setBrand(data.brand);
-                setAiResult({ success: true, code: data.product_code });
-                await lookupFromDB(data.product_code);
+                setAiResult({ success: true, code: fullCode });
+                await lookupFromDB(codePart);
             } else {
                 setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
             }
@@ -164,7 +169,7 @@ export const MobileReturnsRegister = ({ userProfile }) => {
                         </svg>
                     </button>
                     <div>
-                        <h1 className="text-slate-800 font-black text-base leading-none">회수품/전시품 등록</h1>
+                        <h1 className="text-slate-800 font-black text-base leading-none">회수품 등록</h1>
                         <p className="text-slate-400 text-[11px] font-medium mt-0.5">LETUS LOGIS · Mobile</p>
                     </div>
                 </div>
@@ -223,7 +228,7 @@ export const MobileReturnsRegister = ({ userProfile }) => {
                         <div className={`mt-3 p-3 rounded-xl text-sm font-bold border
                             ${aiResult.success ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                             {aiResult.success
-                                ? <>✅ 인식 완료: <span className="text-slate-800">{aiResult.code}</span> — 아래 내용을 확인·수정 후 등록하세요</>
+                                ? <>✅ 인식 완료: <span className="text-slate-800">{aiResult.code}</span></>
                                 : <>⚠️ {aiResult.message}</>
                             }
                         </div>
