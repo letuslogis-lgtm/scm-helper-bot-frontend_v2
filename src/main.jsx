@@ -25,6 +25,7 @@ import { LoadingMap } from './LoadingMap.jsx';
 import { AiInsightLab } from './AiInsightLab.jsx';
 import { ReturnsManagement } from './ReturnsManagement.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
+import { MobileReturnsRegister } from './MobileReturnsRegister.jsx';
 import { MobileMenuScreen } from './MobileMenuScreen.jsx';
 import { MobileMyIssues } from './MobileMyIssues.jsx';
 import { MobileNotice } from './MobileNotice.jsx';
@@ -165,6 +166,7 @@ const ProtectedMobileRoute = () => {
                 />
             } />
             <Route path="register" element={<MobileIssueRegister />} />
+            <Route path="returns" element={<MobileReturnsRegister userProfile={userProfile} />} />
             <Route path="my-issues" element={
                 <MobileMyIssues userProfile={userProfile} onNotificationsRead={() => setCompletedNotiCount(0)} />
             } />

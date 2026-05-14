@@ -226,8 +226,26 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
         writer: userProfile?.name || '',
         brand: '', item_code: '', color: '', quantity: '',
     });
-    const [isSaving, setIsSaving] = useState(false);
+    const [isSaving, setIsSaving]       = useState(false);
+    const [isLooking, setIsLooking]     = useState(false);
+    const [lookupResult, setLookupResult] = useState(null);
     const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
+
+    const lookupProduct = async () => {
+        const code = form.item_code?.trim();
+        if (!code) return;
+        setIsLooking(true);
+        setLookupResult(null);
+        const { data } = await supabase.from('products').select('brand_category, item_color').eq('item_code', code).single();
+        if (data) {
+            set('brand', data.brand_category || '');
+            set('color', data.item_color || '');
+            setLookupResult('found');
+        } else {
+            setLookupResult('notfound');
+        }
+        setIsLooking(false);
+    };
 
     const handleSave = async () => {
         if (!form.incident_date || !form.incident_center) return alert('발생일과 발생센터는 필수입니다.');
@@ -264,8 +282,25 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
                         </select>
                     </div>
                     <div><label className={lbl}>작성자</label><input type="text" value={form.writer} readOnly className="w-full border border-gray-100 rounded-[3px] text-xs px-2.5 h-[30px] bg-gray-50 text-gray-400 cursor-not-allowed" /></div>
+                    <div className="col-span-2">
+                        <label className={lbl}>품목코드</label>
+                        <div className="flex gap-1.5">
+                            <input type="text" value={form.item_code}
+                                onChange={e => { set('item_code', e.target.value); setLookupResult(null); }}
+                                onKeyDown={e => e.key === 'Enter' && lookupProduct()}
+                                placeholder="품목코드 입력 후 조회"
+                                className={`flex-1 ${inp}`} />
+                            <button onClick={lookupProduct} disabled={isLooking || !form.item_code?.trim()}
+                                className="px-3 h-[30px] border border-letusBlue text-letusBlue text-xs font-bold rounded-[3px] hover:bg-blue-50 disabled:opacity-40 shrink-0 flex items-center gap-1 transition-colors">
+                                {isLooking
+                                    ? <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                    : '조회'}
+                            </button>
+                        </div>
+                        {lookupResult === 'found'    && <p className="text-[10px] text-green-600 font-bold mt-1">✓ 품목 정보 자동 입력됨</p>}
+                        {lookupResult === 'notfound' && <p className="text-[10px] text-amber-500 font-bold mt-1">DB에 없는 코드입니다 — 직접 입력하세요</p>}
+                    </div>
                     <div><label className={lbl}>브랜드</label><input type="text" value={form.brand} onChange={e => set('brand', e.target.value)} className={inp} /></div>
-                    <div><label className={lbl}>품목코드</label><input type="text" value={form.item_code} onChange={e => set('item_code', e.target.value)} className={inp} /></div>
                     <div><label className={lbl}>색상</label><input type="text" value={form.color} onChange={e => set('color', e.target.value)} className={inp} /></div>
                     <div className="col-span-2"><label className={lbl}>수량 <span className="text-[10px] text-gray-400">(숫자만)</span></label><input type="number" value={form.quantity} onChange={e => set('quantity', e.target.value)} className={inp} /></div>
                 </div>
