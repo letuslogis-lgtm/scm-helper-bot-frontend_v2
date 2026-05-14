@@ -602,7 +602,7 @@ const WorkerBulkEditModal = ({ selectedIds, workers, vendorList, onClose, onRelo
                                         <option value="">선택 안함</option>
                                         <option value="양지1센터">양지1센터</option><option value="양지2센터">양지2센터</option><option value="양지3센터">양지3센터</option>
                                         <option value="안성센터">안성센터</option><option value="평택센터">평택센터</option><option value="음성센터">음성센터</option>
-                                        <option value="동부센터">동부센터</option><option value="서부센터">서부센터</option>
+                                        <option value="대전센터">대전센터</option><option value="대구센터">대구센터</option><option value="부산센터">부산센터</option><option value="광주센터">광주센터</option>
                                     </select>
                                     <select value={empType} onChange={(e) => setEmpType(e.target.value)} className="border border-gray-300 rounded px-2.5 py-1.5 text-[11px] outline-none flex-1 bg-white cursor-pointer">
                                         <option value="현장직">현장직</option>
