@@ -25,7 +25,7 @@ const MENU_ITEMS = [
     {
         id: 'returns',
         icon: '🔄',
-        title: '회수품/전시품 등록',
+        title: '회수품 등록',
         subtitle: '오출고·과출고 품목 회수 접수',
         iconBg: 'bg-green-50',
         path: '/mobile/returns',
