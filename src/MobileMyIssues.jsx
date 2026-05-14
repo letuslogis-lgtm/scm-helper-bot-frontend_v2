@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient.js';
 
@@ -17,15 +17,21 @@ const formatDate = (dt) => {
 };
 
 const today = () => new Date().toISOString().split('T')[0];
-const monthAgo = () => {
+const daysAgo = (n) => {
     const d = new Date();
-    d.setMonth(d.getMonth() - 1);
+    d.setDate(d.getDate() - n);
     return d.toISOString().split('T')[0];
 };
 
 const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
     const [start, setStart] = useState(dateRange.start);
     const [end, setEnd] = useState(dateRange.end);
+    const endDateRef = useRef(null);
+
+    const handleStartChange = (e) => {
+        setStart(e.target.value);
+        setTimeout(() => endDateRef.current?.focus(), 100);
+    };
 
     return (
         <>
@@ -44,7 +50,7 @@ const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
                                 type="date"
                                 value={start}
                                 max={end || today()}
-                                onChange={e => setStart(e.target.value)}
+                                onChange={handleStartChange}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue"
                             />
                         </div>
@@ -52,6 +58,7 @@ const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
                         <div className="flex-1">
                             <label className="text-[11px] font-bold text-slate-400 mb-1.5 block">종료일</label>
                             <input
+                                ref={endDateRef}
                                 type="date"
                                 value={end}
                                 min={start}
@@ -65,10 +72,10 @@ const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
                     {/* 빠른 선택 */}
                     <div className="flex gap-2">
                         {[
-                            { label: '오늘', s: today(), e: today() },
-                            { label: '이번 주', s: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split('T')[0]; })(), e: today() },
+                            { label: '오늘',    s: today(),      e: today() },
+                            { label: '3일',     s: daysAgo(3),   e: today() },
                             { label: '이번 달', s: (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; })(), e: today() },
-                            { label: '한 달', s: monthAgo(), e: today() },
+                            { label: '한 달',   s: daysAgo(30),  e: today() },
                         ].map(({ label, s, e }) => (
                             <button
                                 key={label}
@@ -198,7 +205,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedIssue, setSelectedIssue] = useState(null);
     const [activeTab, setActiveTab] = useState('전체');
-    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [dateRange, setDateRange] = useState({ start: daysAgo(3), end: today() });
     const [showDateSheet, setShowDateSheet] = useState(false);
 
     const fetchIssues = async (range = dateRange) => {
@@ -271,7 +278,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                     <div className="flex-1">
                         <p className="text-slate-800 font-black text-base leading-none">등록 이력</p>
                         {userProfile?.team && (
-                            <p className="text-slate-400 text-xs mt-0.5">{userProfile.team} 팀</p>
+                            <p className="text-slate-400 text-xs mt-0.5">{userProfile.team}</p>
                         )}
                     </div>
                     {/* 날짜 필터 버튼 */}
