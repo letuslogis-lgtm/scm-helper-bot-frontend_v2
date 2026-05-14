@@ -77,10 +77,15 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
         setIsSaving(true);
         try {
             const payload = { ...form, updated_at: new Date().toISOString() };
-            if (secs.field        && !payload.writer)               payload.writer               = myName;
-            if (secs.construction && !payload.construction_handler) payload.construction_handler = myName;
-            if (secs.field        && !payload.return_handler)       payload.return_handler       = myName;
-            if (secs.receive      && !payload.receiver)             payload.receiver             = myName;
+            const changed = (fields) => fields.some(f => (form[f] ?? '') !== (row[f] ?? ''));
+            const sec1Changed = changed(['incident_date', 'incident_center', 'brand', 'item_code', 'color', 'quantity', 'incident_reason']);
+            const sec2Changed = changed(['construction_action', 'construction_handler']);
+            const sec3Changed = changed(['return_center', 'return_date', 'return_handler']);
+            const sec4Changed = changed(['receive_center', 'receive_action', 'receiver']);
+            if (secs.field        && sec1Changed && !payload.writer)               payload.writer               = myName;
+            if (secs.construction && sec2Changed && !payload.construction_handler) payload.construction_handler = myName;
+            if (secs.field        && sec3Changed && !payload.return_handler)       payload.return_handler       = myName;
+            if (secs.receive      && sec4Changed && !payload.receiver)             payload.receiver             = myName;
             const { error } = await supabase.from('logistics_returns')
                 .update(payload)
                 .eq('id', row.id);
@@ -576,6 +581,7 @@ const ReturnsManagement = ({ userProfile }) => {
         { label: '발생센터',  key: 'incident_center', w: '110px' },
         { label: '브랜드',    key: 'brand',            w: '80px'  },
         { label: '품목코드',  key: 'item_code',        w: '130px' },
+        { label: '색상',      key: 'color',            w: '80px'  },
         { label: '수량',      key: 'quantity',         w: '70px'  },
         { label: '발생 사유', key: 'incident_reason',  w: '140px' },
         { label: '진행 단계', key: null,               w: '110px' },
@@ -749,6 +755,7 @@ const ReturnsManagement = ({ userProfile }) => {
                                     <td className="p-4 text-center font-semibold">{row.incident_center || '-'}</td>
                                     <td className="p-4 text-center text-gray-600">{row.brand || '-'}</td>
                                     <td className="p-4 text-center font-mono text-gray-500">{row.item_code || '-'}</td>
+                                    <td className="p-4 text-center text-gray-600">{row.color || '-'}</td>
                                     <td className="p-4 text-center font-bold">{row.quantity != null ? `${row.quantity} EA` : '-'}</td>
                                     <td className="p-4 text-center">
                                         {row.incident_reason
