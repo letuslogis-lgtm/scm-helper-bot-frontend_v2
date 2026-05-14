@@ -1,6 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
 import { CloseIcon, formatDateTime } from './SharedUI.jsx';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts';
+
+// 표준 분류 온톨로지 (7대분류 × 29개 코드)
+const CATEGORY_DATA = [
+    { group: '현장 운영 귀책', codes: ['W-01 피킹 수량 누락', 'W-02 오피킹', 'W-03 PLT 오분배·미분배', 'W-04 오합적', 'W-05 평탄화·이동 누락', 'W-06 작업 중 파손', 'W-07 재고 관리 미흡'] },
+    { group: '시공팀 귀책', codes: ['I-01 오상차·미상차', 'I-02 분실', 'I-03 오등록', 'I-04 파손 공유 누락', 'I-05 회수 미진행'] },
+    { group: '전산/시스템 오류', codes: ['S-01 WMS 오류', 'S-02 운송 전산 오류', 'S-03 수주·A/S 미등록'] },
+    { group: '서류/정보 불일치', codes: ['D-01 일정 변경 미공유', 'D-02 긴급건 미공유', 'D-03 오기재', 'D-04 연기건 미분배'] },
+    { group: '공급망 이슈', codes: ['V-01 재고 부족', 'V-02 화주사 입고 지연', 'V-03 생산 지연'] },
+    { group: '프로세스 미준수', codes: ['P-01 포장·랩핑 불량', 'P-02 적재 불량', 'P-03 검수 불량·훼손 출고'] },
+    { group: '기타', codes: ['E-01 원인 불명', 'E-02 고객 귀책', 'E-03 정상 출고', 'E-04 직출·택배·화주사 직출'] },
+];
+
+const BAR_COLORS = ['#3b82f6', '#8b5cf6', '#f97316', '#10b981', '#ef4444', '#f59e0b', '#06b6d4'];
+const PIE_COLORS = ['#10b981', '#f59e0b', '#ef4444'];
 
 const CategoryGuideModal = ({ onClose }) => (
     <div className="fixed inset-0 bg-black/40 z-[300] flex items-center justify-center p-4" onClick={onClose}>
@@ -32,13 +50,15 @@ export const AiInsightLab = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
+    const [showCharts, setShowCharts] = useState(false);
+    const [isReAnalyzing, setIsReAnalyzing] = useState(false);
 
     // 필터
     const [confidenceFilter, setConfidenceFilter] = useState('전체');
     const [reviewFilter, setReviewFilter] = useState('미검토');
     const [sourceFilter, setSourceFilter] = useState('전체');
     const [searchValue, setSearchValue] = useState('');
-    
+
     const getLocalYYYYMMDD = (dateObj) => {
         const pad = n => n.toString().padStart(2, '0');
         return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}`;
@@ -150,7 +170,8 @@ export const AiInsightLab = () => {
 
     // 관리자 보정 저장
     const handleSaveCorrection = async () => {
-        if (!correctedCause.trim()) return alert('정확한 대분류(원인)를 입력해주세요.');
+        if (!correctedCause.trim()) return alert('대분류(원인)를 선택해주세요.');
+        if (!correctedDetail.trim()) return alert('소분류 코드를 선택해주세요.');
         try {
             const { error } = await supabase
                 .from('ai_analysis_logs')
@@ -163,20 +184,16 @@ export const AiInsightLab = () => {
                 .eq('id', activeRow.id);
             if (error) throw error;
 
-            // 💡 [추가] 원본 메뉴 데이터에도 보정된 결과 반영 (동기화)
             if (activeRow.source_menu === 'AccidentManagement' && activeRow.target_id) {
                 const { error: targetError } = await supabase
                     .from('logistics_accidents')
                     .update({
                         ai_analyzed_cause: correctedCause,
                         ai_cause_detail: correctedDetail,
-                        ai_confidence: 'human' // ⚙️ 관리자 수정 마커 추가
+                        ai_confidence: 'human'
                     })
                     .eq('id', activeRow.target_id);
-                if (targetError) {
-                    console.error('원본 데이터 업데이트 실패:', targetError);
-                    // 실패해도 보정 내역 자체는 저장되었으므로 진행
-                }
+                if (targetError) console.error('원본 데이터 업데이트 실패:', targetError);
             }
 
             alert('보정이 완료되었습니다. 이 데이터는 향후 AI 학습에 반영됩니다!');
@@ -187,7 +204,7 @@ export const AiInsightLab = () => {
         }
     };
 
-    // 일괄 검토 완료 (Bulk 처리)
+    // 일괄 검토 완료
     const handleBulkReview = async () => {
         if (selectedIds.length === 0) return alert('선택된 항목이 없습니다.');
         if (!window.confirm(`선택한 ${selectedIds.length}건을 AI 분석 결과 그대로 정답으로 인정(일괄 검토 완료) 하시겠습니까?`)) return;
@@ -210,12 +227,100 @@ export const AiInsightLab = () => {
         }
     };
 
+    // AI 재분석 트리거
+    const handleReAnalyze = async () => {
+        const accidentRows = sortedLogs.filter(r =>
+            selectedIds.includes(r.id) && r.source_menu === 'AccidentManagement' && r.target_id
+        );
+        if (accidentRows.length === 0) {
+            return alert('재분석은 "사고분석" 출처 항목만 가능합니다.\n선택한 항목 중 해당 건이 없습니다.');
+        }
+        if (!window.confirm(`선택한 ${accidentRows.length}건을 AI 재분석하시겠습니까?\n기존 분석 결과가 새 결과로 덮어씌워집니다.`)) return;
+
+        setIsReAnalyzing(true);
+        try {
+            const targetIds = accidentRows.map(r => r.target_id);
+            const { data, error } = await supabase.functions.invoke('analyze-accidents', {
+                body: { ids: targetIds, forceReanalyze: true }
+            });
+            if (error) throw error;
+
+            const stats = data?.confidence_stats || {};
+            alert(`✨ AI 재분석 완료!\n처리: ${data?.processed_count ?? 0}건\n• 고신뢰: ${stats.high || 0} / 중: ${stats.medium || 0} / 저: ${stats.low || 0}`);
+            setSelectedIds([]);
+            fetchLogs();
+        } catch (err) {
+            alert('재분석 실패: ' + err.message);
+        } finally {
+            setIsReAnalyzing(false);
+        }
+    };
+
+    // 학습 데이터 CSV 내보내기
+    const handleExportCSV = () => {
+        const exportData = logs.filter(l => l.is_reviewed && l.corrected_cause);
+        if (exportData.length === 0) {
+            return alert('내보낼 학습 데이터가 없습니다.\n보정 완료된 항목이 있어야 내보낼 수 있습니다.');
+        }
+        const esc = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
+        const headers = ['분석일시', '출처', '원본내용', 'AI_대분류', 'AI_소분류', 'AI_신뢰도', '정답_대분류', '정답_소분류', '검토일시'];
+        const rows = exportData.map(l => [
+            esc(l.created_at), esc(l.source_menu), esc(l.original_text),
+            esc(l.ai_analyzed_cause), esc(l.ai_cause_detail), esc(l.ai_confidence),
+            esc(l.corrected_cause), esc(l.corrected_detail), esc(l.reviewed_at),
+        ]);
+        const csvContent = '﻿' + [headers, ...rows].map(r => r.join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AI학습데이터_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     const getConfidenceBadge = (conf) => {
         if (conf === 'high') return <span className="px-2 py-1 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">🟢 높음</span>;
         if (conf === 'medium') return <span className="px-2 py-1 rounded text-[10px] font-bold bg-yellow-50 text-yellow-600 border border-yellow-200">🟡 보통</span>;
         if (conf === 'low') return <span className="px-2 py-1 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-200 animate-pulse">🔴 낮음</span>;
         return <span className="text-gray-400 font-bold">-</span>;
     };
+
+    // 차트 데이터 계산
+    const chartData = useMemo(() => {
+        const confCounts = { high: 0, medium: 0, low: 0 };
+        logs.forEach(l => { if (l.ai_confidence in confCounts) confCounts[l.ai_confidence]++; });
+        const confidenceData = [
+            { name: '높음', value: confCounts.high, color: PIE_COLORS[0] },
+            { name: '보통', value: confCounts.medium, color: PIE_COLORS[1] },
+            { name: '낮음', value: confCounts.low, color: PIE_COLORS[2] },
+        ].filter(d => d.value > 0);
+
+        const causeCounts = {};
+        logs.forEach(l => {
+            if (l.ai_analyzed_cause) causeCounts[l.ai_analyzed_cause] = (causeCounts[l.ai_analyzed_cause] || 0) + 1;
+        });
+        const categoryData = Object.entries(causeCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 7);
+
+        return { confidenceData, categoryData };
+    }, [logs]);
+
+    // 보정 모달에서 대분류 선택 시 소분류 초기화
+    const handleCauseChange = (val) => {
+        setCorrectedCause(val);
+        setCorrectedDetail('');
+    };
+
+    // 현재 선택 중 사고분석 출처 건 수
+    const selectedAccidentCount = selectedIds.filter(id => {
+        const row = sortedLogs.find(r => r.id === id);
+        return row?.source_menu === 'AccidentManagement' && row?.target_id;
+    }).length;
 
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
@@ -241,6 +346,83 @@ export const AiInsightLab = () => {
                     <span className="text-xs font-bold text-orange-500 mb-1">📱 모바일 바코드</span>
                     <span className="text-2xl font-black text-orange-600">{logs.filter(l => l.source_menu === 'MobileBarcode').length} <span className="text-sm font-bold text-orange-300 ml-1">건</span></span>
                 </div>
+            </div>
+
+            {/* 통계 차트 섹션 (토글) */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 shrink-0 overflow-hidden">
+                <div
+                    className="px-5 py-3 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors"
+                    onClick={() => setShowCharts(!showCharts)}
+                >
+                    <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
+                        📊 통계 차트
+                        {logs.length > 0 && (
+                            <span className="text-[10px] font-normal text-slate-400">— 전체 {logs.length}건 기준</span>
+                        )}
+                    </span>
+                    <span className="text-xs text-slate-400 font-bold flex items-center gap-1">
+                        {showCharts ? '접기' : '펼치기'}
+                        <svg className={`w-3.5 h-3.5 transition-transform ${showCharts ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </span>
+                </div>
+                {showCharts && (
+                    <div className="grid grid-cols-2 gap-6 px-6 pb-5 pt-2 border-t border-slate-100">
+                        {/* 신뢰도 분포 파이차트 */}
+                        <div>
+                            <div className="text-[11px] font-bold text-slate-500 mb-2 text-center">신뢰도 분포</div>
+                            {chartData.confidenceData.length === 0 ? (
+                                <div className="h-[180px] flex items-center justify-center text-gray-400 text-xs">데이터 없음</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={180}>
+                                    <PieChart>
+                                        <Pie
+                                            data={chartData.confidenceData}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={65}
+                                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                            labelLine={false}
+                                        >
+                                            {chartData.confidenceData.map((entry, idx) => (
+                                                <Cell key={idx} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(v) => [`${v}건`, '건수']} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                        {/* 대분류 빈도 가로 막대차트 */}
+                        <div>
+                            <div className="text-[11px] font-bold text-slate-500 mb-2 text-center">대분류별 빈도 (상위 7)</div>
+                            {chartData.categoryData.length === 0 ? (
+                                <div className="h-[180px] flex items-center justify-center text-gray-400 text-xs">데이터 없음</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={180}>
+                                    <BarChart
+                                        data={chartData.categoryData}
+                                        layout="vertical"
+                                        margin={{ left: 0, right: 24, top: 4, bottom: 4 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                        <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10 }} />
+                                        <Tooltip formatter={(v) => [`${v}건`, '건수']} />
+                                        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                                            {chartData.categoryData.map((_, idx) => (
+                                                <Cell key={idx} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* 필터 및 검색 구역 */}
@@ -283,11 +465,38 @@ export const AiInsightLab = () => {
                 </div>
                 <div className="flex items-center gap-2">
                     {selectedIds.length > 0 && (
-                        <button onClick={handleBulkReview} className="bg-green-600 text-white hover:bg-green-700 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                            선택 {selectedIds.length}건 검토완료
-                        </button>
+                        <>
+                            <button
+                                onClick={handleBulkReview}
+                                className="bg-green-600 text-white hover:bg-green-700 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                선택 {selectedIds.length}건 검토완료
+                            </button>
+                            {selectedAccidentCount > 0 && (
+                                <button
+                                    onClick={handleReAnalyze}
+                                    disabled={isReAnalyzing}
+                                    className="bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up"
+                                >
+                                    {isReAnalyzing ? (
+                                        <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />재분석 중...</>
+                                    ) : (
+                                        <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                        🤖 AI 재분석 ({selectedAccidentCount}건)</>
+                                    )}
+                                </button>
+                            )}
+                        </>
                     )}
+                    <button
+                        onClick={handleExportCSV}
+                        className="bg-slate-700 text-white hover:bg-slate-800 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5"
+                        title={`보정 완료 데이터 CSV 내보내기 (${logs.filter(l => l.is_reviewed && l.corrected_cause).length}건)`}
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        학습 데이터 내보내기
+                    </button>
                     <button onClick={fetchLogs} className="bg-letusBlue text-white hover:bg-blue-600 font-bold px-4 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                         새로고침
@@ -334,17 +543,11 @@ export const AiInsightLab = () => {
                                     <td className="p-4 text-center font-mono text-xs text-gray-500">{formatDateTime(row.created_at)}</td>
                                     <td className="p-4 text-center font-bold text-gray-600">
                                         {row.source_menu === 'MobileBarcode' ? (
-                                            <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded text-[11px] border border-orange-200">
-                                                📱 바코드
-                                            </span>
+                                            <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded text-[11px] border border-orange-200">📱 바코드</span>
                                         ) : row.source_menu === 'AccidentManagement' ? (
-                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px] border border-slate-200">
-                                                📋 사고분석
-                                            </span>
+                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px] border border-slate-200">📋 사고분석</span>
                                         ) : (
-                                            <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px] border border-slate-200">
-                                                {row.source_menu}
-                                            </span>
+                                            <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px] border border-slate-200">{row.source_menu}</span>
                                         )}
                                     </td>
                                     <td className="p-4 whitespace-normal text-left max-w-[300px] border-l border-gray-50 bg-gray-50/20">
@@ -363,21 +566,26 @@ export const AiInsightLab = () => {
                                                     {row.ai_analyzed_cause || '-'}
                                                 </span>
                                                 {row.ai_cause_detail && (
-                                                    <span className="text-[10px] font-bold text-purple-500 tracking-tight whitespace-nowrap">
-                                                        {row.ai_cause_detail}
-                                                    </span>
+                                                    <span className="text-[10px] font-bold text-purple-500 tracking-tight whitespace-nowrap">{row.ai_cause_detail}</span>
                                                 )}
                                             </div>
                                         </div>
                                     </td>
+                                    <td className="p-4 text-center">{getConfidenceBadge(row.ai_confidence)}</td>
                                     <td className="p-4 text-center">
-                                        {getConfidenceBadge(row.ai_confidence)}
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        {row.is_reviewed ? <span className="font-bold text-green-600 text-[11px]">✅ 보정됨</span> : <span className="font-bold text-gray-400 text-[11px] bg-gray-50 px-2 py-0.5 rounded border border-gray-100">대기</span>}
+                                        {row.is_reviewed
+                                            ? <span className="font-bold text-green-600 text-[11px]">✅ 보정됨</span>
+                                            : <span className="font-bold text-gray-400 text-[11px] bg-gray-50 px-2 py-0.5 rounded border border-gray-100">대기</span>}
                                     </td>
                                     <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                                        <button onClick={() => { setActiveRow(row); setCorrectedCause(row.corrected_cause || row.ai_analyzed_cause || ''); setCorrectedDetail(row.corrected_detail || row.ai_cause_detail || ''); }} className={`px-3 py-1.5 border text-xs font-bold rounded shadow-sm transition-colors ${row.is_reviewed ? 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100' : 'border-blue-200 text-letusBlue bg-white hover:bg-blue-50'}`}>
+                                        <button
+                                            onClick={() => {
+                                                setActiveRow(row);
+                                                setCorrectedCause(row.corrected_cause || row.ai_analyzed_cause || '');
+                                                setCorrectedDetail(row.corrected_detail || row.ai_cause_detail || '');
+                                            }}
+                                            className={`px-3 py-1.5 border text-xs font-bold rounded shadow-sm transition-colors ${row.is_reviewed ? 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100' : 'border-blue-200 text-letusBlue bg-white hover:bg-blue-50'}`}
+                                        >
                                             {row.is_reviewed ? '내역 보기' : '검토/보정'}
                                         </button>
                                     </td>
@@ -400,11 +608,11 @@ export const AiInsightLab = () => {
                             </h3>
                             <button onClick={() => setActiveRow(null)} className="p-1 text-gray-400 hover:text-gray-600"><CloseIcon /></button>
                         </div>
-                        <div className="p-5 space-y-5">
+                        <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh] custom-scrollbar">
                             {/* 원본 텍스트 */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-1">원본 텍스트 (판단 대상)</label>
-                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[150px] overflow-y-auto custom-scrollbar">
+                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[120px] overflow-y-auto custom-scrollbar">
                                     {activeRow.original_text}
                                 </div>
                             </div>
@@ -445,13 +653,40 @@ export const AiInsightLab = () => {
                                 </div>
 
                                 <div className="flex flex-col gap-3">
+                                    {/* 대분류 드롭다운 */}
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-500 mb-1">정확한 대분류 <span className="text-letusOrange">*</span></label>
-                                        <input type="text" value={correctedCause} onChange={e => setCorrectedCause(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none font-bold" placeholder="예: 배송오류" />
+                                        <label className="block text-[11px] font-bold text-gray-500 mb-1.5">
+                                            정확한 대분류 <span className="text-letusOrange">*</span>
+                                        </label>
+                                        <select
+                                            value={correctedCause}
+                                            onChange={e => handleCauseChange(e.target.value)}
+                                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer"
+                                        >
+                                            <option value="">-- 대분류 선택 --</option>
+                                            {CATEGORY_DATA.map(cat => (
+                                                <option key={cat.group} value={cat.group}>{cat.group}</option>
+                                            ))}
+                                        </select>
                                     </div>
+                                    {/* 소분류 드롭다운 */}
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-500 mb-1">정확한 소분류</label>
-                                        <input type="text" value={correctedDetail} onChange={e => setCorrectedDetail(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none" placeholder="예: 주소오기재" />
+                                        <label className="block text-[11px] font-bold text-gray-500 mb-1.5">
+                                            정확한 소분류 코드 <span className="text-letusOrange">*</span>
+                                        </label>
+                                        <select
+                                            value={correctedDetail}
+                                            onChange={e => setCorrectedDetail(e.target.value)}
+                                            disabled={!correctedCause}
+                                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                        >
+                                            <option value="">
+                                                {correctedCause ? '-- 소분류 선택 --' : '먼저 대분류를 선택해주세요'}
+                                            </option>
+                                            {CATEGORY_DATA.find(c => c.group === correctedCause)?.codes.map(code => (
+                                                <option key={code} value={code}>{code}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <p className="text-[10px] text-gray-400 font-medium leading-tight mt-1">
                                         * 여기서 관리자가 입력한 보정 데이터는, 향후 AI의 판별 정확도를 높이기 위한 Fine-tuning(미세조정) 학습 데이터 셋으로 귀중하게 활용됩니다.
