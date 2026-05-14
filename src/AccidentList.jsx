@@ -493,10 +493,14 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                         else { const d = new Date(matchedWms.time); if (!isNaN(d.getTime())) h = d.getHours(); }
                         if (h !== undefined) shift = (h >= 9 && h < 18) ? '주간' : '야간';
                     }
+                    const isNormal = type === '정상출고';
                     processed.push({
                         service_date: accDate && String(accDate).trim() !== '' ? accDate : null, brand: brandStr || '알수없음', service_center: row['서비스센터'] || '', service_type: row['시공/AS'] || '',
                         order_no: orderId, order_name: row['수주건명'] || '', item_code: finalItemCode, issue_qty: parseInt(row['이슈수량']) || 0,
-                        action_result: type, is_delayed: isDelayed, location: rawLocation, zone: zone, worker_name: matchedWms.worker || '', shift_type: shift, status: '원인 파악 중'
+                        action_result: type, is_delayed: isDelayed, location: rawLocation, zone: zone, worker_name: matchedWms.worker || '', shift_type: shift,
+                        cause_detail: issueStr || '',
+                        ...(isNormal ? { ai_analyzed_cause: 'E-03', ai_cause_detail: '정상 출고', ai_confidence: 'high' } : {}),
+                        status: '원인 파악 중'
                     });
                 });
 
@@ -506,7 +510,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                 let existingData = []; const FETCH_CHUNK = 200;
                 for (let i = 0; i < orderNos.length; i += FETCH_CHUNK) {
                     const chunkOrders = orderNos.slice(i, i + FETCH_CHUNK);
-                    const { data, error } = await supabase.from('logistics_accidents').select('id, order_no, item_code, is_delayed, location, zone, worker_name, shift_type').in('order_no', chunkOrders);
+                    const { data, error } = await supabase.from('logistics_accidents').select('id, order_no, item_code, is_delayed, location, zone, worker_name, shift_type, ai_analyzed_cause').in('order_no', chunkOrders);
                     if (!error && data) existingData = [...existingData, ...data];
                 }
 
@@ -525,7 +529,10 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                         toUpdate.push({
                             id: existingRow.id, service_date: p.service_date, brand: p.brand, service_center: p.service_center, service_type: p.service_type,
                             order_no: p.order_no, order_name: p.order_name, item_code: p.item_code, issue_qty: p.issue_qty, action_result: p.action_result,
-                            is_delayed: finalDelayed, location: finalLocation, zone: finalZone, worker_name: finalWorker, shift_type: finalShift, updated_at: new Date().toISOString()
+                            is_delayed: finalDelayed, location: finalLocation, zone: finalZone, worker_name: finalWorker, shift_type: finalShift,
+                            cause_detail: p.cause_detail,
+                            ...(p.action_result === '정상출고' && !existingRow.ai_analyzed_cause ? { ai_analyzed_cause: 'E-03', ai_cause_detail: '정상 출고', ai_confidence: 'high' } : {}),
+                            updated_at: new Date().toISOString()
                         });
                     }
                 });
