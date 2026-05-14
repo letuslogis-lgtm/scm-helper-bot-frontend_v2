@@ -292,7 +292,7 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                                         <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">파악 중</span>
                                         <span
                                             className={`font-bold text-base sm:text-lg cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-red-500' : 'text-gray-400'}`}
-                                            onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], statuses: ['원인 파악 중'] }); }}
+                                            onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], statuses: ['원인 파악 중'], startDate, endDate }); }}
                                         >
                                             {stats.pending}
                                         </span>
@@ -302,7 +302,7 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                                         <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">등록 완료</span>
                                         <span
                                             className={`font-bold text-base sm:text-lg cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-green-500' : 'text-gray-400'}`}
-                                            onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], statuses: ['등록 완료'] }); }}
+                                            onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], statuses: ['등록 완료'], startDate, endDate }); }}
                                         >
                                             {stats.completed}
                                         </span>
@@ -312,7 +312,7 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                                         <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">납기 지연</span>
                                         <span
                                             className={`font-bold text-base sm:text-lg cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-orange-500' : 'text-gray-400'}`}
-                                            onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], isDelayed: '지연' }); }}
+                                            onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], isDelayed: '지연', startDate, endDate }); }}
                                         >
                                             {stats.delayed}
                                         </span>
