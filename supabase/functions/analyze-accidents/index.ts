@@ -74,9 +74,30 @@ const DETAIL_TO_MAJOR: Record<string, string> = {
 }
 
 // ============================================================
-// 🤖 프롬프트 빌더 (✨ v4: AI Log 대응)
+// 🤖 프롬프트 빌더 (✨ v5: Few-shot 실제 보정 사례 주입)
 // ============================================================
-function buildBatchPrompt(records: any[]): string {
+function buildFewShotSection(examples: any[]): string {
+  if (!examples || examples.length === 0) return ''
+
+  const lines = examples
+    .filter(ex => ex.original_text && ex.corrected_detail)
+    .slice(0, 12)
+    .map(ex => {
+      // "W-01 피킹 수량 누락" → "W-01" 코드만 추출
+      const codeMatch = String(ex.corrected_detail).match(/^([A-Z]-\d{2})/)
+      const code = codeMatch ? codeMatch[1] : ex.corrected_detail
+      const shortText = ex.original_text.replace(/\n/g, ' ').substring(0, 80)
+      return `• "${shortText}..." → ${code} ${ex.corrected_detail.replace(/^[A-Z]-\d{2}\s*/, '')} (${ex.corrected_cause})`
+    })
+    .join('\n')
+
+  return `[📚 관리자 검토·보정 완료 실제 정답 사례 — 아래 패턴을 반드시 참고하세요]
+${lines}
+
+`
+}
+
+function buildBatchPrompt(records: any[], fewShotExamples: any[] = []): string {
   const recordsText = records.map(record => `[사고 ID: ${record.id}]
 - 조치결과: ${record.action_result ?? '(미상)'}
 - 이슈수량: ${record.issue_qty ?? 0}
@@ -90,12 +111,14 @@ function buildBatchPrompt(records: any[]): string {
 - 원인메모: ${record.cause_detail ?? '(없음)'}
 - 조치내용: ${record.action_content ?? '(없음)'}`).join('\n\n========================\n\n')
 
+  const fewShotSection = buildFewShotSection(fewShotExamples)
+
   return `당신은 물류 사고 원인 분석 전문가입니다.
 아래 사고 데이터 ${records.length}건을 개별적으로 분석하고, 반드시 지정된 JSON 배열(Array) 형식으로 한 번에 응답하세요.
 
 ${CATEGORY_SYSTEM}
 
-[출력 형식 — 반드시 아래 형태의 JSON 배열([])만 출력할 것]
+${fewShotSection}[출력 형식 — 반드시 아래 형태의 JSON 배열([])만 출력할 것]
 [
   {
     "id": "입력받은 사고 ID를 그대로 출력 (예: 12345)",
@@ -155,8 +178,8 @@ function failureResult(id: string, reason: string) {
 // ============================================================
 // 🤖 Gemini 일괄 호출 (✨ v3: Batch 처리)
 // ============================================================
-async function analyzeBatch(records: any[], apiKey: string, retryCount = 0): Promise<any[]> {
-  const prompt = buildBatchPrompt(records)
+async function analyzeBatch(records: any[], apiKey: string, retryCount = 0, fewShotExamples: any[] = []): Promise<any[]> {
+  const prompt = buildBatchPrompt(records, fewShotExamples)
   
   try {
     const res = await fetch(
@@ -184,7 +207,7 @@ async function analyzeBatch(records: any[], apiKey: string, retryCount = 0): Pro
         const waitMs = 3000 * Math.pow(2, retryCount)
         console.warn(`⏳ 배치 재시도 ${retryCount + 1}/2, ${waitMs}ms 대기`)
         await new Promise(resolve => setTimeout(resolve, waitMs))
-        return analyzeBatch(records, apiKey, retryCount + 1)
+        return analyzeBatch(records, apiKey, retryCount + 1, fewShotExamples)
       }
       
       console.warn(`⚠️ API 응답 거부: ${errorCode}`)
@@ -277,19 +300,33 @@ Deno.serve(async (req) => {
     if (!apiKey) throw new Error('GEMINI_API_KEY가 등록되지 않았습니다.')
 
     // ========================================================
+    // 📚 Few-shot 보정 사례 조회 (v5 핵심: 실제 정답 예시 주입)
+    // ========================================================
+    const { data: fewShotExamples } = await supabase
+      .from('ai_analysis_logs')
+      .select('original_text, corrected_cause, corrected_detail')
+      .eq('source_menu', 'AccidentManagement')
+      .eq('is_reviewed', true)
+      .not('corrected_detail', 'is', null)
+      .order('reviewed_at', { ascending: false })
+      .limit(12)
+
+    console.log(`📚 Few-shot 보정 사례: ${fewShotExamples?.length ?? 0}건 로드`)
+
+    // ========================================================
     // 🚀 다중 배치(Batch) 직렬 분석 처리 (v3 핵심)
     // ========================================================
     const BATCH_SIZE = 10     // 10건을 1번의 API로 묶어서 발송
     const WAIT_MS = 1500      // API 호출 간 1.5초 휴식
-    
+
     console.log(`🔍 총 ${targetRecords.length}건 분석 시작 (배치 단위: ${BATCH_SIZE})`)
     const analysisResults: any[] = []
-    
+
     for (let i = 0; i < targetRecords.length; i += BATCH_SIZE) {
       const batch = targetRecords.slice(i, i + BATCH_SIZE)
       console.log(`📦 배치 전송: ${i + 1} ~ ${i + batch.length}건`)
-      
-      const batchResults = await analyzeBatch(batch, apiKey)
+
+      const batchResults = await analyzeBatch(batch, apiKey, 0, fewShotExamples ?? [])
       analysisResults.push(...batchResults)
       
       // 구글 서버가 눈치채지 못하게 배치 사이에 잠깐씩 쉬어줍니다
