@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient.js';
 
-const INCIDENT_REASONS    = ['시공팀 상차 누락', '센터 과/오출', '연기건 입시차'];
+const INCIDENT_REASONS     = ['시공팀 상차 누락', '센터 과/오출', '연기건 입시차'];
 const CONSTRUCTION_ACTIONS = ['조치 완료', '센터 판납'];
 const RECEIVE_ACTIONS      = ['수령 완료'];
 
@@ -12,7 +12,7 @@ const REASON_COLORS = {
 };
 const ACTION_COLORS = {
     '조치 완료': 'bg-green-100 text-green-700 border-green-200',
-    '센터 판납':  'bg-blue-100 text-blue-700 border-blue-200',
+    '센터 판납':  'bg-sky-100 text-sky-700 border-sky-200',
     '수령 완료': 'bg-green-100 text-green-700 border-green-200',
 };
 
@@ -22,13 +22,202 @@ const fmtDate = (d) => {
     return `${y}.${m}.${day}`;
 };
 
+// ── 진행 단계 인디케이터 ──────────────────────────────────────────────────────
+const StepIndicator = ({ row }) => {
+    const steps = [
+        !!(row.incident_date && row.incident_center),
+        !!(row.incident_reason),
+        !!(row.return_center && row.return_date),
+        !!(row.is_completed),
+    ];
+    const colors = [
+        { on: 'bg-amber-100 text-amber-700 border-amber-300',   off: 'bg-gray-100 text-gray-300 border-gray-200' },
+        { on: 'bg-blue-100 text-blue-700 border-blue-300',      off: 'bg-gray-100 text-gray-300 border-gray-200' },
+        { on: 'bg-green-100 text-green-700 border-green-300',   off: 'bg-gray-100 text-gray-300 border-gray-200' },
+        { on: 'bg-purple-100 text-purple-700 border-purple-300', off: 'bg-gray-100 text-gray-300 border-gray-200' },
+    ];
+    return (
+        <div className="flex items-center gap-1 justify-center">
+            {steps.map((done, i) => (
+                <div key={i} className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center border ${done ? colors[i].on : colors[i].off}`}>
+                    {i + 1}
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// ── 상세 / 편집 모달 ─────────────────────────────────────────────────────────
+const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }) => {
+    const isAdmin     = userProfile?.role === '관리자';
+    const myWorkplace = userProfile?.workplace;
+
+    const secs = {
+        field:        isAdmin || row.incident_center === myWorkplace,
+        construction: isAdmin,
+        receive:      isAdmin || row.receive_center === myWorkplace,
+    };
+
+    const [form, setForm]       = useState({ ...row });
+    const [isSaving, setIsSaving] = useState(false);
+
+    const set = (field, value) => setForm(prev => {
+        const next = { ...prev, [field]: value };
+        if (field === 'receive_action' && value === '수령 완료') next.is_completed = true;
+        return next;
+    });
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const { error } = await supabase.from('logistics_returns')
+                .update({ ...form, updated_at: new Date().toISOString() })
+                .eq('id', row.id);
+            if (error) throw error;
+            onSaved();
+            onClose();
+        } catch (e) {
+            alert('저장 실패: ' + e.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const inp = (field, type = 'text', disabled = false) => {
+        const cls = `w-full border rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue
+            ${disabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100' : 'border-gray-200 text-gray-700 bg-white'}`;
+        return <input type={type} value={form[field] ?? ''} onChange={e => !disabled && set(field, e.target.value)} disabled={disabled} className={cls} />;
+    };
+
+    const sel = (field, options, disabled = false) => {
+        const cls = `w-full border rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue
+            ${disabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100' : 'border-gray-200 text-gray-700 bg-white cursor-pointer'}`;
+        return (
+            <select value={form[field] ?? ''} onChange={e => !disabled && set(field, e.target.value)} disabled={disabled} className={cls}>
+                <option value="">선택</option>
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+        );
+    };
+
+    const lbl = 'text-[11px] font-bold text-gray-500 mb-1 block';
+
+    const Section = ({ title, no, canEdit, borderColor, bgColor, titleColor, children }) => (
+        <div className={`rounded-lg border p-4 ${canEdit ? `${borderColor} ${bgColor}` : 'border-gray-100 bg-gray-50/50'}`}>
+            <h4 className={`text-[11px] font-black mb-3 flex items-center gap-1.5 ${canEdit ? titleColor : 'text-gray-400'}`}>
+                <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black ${canEdit ? `${borderColor} border ${bgColor}` : 'bg-gray-200 text-gray-400'}`}>{no}</span>
+                {title}
+                {!canEdit && <span className="text-gray-300 font-normal text-[10px]">(열람 전용)</span>}
+            </h4>
+            <div className="grid grid-cols-3 gap-3">{children}</div>
+        </div>
+    );
+
+    const Field = ({ label, children, span = 1 }) => (
+        <div className={span === 2 ? 'col-span-2' : span === 3 ? 'col-span-3' : ''}>
+            <label className={lbl}>{label}</label>
+            {children}
+        </div>
+    );
+
+    const disabled1 = !secs.field;
+    const disabled2 = !secs.construction;
+    const disabled4 = !secs.receive;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-2xl border border-gray-100 overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }}>
+
+                {/* 헤더 */}
+                <div className="p-4 border-b border-gray-100 bg-slate-50 flex justify-between items-start shrink-0">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <StepIndicator row={form} />
+                            {form.is_completed && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">완결</span>
+                            )}
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                            {fmtDate(form.incident_date) || '-'} · {form.incident_center || '-'}
+                            {form.item_code && ` · ${form.item_code}`}
+                            {form.quantity != null && ` · ${form.quantity}EA`}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-0.5">✕</button>
+                </div>
+
+                {/* 바디 */}
+                <div className="overflow-y-auto p-5 flex flex-col gap-4 custom-scrollbar">
+
+                    {/* ① 현장 관리자 */}
+                    <Section no="①" title="센터 현장 관리자 작성" canEdit={secs.field}
+                        borderColor="border-amber-200" bgColor="bg-amber-50/40" titleColor="text-amber-700">
+                        <Field label="발생일">{inp('incident_date', 'date', disabled1)}</Field>
+                        <Field label="발생센터">{sel('incident_center', workplaceList, disabled1)}</Field>
+                        <Field label="작성자">{inp('writer', 'text', disabled1)}</Field>
+                        <Field label="브랜드">{inp('brand', 'text', disabled1)}</Field>
+                        <Field label="품목코드">{inp('item_code', 'text', disabled1)}</Field>
+                        <Field label="색상">{inp('color', 'text', disabled1)}</Field>
+                        <Field label="수량" span={3}><input type="number" value={form.quantity ?? ''} onChange={e => !disabled1 && set('quantity', e.target.value === '' ? null : parseInt(e.target.value, 10))} disabled={disabled1}
+                            className={`w-full border rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue ${disabled1 ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100' : 'border-gray-200 text-gray-700 bg-white'}`} /></Field>
+                    </Section>
+
+                    {/* ② 시공 관리자 */}
+                    <Section no="②" title="센터 시공 관리자 작성" canEdit={secs.construction}
+                        borderColor="border-blue-200" bgColor="bg-blue-50/40" titleColor="text-blue-700">
+                        <Field label="발생 사유">{sel('incident_reason', INCIDENT_REASONS, disabled2)}</Field>
+                        <Field label="확인 담당자">{inp('construction_handler', 'text', disabled2)}</Field>
+                        <Field label="조치 여부">{sel('construction_action', CONSTRUCTION_ACTIONS, disabled2)}</Field>
+                    </Section>
+
+                    {/* ③ 반납 (현장 관리자) */}
+                    <Section no="③" title='센터 현장 관리자 작성 (센터 과/오출시)' canEdit={secs.field}
+                        borderColor="border-green-200" bgColor="bg-green-50/40" titleColor="text-green-700">
+                        <Field label="반납 센터">{sel('return_center', workplaceList, disabled1)}</Field>
+                        <Field label="반납 일자">{inp('return_date', 'date', disabled1)}</Field>
+                        <Field label="반납 담당자">{inp('return_handler', 'text', disabled1)}</Field>
+                    </Section>
+
+                    {/* ④ 수신센터 */}
+                    <Section no="④" title='수신센터 담당자 작성 (과출/오출 일시)' canEdit={secs.receive}
+                        borderColor="border-purple-200" bgColor="bg-purple-50/40" titleColor="text-purple-700">
+                        <Field label="수신센터">{sel('receive_center', workplaceList, disabled4)}</Field>
+                        <Field label="수신자">{inp('receiver', 'text', disabled4)}</Field>
+                        <Field label="조치 여부">{sel('receive_action', RECEIVE_ACTIONS, disabled4)}</Field>
+                        <Field label="완결 여부" span={3}>
+                            <div className={`flex items-center h-[30px] px-2.5 border rounded-[3px] text-xs ${form.is_completed ? 'bg-green-50 border-green-200 text-green-700 font-bold' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
+                                {form.is_completed ? '완결 (Y)' : '미완결 (N) — 수령 완료 선택 시 자동 처리'}
+                            </div>
+                        </Field>
+                    </Section>
+                </div>
+
+                {/* 푸터 */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+                    <p className="text-[10px] text-gray-400">권한 있는 섹션만 수정 가능합니다</p>
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded-[3px] hover:bg-gray-100">닫기</button>
+                        {(secs.field || secs.construction || secs.receive) && (
+                            <button onClick={handleSave} disabled={isSaving}
+                                className="px-5 py-2 bg-letusBlue text-white text-xs font-bold rounded-[3px] hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+                                {isSaving ? '저장 중...' : '저장'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── 신규 등록 모달 ──────────────────────────────────────────────────────────
 const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
     const isAdmin = userProfile?.role === '관리자';
     const [form, setForm] = useState({
-        incident_date:   new Date().toISOString().split('T')[0],
+        incident_date: new Date().toISOString().split('T')[0],
         incident_center: isAdmin ? '' : (userProfile?.workplace || ''),
-        writer:          userProfile?.name || '',
+        writer: userProfile?.name || '',
         brand: '', item_code: '', color: '', quantity: '',
     });
     const [isSaving, setIsSaving] = useState(false);
@@ -91,26 +280,14 @@ const ReturnsManagement = ({ userProfile }) => {
     const [isLoading, setIsLoading]           = useState(false);
     const [workplaceList, setWorkplaceList]   = useState([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-    // 셀 단위 편집 상태
-    const [activeCell, setActiveCell] = useState(null); // { rowId, field }
-    const [cellDraft, setCellDraft]   = useState('');
-    const escapePressed = useRef(false);
+    const [activeRow, setActiveRow]           = useState(null);
 
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const today = new Date().toISOString().split('T')[0];
     const [filters, setFilters] = useState({ startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', completed: '전체' });
 
-    const isAdmin     = userProfile?.role === '관리자';
-    const myWorkplace = userProfile?.workplace;
+    const isAdmin = userProfile?.role === '관리자';
 
-    const getSections = (row) => ({
-        field:        isAdmin || row.incident_center === myWorkplace,
-        construction: isAdmin,
-        receive:      isAdmin || row.receive_center === myWorkplace,
-    });
-
-    // ── 데이터 ─────────────────────────────────────────────────────────────
     useEffect(() => { fetchWorkplaces(); }, []);
     useEffect(() => { fetchData(); }, [filters]);
 
@@ -125,10 +302,10 @@ const ReturnsManagement = ({ userProfile }) => {
             let q = supabase.from('logistics_returns').select('*').order('created_at', { ascending: false });
             if (filters.startDate) q = q.gte('incident_date', filters.startDate);
             if (filters.endDate)   q = q.lte('incident_date', filters.endDate);
-            if (filters.center !== '전체')    q = q.eq('incident_center', filters.center);
-            if (filters.reason !== '전체')    q = q.eq('incident_reason', filters.reason);
-            if (filters.completed === 'Y')   q = q.eq('is_completed', true);
-            if (filters.completed === 'N')   q = q.eq('is_completed', false);
+            if (filters.center !== '전체')  q = q.eq('incident_center', filters.center);
+            if (filters.reason !== '전체')  q = q.eq('incident_reason', filters.reason);
+            if (filters.completed === 'Y') q = q.eq('is_completed', true);
+            if (filters.completed === 'N') q = q.eq('is_completed', false);
             const { data, error } = await q;
             if (error) throw error;
             setItems(data || []);
@@ -136,111 +313,37 @@ const ReturnsManagement = ({ userProfile }) => {
         finally { setIsLoading(false); }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (e, id) => {
+        e.stopPropagation();
         if (!window.confirm('이 건을 삭제하시겠습니까?')) return;
         const { error } = await supabase.from('logistics_returns').delete().eq('id', id);
         if (!error) setItems(prev => prev.filter(item => item.id !== id));
     };
 
-    // ── 셀 편집 ────────────────────────────────────────────────────────────
-    const startCellEdit = (row, field, sectionKey) => {
-        if (!getSections(row)[sectionKey]) return;
-        setActiveCell({ rowId: row.id, field });
-        setCellDraft(row[field] ?? '');
-    };
-
-    const saveCellEdit = async (rowId, field, value) => {
-        if (escapePressed.current) { escapePressed.current = false; return; }
-        setActiveCell(null);
-        const currentItem = items.find(i => i.id === rowId);
-        if (currentItem && String(currentItem[field] ?? '') === String(value ?? '')) return; // 변경 없으면 skip
-
-        const payload = { [field]: value === '' ? null : value, updated_at: new Date().toISOString() };
-        if (field === 'receive_action' && value === '수령 완료') payload.is_completed = true;
-        if (field === 'quantity') payload.quantity = value !== '' ? parseInt(value, 10) : null;
-
-        const { error } = await supabase.from('logistics_returns').update(payload).eq('id', rowId);
-        if (!error) setItems(prev => prev.map(item => item.id === rowId ? { ...item, ...payload } : item));
-    };
-
-    const handleKeyDown = (e, rowId, field) => {
-        if (e.key === 'Enter') { e.target.blur(); }
-        if (e.key === 'Escape') { escapePressed.current = true; setActiveCell(null); setCellDraft(''); }
-    };
-
-    // ── 셀 렌더 ────────────────────────────────────────────────────────────
-    // displayType: 'text' | 'date' | 'number' | 'badge-reason' | 'badge-action' | 'item_code' | 'complete'
-    // editType:    'text' | 'date' | 'number' | 'select'
-    const Cell = ({ row, field, sectionKey, displayType = 'text', editType = 'text', options = [], bg }) => {
-        const secs    = getSections(row);
-        const canEdit = secs[sectionKey];
-        const isActive = activeCell?.rowId === row.id && activeCell?.field === field;
-        const rawVal  = row[field];
-
-        const inputCls = 'w-full border border-letusBlue rounded-[3px] px-1.5 h-[26px] text-xs bg-white focus:outline-none';
-
-        const editEl = isActive && (
-            editType === 'select'
-                ? <select value={cellDraft} autoFocus
-                    onChange={e => { const v = e.target.value; setCellDraft(v); saveCellEdit(row.id, field, v); }}
-                    onBlur={() => setActiveCell(null)}
-                    className={`${inputCls} cursor-pointer`}>
-                    <option value="">선택</option>
-                    {options.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                : <input
-                    type={editType === 'date' ? 'date' : editType === 'number' ? 'number' : 'text'}
-                    value={cellDraft} autoFocus
-                    onChange={e => setCellDraft(e.target.value)}
-                    onBlur={() => saveCellEdit(row.id, field, cellDraft)}
-                    onKeyDown={e => handleKeyDown(e, row.id, field)}
-                    className={inputCls}
-                  />
-        );
-
-        const displayEl = (() => {
-            if (displayType === 'date')         return <span>{fmtDate(rawVal) || <span className="text-gray-300">-</span>}</span>;
-            if (displayType === 'number')       return rawVal != null ? <span className="font-bold">{rawVal} EA</span> : <span className="text-gray-300">-</span>;
-            if (displayType === 'item_code')    return rawVal ? <span className="font-mono text-gray-500">{rawVal}</span> : <span className="text-gray-300">-</span>;
-            if (displayType === 'badge-reason') return rawVal
-                ? <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${REASON_COLORS[rawVal] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{rawVal}</span>
-                : <span className="text-gray-300">-</span>;
-            if (displayType === 'badge-action') return rawVal
-                ? <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${ACTION_COLORS[rawVal] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{rawVal}</span>
-                : <span className="text-gray-300">-</span>;
-            if (displayType === 'complete')     return rawVal
-                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
-                : <span className="text-gray-300 text-xs font-bold">N</span>;
-            return rawVal ? <span>{rawVal}</span> : <span className="text-gray-300">-</span>;
-        })();
-
-        return (
-            <td className={`p-4 text-center border-r border-gray-100 ${bg} ${row.is_completed && field !== 'is_completed' ? 'opacity-60' : ''}`}>
-                {isActive ? editEl : (
-                    <span
-                        onClick={() => canEdit && startCellEdit(row, field, sectionKey)}
-                        className={canEdit ? 'cursor-pointer px-1.5 py-0.5 -mx-1.5 rounded hover:bg-blue-100/60 hover:text-letusBlue transition-colors' : ''}
-                        title={canEdit ? '클릭하여 편집' : ''}
-                    >
-                        {displayEl}
-                    </span>
-                )}
-            </td>
-        );
-    };
-
-    const BG = { field: 'bg-amber-50/40', construction: 'bg-blue-50/40', returnSec: 'bg-green-50/40', receive: 'bg-purple-50/40' };
     const filterSel = 'border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700 bg-white';
+
+    const COLS = [
+        { label: '#',       w: '44px'  },
+        { label: '발생일',  w: '90px'  },
+        { label: '발생센터', w: '110px' },
+        { label: '브랜드',  w: '80px'  },
+        { label: '품목코드', w: '130px' },
+        { label: '수량',    w: '70px'  },
+        { label: '발생 사유', w: '140px' },
+        { label: '진행 단계', w: '110px' },
+        { label: '완결',    w: '60px'  },
+        ...(isAdmin ? [{ label: '', w: '48px' }] : []),
+    ];
 
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ── 헤더 + 필터 카드 ── */}
+            {/* ── 헤더 + 필터 ── */}
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col gap-3 z-30 shrink-0">
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-sm font-black text-gray-900">회수품 / 전시품 관리</h2>
-                        <p className="text-[11px] text-gray-400 mt-0.5">오출고·과출고 품목의 회수 과정 추적 관리</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">오출고·과출고 품목의 회수 과정 추적 관리 · 행 클릭 시 상세 정보 및 편집</p>
                     </div>
                     <button onClick={() => setIsAddModalOpen(true)}
                         className="bg-letusBlue text-white hover:bg-blue-700 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs flex items-center gap-1.5 shadow-sm">
@@ -283,80 +386,51 @@ const ReturnsManagement = ({ userProfile }) => {
                 </div>
             </div>
 
-            {/* ── 테이블 카드 ── */}
+            {/* ── 테이블 ── */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar">
-                    <table className="w-full text-left whitespace-nowrap text-[13px]" style={{ minWidth: '1560px' }}>
+                    <table className="w-full text-left whitespace-nowrap text-[13px]">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
-                            <tr className="text-[11px] font-black">
-                                <th className="bg-slate-100 border-r border-slate-200 text-slate-400 p-4 text-center w-10" rowSpan={2}>#</th>
-                                <th className="bg-amber-100 border-r border-amber-200 text-amber-800 p-3 text-center" colSpan={7}>센터 현장 관리자 작성</th>
-                                <th className="bg-blue-100 border-r border-blue-200 text-blue-800 p-3 text-center" colSpan={3}>센터 시공 관리자 작성</th>
-                                <th className="bg-green-100 border-r border-green-200 text-green-800 p-3 text-center" colSpan={3}>
-                                    <div>센터 현장 관리자 작성</div>
-                                    <div className="text-[10px] font-normal opacity-70">(1열 "센터 과/오출시 작성")</div>
-                                </th>
-                                <th className="bg-purple-100 border-r border-purple-200 text-purple-800 p-3 text-center" colSpan={4}>
-                                    <div>수신센터 담당자 작성</div>
-                                    <div className="text-[10px] font-normal opacity-70">(1열 "과출" or "오출" 일시 작성)</div>
-                                </th>
-                                {isAdmin && <th className="bg-slate-100 text-slate-400 p-3 text-center w-16" rowSpan={2}>삭제</th>}
-                            </tr>
                             <tr>
-                                {[
-                                    ['발생일', BG.field], ['발생센터', BG.field], ['작성자', BG.field],
-                                    ['브랜드', BG.field], ['품목코드', BG.field], ['색상', BG.field], ['수량', BG.field],
-                                    ['발생 사유', BG.construction], ['확인 담당자', BG.construction], ['조치 여부', BG.construction],
-                                    ['반납 센터', BG.returnSec], ['반납 일자', BG.returnSec], ['반납 담당자', BG.returnSec],
-                                    ['수신센터', BG.receive], ['수신자', BG.receive], ['조치 여부', BG.receive], ['완결 여부', BG.receive],
-                                ].map(([label, bg], i) => (
-                                    <th key={i} className={`p-4 text-center border-r border-gray-200 ${bg}`}>{label}</th>
+                                {COLS.map((col, i) => (
+                                    <th key={i} className="p-4 text-center" style={{ width: col.w }}>{col.label}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
-                                <tr><td colSpan={isAdmin ? 19 : 18} className="py-32 text-center">
+                                <tr><td colSpan={COLS.length} className="py-32 text-center">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin" />
                                         <p className="text-gray-500 font-bold">데이터 로딩 중...</p>
                                     </div>
                                 </td></tr>
                             ) : items.length === 0 ? (
-                                <tr><td colSpan={isAdmin ? 19 : 18} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
+                                <tr><td colSpan={COLS.length} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : items.map((row, idx) => (
-                                <tr key={row.id} className="hover:bg-blue-50/30 transition-colors">
+                                <tr key={row.id}
+                                    onClick={() => setActiveRow(row)}
+                                    className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${row.is_completed ? 'opacity-60' : ''}`}>
                                     <td className="p-4 text-center text-gray-400 text-xs">{idx + 1}</td>
-
-                                    {/* 섹션 1 */}
-                                    <Cell row={row} field="incident_date"   sectionKey="field"        displayType="date"         editType="date"   bg={BG.field} />
-                                    <Cell row={row} field="incident_center" sectionKey="field"        displayType="text"         editType="select" options={workplaceList} bg={BG.field} />
-                                    <Cell row={row} field="writer"          sectionKey="field"        displayType="text"         editType="text"   bg={BG.field} />
-                                    <Cell row={row} field="brand"           sectionKey="field"        displayType="text"         editType="text"   bg={BG.field} />
-                                    <Cell row={row} field="item_code"       sectionKey="field"        displayType="item_code"    editType="text"   bg={BG.field} />
-                                    <Cell row={row} field="color"           sectionKey="field"        displayType="text"         editType="text"   bg={BG.field} />
-                                    <Cell row={row} field="quantity"        sectionKey="field"        displayType="number"       editType="number" bg={BG.field} />
-
-                                    {/* 섹션 2 */}
-                                    <Cell row={row} field="incident_reason"     sectionKey="construction" displayType="badge-reason"  editType="select" options={INCIDENT_REASONS}    bg={BG.construction} />
-                                    <Cell row={row} field="construction_handler" sectionKey="construction" displayType="text"          editType="text"   bg={BG.construction} />
-                                    <Cell row={row} field="construction_action"  sectionKey="construction" displayType="badge-action"  editType="select" options={CONSTRUCTION_ACTIONS} bg={BG.construction} />
-
-                                    {/* 섹션 3 */}
-                                    <Cell row={row} field="return_center"  sectionKey="field"   displayType="text" editType="select" options={workplaceList} bg={BG.returnSec} />
-                                    <Cell row={row} field="return_date"    sectionKey="field"   displayType="date" editType="date"   bg={BG.returnSec} />
-                                    <Cell row={row} field="return_handler" sectionKey="field"   displayType="text" editType="text"   bg={BG.returnSec} />
-
-                                    {/* 섹션 4 */}
-                                    <Cell row={row} field="receive_center" sectionKey="receive" displayType="text"         editType="select" options={workplaceList}  bg={BG.receive} />
-                                    <Cell row={row} field="receiver"       sectionKey="receive" displayType="text"         editType="text"   bg={BG.receive} />
-                                    <Cell row={row} field="receive_action" sectionKey="receive" displayType="badge-action" editType="select" options={RECEIVE_ACTIONS} bg={BG.receive} />
-                                    <Cell row={row} field="is_completed"   sectionKey="receive" displayType="complete"     editType="text"   bg={BG.receive} />
-
-                                    {/* 삭제 (관리자만) */}
+                                    <td className="p-4 text-center text-gray-600">{fmtDate(row.incident_date) || '-'}</td>
+                                    <td className="p-4 text-center font-semibold">{row.incident_center || '-'}</td>
+                                    <td className="p-4 text-center text-gray-600">{row.brand || '-'}</td>
+                                    <td className="p-4 text-center font-mono text-gray-500">{row.item_code || '-'}</td>
+                                    <td className="p-4 text-center font-bold">{row.quantity != null ? `${row.quantity} EA` : '-'}</td>
+                                    <td className="p-4 text-center">
+                                        {row.incident_reason
+                                            ? <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${REASON_COLORS[row.incident_reason] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{row.incident_reason}</span>
+                                            : <span className="text-gray-300">-</span>}
+                                    </td>
+                                    <td className="p-4 text-center"><StepIndicator row={row} /></td>
+                                    <td className="p-4 text-center">
+                                        {row.is_completed
+                                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
+                                            : <span className="text-gray-300 text-xs font-bold">N</span>}
+                                    </td>
                                     {isAdmin && (
                                         <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                                            <button onClick={() => handleDelete(row.id)} title="삭제"
+                                            <button onClick={e => handleDelete(e, row.id)} title="삭제"
                                                 className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
                                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -371,8 +445,25 @@ const ReturnsManagement = ({ userProfile }) => {
                 </div>
             </div>
 
+            {/* ── 상세 모달 ── */}
+            {activeRow && (
+                <ReturnDetailModal
+                    row={activeRow}
+                    onClose={() => setActiveRow(null)}
+                    onSaved={fetchData}
+                    workplaceList={workplaceList}
+                    userProfile={userProfile}
+                />
+            )}
+
+            {/* ── 신규 등록 모달 ── */}
             {isAddModalOpen && (
-                <AddReturnModal onClose={() => setIsAddModalOpen(false)} onSave={fetchData} workplaceList={workplaceList} userProfile={userProfile} />
+                <AddReturnModal
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSave={fetchData}
+                    workplaceList={workplaceList}
+                    userProfile={userProfile}
+                />
             )}
         </div>
     );
