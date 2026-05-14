@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient.js';
 
-const INCIDENT_REASONS     = ['시공팀 상차 누락', '센터 과/오출', '연기건 입시차'];
-const CONSTRUCTION_ACTIONS = ['조치 완료', '센터 판납'];
+const INCIDENT_REASONS     = ['시공팀 상차 누락', '센터 과/오출', '확인 중', '미출고', '연기건 미상차', '반품건 미적재'];
+const CONSTRUCTION_ACTIONS = ['조치 완료', '센터 반납'];
 const RECEIVE_ACTIONS      = ['수령 완료'];
+const RETURN_CENTER_LIST   = ['양지1센터', '양지2센터', '양지3센터', '안성센터', '평택센터', '음성센터'];
 
 const REASON_COLORS = {
     '시공팀 상차 누락': 'bg-red-100 text-red-700 border-red-200',
     '센터 과/오출':     'bg-orange-100 text-orange-700 border-orange-200',
-    '연기건 입시차':    'bg-yellow-100 text-yellow-700 border-yellow-200',
+    '확인 중':          'bg-slate-100 text-slate-600 border-slate-200',
+    '미출고':           'bg-yellow-100 text-yellow-700 border-yellow-200',
+    '연기건 미상차':    'bg-amber-100 text-amber-700 border-amber-200',
+    '반품건 미적재':    'bg-purple-100 text-purple-700 border-purple-200',
 };
 const ACTION_COLORS = {
     '조치 완료': 'bg-green-100 text-green-700 border-green-200',
-    '센터 판납':  'bg-sky-100 text-sky-700 border-sky-200',
+    '센터 반납':  'bg-sky-100 text-sky-700 border-sky-200',
     '수령 완료': 'bg-green-100 text-green-700 border-green-200',
 };
 
@@ -59,7 +63,7 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
         receive:      isAdmin || row.receive_center === myWorkplace,
     };
 
-    const [form, setForm]         = useState({ ...row });
+    const [form, setForm]         = useState({ ...row, return_date: row.return_date || new Date().toISOString().split('T')[0] });
     const [isSaving, setIsSaving] = useState(false);
 
     const set = (field, value) => setForm(prev => {
@@ -178,17 +182,17 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
                     </Section>
 
                     {/* ③ 반납 (현장 관리자) */}
-                    <Section no="③" title='센터 현장 관리자 작성 (센터 과/오출시)' canEdit={secs.field}
+                    <Section no="③" title='센터 현장 관리자 작성 (센터 과/오출 시)' canEdit={secs.field}
                         borderColor="border-green-200" bgColor="bg-green-50/40" titleColor="text-green-700">
-                        <Field label="반납 센터">{sel('return_center', workplaceList, disabled1)}</Field>
+                        <Field label="반납 센터">{sel('return_center', RETURN_CENTER_LIST, disabled1)}</Field>
                         <Field label="반납 일자">{inp('return_date', 'date', disabled1)}</Field>
                         <Field label="반납 담당자">{inp('return_handler', 'text', true)}</Field>
                     </Section>
 
                     {/* ④ 수신센터 */}
-                    <Section no="④" title='수신센터 담당자 작성 (과출/오출 일시)' canEdit={secs.receive}
+                    <Section no="④" title='수신센터 담당자 작성 (센터 과/오출 시)' canEdit={secs.receive}
                         borderColor="border-purple-200" bgColor="bg-purple-50/40" titleColor="text-purple-700">
-                        <Field label="수신센터">{sel('receive_center', workplaceList, disabled4)}</Field>
+                        <Field label="수신센터">{sel('receive_center', RETURN_CENTER_LIST, disabled4)}</Field>
                         <Field label="수신자">{inp('receiver', 'text', true)}</Field>
                         <Field label="조치 여부">{sel('receive_action', RECEIVE_ACTIONS, disabled4)}</Field>
                         <Field label="완결 여부" span={3}>
