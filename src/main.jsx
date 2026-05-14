@@ -23,6 +23,7 @@ import { TeamCalendar } from './TeamCalendar.jsx';
 import { RpaManagement } from './RpaManagement.jsx';
 import { LoadingMap } from './LoadingMap.jsx';
 import { AiInsightLab } from './AiInsightLab.jsx';
+import { ReturnsManagement } from './ReturnsManagement.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
 import { MobileMenuScreen } from './MobileMenuScreen.jsx';
 import { MobileMyIssues } from './MobileMyIssues.jsx';
@@ -118,6 +119,7 @@ const AppContent = () => {
                 <Route path="/rpa_management" element={<RpaManagement />} />
                 <Route path="/loading_map" element={<LoadingMap />} />
                 <Route path="/ai_lab" element={<AiInsightLab />} />
+                <Route path="/returns_management" element={<ReturnsManagement userProfile={logic.userProfile} />} />
                 <Route path="*" element={<div className="p-8 text-center text-gray-500 font-bold">페이지를 찾을 수 없습니다 (404)</div>} />
             </Routes>
 

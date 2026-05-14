@@ -52,7 +52,8 @@ export const ALL_MENUS = [
         children: [
             { id: 'accident_dashboard', label: '사고분석 대시보드' },
             { id: 'accident_list', label: '사고분석 LIST' },
-            { id: 'accident_report', label: '사고분석 레포트' }
+            { id: 'accident_report', label: '사고분석 레포트' },
+            { id: 'returns_management', label: '회수품/전시품 관리' }
         ]
     },
     {
