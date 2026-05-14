@@ -454,7 +454,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
                 rawAcc.forEach(row => {
                     const brandStr = cleanTxt(row['브랜드']);
-                    const issueStr = cleanTxt(row['이슈내용']);
+                    const issueStr = cleanTxt(findCol(row, ['발생원인 및 조치상세 내역', '이슈내용']));
                     if (applyFilters) {
                         if (brandStr.includes('이케아')) return;
                         if (issueStr.includes('[SCM팀 부족량 CUT 조치결과]')) return;
