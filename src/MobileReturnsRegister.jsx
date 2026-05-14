@@ -1,50 +1,99 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient.js';
 
 export const MobileReturnsRegister = ({ userProfile }) => {
     const navigate = useNavigate();
+    const fileRef = useRef(null);
 
-    const [itemCode, setItemCode]     = useState('');
-    const [brand, setBrand]           = useState('');
-    const [color, setColor]           = useState('');
-    const [quantity, setQuantity]     = useState('');
+    const [photos, setPhotos]           = useState([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [aiResult, setAiResult]       = useState(null);
+
+    const [itemCode, setItemCode]         = useState('');
+    const [brand, setBrand]               = useState('');
+    const [color, setColor]               = useState('');
+    const [quantity, setQuantity]         = useState('');
     const [incidentDate, setIncidentDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const [isLooking, setIsLooking]     = useState(false);
-    const [lookupResult, setLookupResult] = useState(null); // 'found' | 'notfound' | null
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitted, setSubmitted]     = useState(false);
+    const [submitted, setSubmitted]       = useState(false);
 
     const incidentCenter = userProfile?.workplace || '';
 
-    const lookupProduct = async () => {
-        const code = itemCode.trim();
-        if (!code) return;
-        setIsLooking(true);
-        setLookupResult(null);
-        try {
-            const { data } = await supabase
-                .from('products')
-                .select('brand_category, item_color')
-                .eq('item_code', code)
-                .single();
-            if (data) {
-                setBrand(data.brand_category || '');
-                setColor(data.item_color || '');
-                setLookupResult('found');
-            } else {
-                setBrand('');
-                setColor('');
-                setLookupResult('notfound');
-            }
-        } catch {
-            setLookupResult('notfound');
-        } finally {
-            setIsLooking(false);
+    /* ── 이미지 압축 ── */
+    const compressImage = (file, maxWidth = 1024, quality = 0.6) =>
+        new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ratio = Math.min(maxWidth / img.width, maxWidth / img.height, 1);
+                canvas.width  = img.width  * ratio;
+                canvas.height = img.height * ratio;
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+            };
+            img.src = URL.createObjectURL(file);
+        });
+
+    /* ── 사진 추가/삭제 ── */
+    const handlePhotoCapture = (e) => {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+        const newPhotos = files.map(f => ({ file: f, preview: URL.createObjectURL(f) }));
+        setPhotos(prev => [...prev, ...newPhotos].slice(0, 5));
+    };
+
+    const removePhoto = (idx) => {
+        setPhotos(prev => {
+            const next = [...prev];
+            URL.revokeObjectURL(next[idx].preview);
+            next.splice(idx, 1);
+            return next;
+        });
+        setAiResult(null);
+    };
+
+    /* ── DB 품목 조회 (코드로 색상 추가 보완) ── */
+    const lookupFromDB = async (code) => {
+        const { data } = await supabase
+            .from('products')
+            .select('brand_category, item_color')
+            .eq('item_code', code)
+            .single();
+        if (data) {
+            if (data.brand_category) setBrand(data.brand_category);
+            if (data.item_color)     setColor(data.item_color);
         }
     };
 
+    /* ── AI 바코드 인식 ── */
+    const handleAiBarcode = async () => {
+        if (!photos.length) return alert('사진을 먼저 촬영해주세요.');
+        setIsAnalyzing(true);
+        setAiResult(null);
+        try {
+            const base64 = await compressImage(photos[0].file);
+            const { data, error } = await supabase.functions.invoke('analyze-barcode', {
+                body: { image: base64, mimeType: 'image/jpeg' },
+            });
+            if (error) throw error;
+            if (data?.product_code) {
+                setItemCode(data.product_code);
+                if (data.brand) setBrand(data.brand);
+                setAiResult({ success: true, code: data.product_code });
+                await lookupFromDB(data.product_code);
+            } else {
+                setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
+            }
+        } catch {
+            setAiResult({ success: false, message: '분석 중 오류가 발생했습니다.' });
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    /* ── 등록 ── */
     const handleSubmit = async () => {
         if (!itemCode.trim()) return alert('품목코드를 입력해주세요.');
         if (!quantity)        return alert('수량을 입력해주세요.');
@@ -54,9 +103,9 @@ export const MobileReturnsRegister = ({ userProfile }) => {
                 incident_date:   incidentDate,
                 incident_center: incidentCenter,
                 writer:          userProfile?.name || '',
-                brand:           brand  || null,
+                brand:           brand    || null,
                 item_code:       itemCode.trim(),
-                color:           color  || null,
+                color:           color    || null,
                 quantity:        parseInt(quantity, 10),
             }]);
             if (error) throw error;
@@ -69,11 +118,13 @@ export const MobileReturnsRegister = ({ userProfile }) => {
     };
 
     const reset = () => {
+        setPhotos([]); setAiResult(null);
         setItemCode(''); setBrand(''); setColor(''); setQuantity('');
         setIncidentDate(new Date().toISOString().split('T')[0]);
-        setLookupResult(null); setSubmitted(false);
+        setSubmitted(false);
     };
 
+    /* ── 등록 완료 화면 ── */
     if (submitted) {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
@@ -98,11 +149,11 @@ export const MobileReturnsRegister = ({ userProfile }) => {
         );
     }
 
-    const inputCls    = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all';
-    const readonlyCls = 'w-full bg-slate-100 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold min-h-[48px] flex items-center';
+    const inputCls = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all';
 
     return (
         <div className="min-h-screen bg-slate-100 flex flex-col">
+            {/* 헤더 */}
             <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-green-600" />
                 <div className="px-4 py-3 flex items-center gap-3">
@@ -121,99 +172,110 @@ export const MobileReturnsRegister = ({ userProfile }) => {
 
             <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-3">
 
-                {/* 품목 정보 */}
-                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 space-y-3.5">
-                    <h3 className="text-slate-700 font-bold text-sm flex items-center gap-2">
-                        <span className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center text-sm">🔍</span>
-                        품목 정보
+                {/* 1. 바코드 촬영 */}
+                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                    <h3 className="text-slate-700 font-bold text-sm mb-3 flex items-center gap-2">
+                        <span className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center text-sm">📸</span>
+                        바코드 촬영
                     </h3>
 
-                    {/* 품목코드 + 조회 버튼 */}
-                    <div>
-                        <label className="text-slate-500 text-xs font-bold mb-1.5 block">
-                            품목코드 <span className="text-red-400">*</span>
-                        </label>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={itemCode}
-                                onChange={e => { setItemCode(e.target.value); setLookupResult(null); }}
-                                onKeyDown={e => e.key === 'Enter' && lookupProduct()}
-                                placeholder="품목코드 입력"
-                                className={`flex-1 ${inputCls}`}
-                            />
-                            <button
-                                onClick={lookupProduct}
-                                disabled={isLooking || !itemCode.trim()}
-                                className="px-5 py-3 bg-letusBlue text-white font-bold text-sm rounded-xl active:scale-[0.97] disabled:opacity-40 transition-all shrink-0 flex items-center justify-center"
-                            >
-                                {isLooking ? (
+                    <div className="grid grid-cols-3 gap-2.5">
+                        {photos.map((p, idx) => (
+                            <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200">
+                                <img src={p.preview} alt={`사진${idx + 1}`} className="w-full h-full object-cover" />
+                                <button onClick={() => removePhoto(idx)}
+                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow">
+                                    ✕
+                                </button>
+                            </div>
+                        ))}
+                        {photos.length < 5 && (
+                            <button onClick={() => fileRef.current?.click()}
+                                className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1 text-slate-400 active:bg-slate-50 transition-colors">
+                                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span className="text-[10px] font-bold">촬영/선택</span>
+                            </button>
+                        )}
+                    </div>
+                    <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
+                        onChange={handlePhotoCapture} className="hidden" />
+
+                    {photos.length > 0 && (
+                        <button onClick={handleAiBarcode} disabled={isAnalyzing}
+                            className={`w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm
+                                ${isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-letusBlue hover:bg-blue-800 active:scale-[0.98] text-white'}`}>
+                            {isAnalyzing ? (
+                                <>
                                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                     </svg>
-                                ) : '조회'}
-                            </button>
+                                    AI 분석 중...
+                                </>
+                            ) : <>🤖 AI 바코드 인식</>}
+                        </button>
+                    )}
+
+                    {aiResult && (
+                        <div className={`mt-3 p-3 rounded-xl text-sm font-bold border
+                            ${aiResult.success ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                            {aiResult.success
+                                ? <>✅ 인식 완료: <span className="text-slate-800">{aiResult.code}</span> — 아래 내용을 확인·수정 후 등록하세요</>
+                                : <>⚠️ {aiResult.message}</>
+                            }
                         </div>
-                        {lookupResult === 'found' && (
-                            <p className="text-xs font-bold text-green-600 mt-1.5 flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                </svg>
-                                품목 정보가 자동 입력되었습니다
-                            </p>
-                        )}
-                        {lookupResult === 'notfound' && (
-                            <p className="text-xs font-bold text-amber-500 mt-1.5 flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                DB에 없는 코드입니다
-                            </p>
-                        )}
+                    )}
+                </section>
+
+                {/* 2. 품목 정보 */}
+                <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 space-y-3.5">
+                    <h3 className="text-slate-700 font-bold text-sm flex items-center gap-2">
+                        <span className="w-6 h-6 bg-violet-50 rounded-lg flex items-center justify-center text-sm">📦</span>
+                        품목 정보
+                    </h3>
+
+                    <div>
+                        <label className="text-slate-500 text-xs font-bold mb-1.5 block">
+                            품목코드 <span className="text-red-400">*</span>
+                        </label>
+                        <input type="text" value={itemCode}
+                            onChange={e => setItemCode(e.target.value)}
+                            placeholder="AI 인식 또는 직접 입력"
+                            className={inputCls} />
                     </div>
 
-                    {/* 브랜드 (자동 입력) */}
                     <div>
                         <label className="text-slate-500 text-xs font-bold mb-1.5 block">브랜드</label>
-                        <div className={readonlyCls}>
-                            {brand ? (
-                                <span className="text-slate-700">{brand}</span>
-                            ) : (
-                                <span className="text-slate-300 font-normal">코드 조회 시 자동 입력</span>
-                            )}
-                        </div>
+                        <input type="text" value={brand}
+                            onChange={e => setBrand(e.target.value)}
+                            placeholder="AI 인식 또는 직접 입력"
+                            className={inputCls} />
                     </div>
 
-                    {/* 색상 (자동 입력) */}
                     <div>
                         <label className="text-slate-500 text-xs font-bold mb-1.5 block">색상</label>
-                        <div className={readonlyCls}>
-                            {color ? (
-                                <span className="text-slate-700">{color}</span>
-                            ) : (
-                                <span className="text-slate-300 font-normal">코드 조회 시 자동 입력</span>
-                            )}
-                        </div>
+                        <input type="text" value={color}
+                            onChange={e => setColor(e.target.value)}
+                            placeholder="AI 인식 또는 직접 입력"
+                            className={inputCls} />
                     </div>
 
-                    {/* 수량 */}
                     <div>
                         <label className="text-slate-500 text-xs font-bold mb-1.5 block">
                             수량 <span className="text-red-400">*</span>
                         </label>
-                        <input
-                            type="number"
-                            value={quantity}
+                        <input type="number" value={quantity}
                             onChange={e => setQuantity(e.target.value)}
                             placeholder="수량 입력"
                             inputMode="numeric"
-                            className={inputCls}
-                        />
+                            className={inputCls} />
                     </div>
                 </section>
 
-                {/* 발생 정보 */}
+                {/* 3. 발생 정보 */}
                 <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 space-y-3.5">
                     <h3 className="text-slate-700 font-bold text-sm flex items-center gap-2">
                         <span className="w-6 h-6 bg-amber-50 rounded-lg flex items-center justify-center text-sm">📍</span>
@@ -222,22 +284,18 @@ export const MobileReturnsRegister = ({ userProfile }) => {
 
                     <div>
                         <label className="text-slate-500 text-xs font-bold mb-1.5 block">발생일</label>
-                        <input
-                            type="date"
-                            value={incidentDate}
+                        <input type="date" value={incidentDate}
                             onChange={e => setIncidentDate(e.target.value)}
-                            className={inputCls}
-                        />
+                            className={inputCls} />
                     </div>
 
                     <div>
                         <label className="text-slate-500 text-xs font-bold mb-1.5 block">발생센터</label>
-                        <div className={readonlyCls}>
-                            {incidentCenter ? (
-                                <span className="text-slate-700">{incidentCenter}</span>
-                            ) : (
-                                <span className="text-slate-300 font-normal">센터 정보 없음</span>
-                            )}
+                        <div className="w-full bg-slate-100 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold min-h-[48px] flex items-center">
+                            {incidentCenter
+                                ? <span className="text-slate-700">{incidentCenter}</span>
+                                : <span className="text-slate-300 font-normal">센터 정보 없음</span>
+                            }
                         </div>
                     </div>
                 </section>
@@ -245,14 +303,11 @@ export const MobileReturnsRegister = ({ userProfile }) => {
 
             {/* 하단 고정 등록 버튼 */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white/95 to-transparent pt-8">
-                <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
+                <button onClick={handleSubmit} disabled={isSubmitting}
                     className={`w-full py-[18px] rounded-xl font-black text-base flex items-center justify-center gap-2 shadow-lg transition-all
                         ${isSubmitting
                             ? 'bg-slate-200 text-slate-400'
-                            : 'bg-letusOrange hover:bg-orange-500 active:bg-orange-600 active:scale-[0.98] text-white shadow-orange-200'}`}
-                >
+                            : 'bg-letusOrange hover:bg-orange-500 active:bg-orange-600 active:scale-[0.98] text-white shadow-orange-200'}`}>
                     {isSubmitting ? (
                         <>
                             <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
