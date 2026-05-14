@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient.js';
 
 const INCIDENT_REASONS     = ['시공팀 상차 누락', '센터 과/오출', '확인 중', '미출고', '연기건 미상차', '반품건 미적재'];
 const CONSTRUCTION_ACTIONS = ['조치 완료', '센터 반납'];
-const RECEIVE_ACTIONS      = ['수령 완료'];
+const RECEIVE_ACTIONS      = ['수령 완료', '확인 불가'];
 const RETURN_CENTER_LIST   = ['양지1센터', '양지2센터', '양지3센터', '안성센터', '평택센터', '음성센터'];
 
 const REASON_COLORS = {
@@ -63,12 +63,12 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
         receive:      isAdmin || row.receive_center === myWorkplace,
     };
 
-    const [form, setForm]         = useState({ ...row, return_date: row.return_date || new Date().toISOString().split('T')[0] });
+    const [form, setForm]         = useState({ ...row, incident_center: row.incident_center || myWorkplace || '', return_date: row.return_date || new Date().toISOString().split('T')[0] });
     const [isSaving, setIsSaving] = useState(false);
 
     const set = (field, value) => setForm(prev => {
         const next = { ...prev, [field]: value };
-        if (field === 'receive_action' && value === '수령 완료') next.is_completed = true;
+        if (field === 'receive_action' && value) next.is_completed = true;
         return next;
     });
 
