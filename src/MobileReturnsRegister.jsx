@@ -1,10 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient.js';
 
 export const MobileReturnsRegister = ({ userProfile }) => {
     const navigate = useNavigate();
     const fileRef = useRef(null);
+
+    useEffect(() => {
+        if (userProfile?.workplace) setIncidentCenter(userProfile.workplace);
+    }, [userProfile?.workplace]);
 
     const [photos, setPhotos]           = useState([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -15,7 +19,7 @@ export const MobileReturnsRegister = ({ userProfile }) => {
     const [color, setColor]               = useState('');
     const [quantity, setQuantity]               = useState('');
     const [incidentDate, setIncidentDate]       = useState(new Date().toISOString().split('T')[0]);
-    const [incidentCenter, setIncidentCenter]   = useState(userProfile?.workplace || '');
+    const [incidentCenter, setIncidentCenter]   = useState('');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted]       = useState(false);
