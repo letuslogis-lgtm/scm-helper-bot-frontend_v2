@@ -253,28 +253,6 @@ export const AiInsightLab = () => {
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* 탭 헤더 */}
-            <div className="flex gap-1 shrink-0">
-                <button
-                    onClick={() => setActiveTab('accident')}
-                    className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all ${isAccident ? 'bg-white text-letusBlue border border-blue-200 shadow-sm' : 'bg-slate-200/70 text-slate-500 hover:bg-slate-200'}`}
-                >
-                    📋 사고분석 AI
-                    <span className={`ml-2 text-[11px] px-1.5 py-0.5 rounded-full font-black ${isAccident ? 'bg-blue-100 text-blue-600' : 'bg-slate-300 text-slate-500'}`}>
-                        {logs.filter(l => l.source_menu === 'AccidentManagement').length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('barcode')}
-                    className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all ${!isAccident ? 'bg-white text-orange-500 border border-orange-200 shadow-sm' : 'bg-slate-200/70 text-slate-500 hover:bg-slate-200'}`}
-                >
-                    📱 바코드 스캔 AI
-                    <span className={`ml-2 text-[11px] px-1.5 py-0.5 rounded-full font-black ${!isAccident ? 'bg-orange-100 text-orange-600' : 'bg-slate-300 text-slate-500'}`}>
-                        {logs.filter(l => l.source_menu === 'MobileBarcode').length}
-                    </span>
-                </button>
-            </div>
-
             {/* 통계 카드 */}
             <div className="grid grid-cols-4 gap-4 shrink-0">
                 <div onClick={() => { setConfidenceFilter('전체'); setReviewFilter('전체'); }} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 border-b-blue-400 cursor-pointer">
@@ -295,64 +273,88 @@ export const AiInsightLab = () => {
                 </div>
             </div>
 
-            {/* 필터 및 액션 */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex items-center justify-between z-30 shrink-0">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <label className="text-[11px] font-bold text-gray-600">등록일자</label>
-                        <input type="date" value={dateFilter.start} onChange={e => setDateFilter({ ...dateFilter, start: e.target.value })} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer text-gray-700" />
-                        <span className="text-gray-400 text-xs">~</span>
-                        <input type="date" value={dateFilter.end} onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer text-gray-700" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <label className="text-[11px] font-bold text-gray-600">신뢰도</label>
-                        <select value={confidenceFilter} onChange={e => setConfidenceFilter(e.target.value)} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer">
-                            <option value="전체">전체</option>
-                            <option value="high">🟢 높음</option>
-                            <option value="medium">🟡 보통</option>
-                            <option value="low">🔴 낮음</option>
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <label className="text-[11px] font-bold text-gray-600">검토 상태</label>
-                        <select value={reviewFilter} onChange={e => setReviewFilter(e.target.value)} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer">
-                            <option value="전체">전체</option>
-                            <option value="미검토">미검토 (리뷰 필요)</option>
-                            <option value="검토 완료">검토 완료 (보정됨)</option>
-                        </select>
-                    </div>
-                    <input type="text" value={searchValue} onChange={e => setSearchValue(e.target.value)} placeholder="분석 결과 / 원본 검색" className="border border-gray-200 rounded text-xs px-2.5 py-1.5 w-48 focus:outline-none focus:border-letusBlue" />
-                </div>
-                <div className="flex items-center gap-2">
-                    {selectedIds.length > 0 && (
-                        <>
-                            <button onClick={handleBulkReview} className="bg-green-600 text-white hover:bg-green-700 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                                선택 {selectedIds.length}건 검토완료
-                            </button>
-                            {isAccident && (
-                                <button onClick={handleReAnalyze} disabled={isReAnalyzing} className="bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up">
-                                    {isReAnalyzing
-                                        ? <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />재분석 중...</>
-                                        : <>🤖 AI 재분석 ({selectedIds.length}건)</>}
-                                </button>
-                            )}
-                        </>
-                    )}
-                    <button onClick={handleExportCSV} className="bg-slate-700 text-white hover:bg-slate-800 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5" title={`보정 완료 데이터 CSV 내보내기 (${tabLogs.filter(l => l.is_reviewed && l.corrected_cause).length}건)`}>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        학습 데이터 내보내기
-                    </button>
-                    <button onClick={fetchLogs} className="bg-letusBlue text-white hover:bg-blue-600 font-bold px-4 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                        새로고침
-                    </button>
-                </div>
-            </div>
+            {/* 탭 + 필터 + 테이블 통합 카드 */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
 
-            {/* 리스트 */}
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
-                <div className="p-0 overflow-auto flex-1 custom-scrollbar">
+                {/* 탭 헤더 */}
+                <div className="flex border-b border-gray-200 bg-gray-50/50 px-4 pt-4 shrink-0">
+                    <button
+                        onClick={() => setActiveTab('accident')}
+                        className={`px-6 py-2.5 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${isAccident ? 'border-letusBlue text-letusBlue bg-white' : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/50 rounded-t-lg'}`}
+                    >
+                        📋 사고분석 AI
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${isAccident ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'}`}>
+                            {logs.filter(l => l.source_menu === 'AccidentManagement').length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('barcode')}
+                        className={`px-6 py-2.5 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${!isAccident ? 'border-letusBlue text-letusBlue bg-white' : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100/50 rounded-t-lg'}`}
+                    >
+                        📱 바코드 스캔 AI
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${!isAccident ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'}`}>
+                            {logs.filter(l => l.source_menu === 'MobileBarcode').length}
+                        </span>
+                    </button>
+                </div>
+
+                {/* 필터 및 액션 */}
+                <div className="px-6 py-3 flex items-center justify-between border-b border-gray-100 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <label className="text-[11px] font-bold text-gray-600">등록일자</label>
+                            <input type="date" value={dateFilter.start} onChange={e => setDateFilter({ ...dateFilter, start: e.target.value })} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer text-gray-700" />
+                            <span className="text-gray-400 text-xs">~</span>
+                            <input type="date" value={dateFilter.end} onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer text-gray-700" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-[11px] font-bold text-gray-600">신뢰도</label>
+                            <select value={confidenceFilter} onChange={e => setConfidenceFilter(e.target.value)} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer">
+                                <option value="전체">전체</option>
+                                <option value="high">🟢 높음</option>
+                                <option value="medium">🟡 보통</option>
+                                <option value="low">🔴 낮음</option>
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-[11px] font-bold text-gray-600">검토 상태</label>
+                            <select value={reviewFilter} onChange={e => setReviewFilter(e.target.value)} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer">
+                                <option value="전체">전체</option>
+                                <option value="미검토">미검토 (리뷰 필요)</option>
+                                <option value="검토 완료">검토 완료 (보정됨)</option>
+                            </select>
+                        </div>
+                        <input type="text" value={searchValue} onChange={e => setSearchValue(e.target.value)} placeholder="분석 결과 / 원본 검색" className="border border-gray-200 rounded text-xs px-2.5 py-1.5 w-48 focus:outline-none focus:border-letusBlue" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {selectedIds.length > 0 && (
+                            <>
+                                <button onClick={handleBulkReview} className="bg-green-600 text-white hover:bg-green-700 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                    선택 {selectedIds.length}건 검토완료
+                                </button>
+                                {isAccident && (
+                                    <button onClick={handleReAnalyze} disabled={isReAnalyzing} className="bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up">
+                                        {isReAnalyzing
+                                            ? <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />재분석 중...</>
+                                            : <>🤖 AI 재분석 ({selectedIds.length}건)</>}
+                                    </button>
+                                )}
+                            </>
+                        )}
+                        <button onClick={handleExportCSV} className="bg-slate-700 text-white hover:bg-slate-800 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5" title={`보정 완료 데이터 CSV 내보내기 (${tabLogs.filter(l => l.is_reviewed && l.corrected_cause).length}건)`}>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            학습 데이터 내보내기
+                        </button>
+                        <button onClick={fetchLogs} className="bg-letusBlue text-white hover:bg-blue-600 font-bold px-4 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            새로고침
+                        </button>
+                    </div>
+                </div>
+
+                {/* 테이블 */}
+                <div className="overflow-auto flex-1 custom-scrollbar">
                     {isAccident ? (
                         /* ── 사고분석 탭 테이블 ── */
                         <table className="w-full text-left whitespace-nowrap table-fixed min-w-[1050px]">
