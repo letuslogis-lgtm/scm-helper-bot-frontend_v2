@@ -58,8 +58,8 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
         }
     };
 
-    const inputCls = 'w-full border border-gray-200 rounded px-2.5 h-[32px] text-xs focus:outline-none focus:border-letusBlue';
-    const selectCls = `${inputCls} cursor-pointer disabled:bg-gray-50 disabled:cursor-default`;
+    const inputCls = 'w-full border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue text-gray-700';
+    const selectCls = `${inputCls} cursor-pointer disabled:bg-gray-50 disabled:cursor-default bg-white`;
     const labelCls = 'text-[11px] font-bold text-gray-600 mb-1 block';
 
     return (
@@ -109,9 +109,9 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
                     </div>
                 </div>
                 <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100">취소</button>
+                    <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded-[3px] hover:bg-gray-100">취소</button>
                     <button onClick={handleSave} disabled={isSaving}
-                        className="px-4 py-2 bg-letusBlue text-white text-xs font-bold rounded hover:bg-blue-700 disabled:opacity-50">
+                        className="px-4 py-2 bg-letusBlue text-white text-xs font-bold rounded-[3px] hover:bg-blue-700 disabled:opacity-50 shadow-sm">
                         {isSaving ? '저장 중...' : '등록'}
                     </button>
                 </div>
@@ -122,12 +122,12 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 const ReturnsManagement = ({ userProfile }) => {
-    const [items, setItems]               = useState([]);
-    const [isLoading, setIsLoading]       = useState(false);
-    const [workplaceList, setWorkplaceList] = useState([]);
+    const [items, setItems]                   = useState([]);
+    const [isLoading, setIsLoading]           = useState(false);
+    const [workplaceList, setWorkplaceList]   = useState([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [editingRowId, setEditingRowId] = useState(null);
-    const [editDraft, setEditDraft]       = useState({});
+    const [editingRowId, setEditingRowId]     = useState(null);
+    const [editDraft, setEditDraft]           = useState({});
 
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         .toISOString().split('T')[0];
@@ -144,26 +144,16 @@ const ReturnsManagement = ({ userProfile }) => {
     const isAdmin     = userProfile?.role === '관리자';
     const myWorkplace = userProfile?.workplace;
 
-    // 섹션별 편집 권한
     const getSections = (row) => ({
         field:        isAdmin || row.incident_center === myWorkplace,
         construction: isAdmin,
         receive:      isAdmin || row.receive_center === myWorkplace,
     });
-
-    const canEditRow = (row) => {
-        const s = getSections(row);
-        return s.field || s.construction || s.receive;
-    };
+    const canEditRow = (row) => { const s = getSections(row); return s.field || s.construction || s.receive; };
 
     // ── 데이터 로드 ─────────────────────────────────────────────────────────
-    useEffect(() => {
-        fetchWorkplaces();
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [filters]);
+    useEffect(() => { fetchWorkplaces(); }, []);
+    useEffect(() => { fetchData(); }, [filters]);
 
     const fetchWorkplaces = async () => {
         const { data } = await supabase.from('workers').select('workplace').not('workplace', 'is', null);
@@ -183,7 +173,6 @@ const ReturnsManagement = ({ userProfile }) => {
             if (filters.reason !== '전체') q = q.eq('incident_reason', filters.reason);
             if (filters.completed === 'Y') q = q.eq('is_completed', true);
             if (filters.completed === 'N') q = q.eq('is_completed', false);
-
             const { data, error } = await q;
             if (error) throw error;
             setItems(data || []);
@@ -195,8 +184,8 @@ const ReturnsManagement = ({ userProfile }) => {
     };
 
     // ── 행 편집 ─────────────────────────────────────────────────────────────
-    const startEdit = (row) => { setEditingRowId(row.id); setEditDraft({ ...row }); };
-    const cancelEdit = () => { setEditingRowId(null); setEditDraft({}); };
+    const startEdit  = (row) => { setEditingRowId(row.id); setEditDraft({ ...row }); };
+    const cancelEdit = ()    => { setEditingRowId(null); setEditDraft({}); };
 
     const setDraft = (field, value) => setEditDraft(prev => {
         const next = { ...prev, [field]: value };
@@ -224,264 +213,270 @@ const ReturnsManagement = ({ userProfile }) => {
     // ── 셀 렌더 헬퍼 ────────────────────────────────────────────────────────
     const editInput = (field, type = 'text', options = []) => {
         const val = editDraft[field] ?? '';
-        const cls = 'w-full border border-blue-300 rounded px-1.5 h-[26px] text-xs focus:outline-none focus:border-letusBlue';
+        const cls = 'w-full border border-blue-300 rounded-[3px] px-2 h-[26px] text-xs focus:outline-none focus:border-letusBlue';
         if (type === 'select') return (
             <select value={val} onChange={e => setDraft(field, e.target.value)} className={`${cls} bg-white cursor-pointer`}>
                 <option value="">선택</option>
                 {options.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
         );
-        if (type === 'date') return <input type="date" value={val} onChange={e => setDraft(field, e.target.value)} className={cls} />;
+        if (type === 'date')   return <input type="date"   value={val} onChange={e => setDraft(field, e.target.value)} className={cls} />;
         if (type === 'number') return <input type="number" value={val} onChange={e => setDraft(field, e.target.value)} className={cls} />;
         return <input type="text" value={val} onChange={e => setDraft(field, e.target.value)} className={cls} />;
     };
 
     const badge = (val, colorMap) => {
         if (!val) return <span className="text-gray-300">-</span>;
-        const cls = colorMap[val] || 'bg-gray-100 text-gray-600 border-gray-200';
-        return <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold border ${cls}`}>{val}</span>;
+        return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${colorMap[val] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{val}</span>;
     };
 
-    // section별 td 배경
-    const BG = { field: 'bg-amber-50/30', construction: 'bg-blue-50/30', receive: 'bg-purple-50/30', returnSec: 'bg-green-50/30' };
-    const TD = ({ bg, children }) => <td className={`px-3 py-2 text-center text-xs ${bg}`}>{children}</td>;
+    // 섹션별 배경색
+    const BG = {
+        field:        'bg-amber-50/40',
+        construction: 'bg-blue-50/40',
+        returnSec:    'bg-green-50/40',
+        receive:      'bg-purple-50/40',
+    };
+
+    const filterSelectCls = 'border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700 bg-white';
 
     return (
-        <div className="flex flex-col h-full bg-slate-50">
-            {/* ── 헤더 ── */}
-            <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
-                <div>
-                    <h2 className="text-base font-black text-gray-900">회수품 / 전시품 관리</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">오출고·과출고 품목의 회수 과정 추적 관리</p>
-                </div>
-                <button onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-letusBlue text-white text-xs font-bold rounded-lg shadow hover:bg-blue-700 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                    </svg>
-                    발생 등록
-                </button>
-            </div>
+        <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ── 필터 바 ── */}
-            <div className="px-6 py-3 bg-white border-b border-slate-100 flex items-center gap-5 flex-wrap shrink-0">
-                <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-bold text-gray-600 whitespace-nowrap">기간</label>
-                    <input type="date" value={filters.startDate}
-                        onChange={e => setFilters(p => ({ ...p, startDate: e.target.value }))}
-                        className="border border-gray-200 rounded px-2 h-[30px] text-xs focus:outline-none focus:border-letusOrange" />
-                    <span className="text-gray-400 text-xs">~</span>
-                    <input type="date" value={filters.endDate}
-                        onChange={e => setFilters(p => ({ ...p, endDate: e.target.value }))}
-                        className="border border-gray-200 rounded px-2 h-[30px] text-xs focus:outline-none focus:border-letusOrange" />
-                </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-bold text-gray-600">발생센터</label>
-                    <select value={filters.center} onChange={e => setFilters(p => ({ ...p, center: e.target.value }))}
-                        className="border border-gray-200 rounded px-2 h-[30px] text-xs focus:outline-none focus:border-letusOrange cursor-pointer">
-                        <option value="전체">전체</option>
-                        {workplaceList.map(w => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-bold text-gray-600">발생사유</label>
-                    <select value={filters.reason} onChange={e => setFilters(p => ({ ...p, reason: e.target.value }))}
-                        className="border border-gray-200 rounded px-2 h-[30px] text-xs focus:outline-none focus:border-letusOrange cursor-pointer">
-                        <option value="전체">전체</option>
-                        {INCIDENT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-bold text-gray-600">완결여부</label>
-                    <select value={filters.completed} onChange={e => setFilters(p => ({ ...p, completed: e.target.value }))}
-                        className="border border-gray-200 rounded px-2 h-[30px] text-xs focus:outline-none focus:border-letusOrange cursor-pointer">
-                        <option value="전체">전체</option>
-                        <option value="N">미완결</option>
-                        <option value="Y">완결</option>
-                    </select>
-                </div>
-                <div className="ml-auto text-[11px] text-gray-400 font-medium">{items.length}건</div>
-            </div>
-
-            {/* ── 테이블 ── */}
-            <div className="flex-1 overflow-auto p-4">
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-xs" style={{ minWidth: '1560px' }}>
-                            <thead className="sticky top-0 z-10">
-                                {/* 1행: 섹션 헤더 */}
-                                <tr className="text-[11px] font-black">
-                                    <th className="bg-slate-100 border-b border-r border-slate-200 text-slate-500 px-3 py-2 text-center w-10" rowSpan={2}>#</th>
-                                    <th className="bg-amber-100 border-b border-r border-amber-200 text-amber-800 px-3 py-2 text-center" colSpan={7}>
-                                        센터 현장 관리자 작성
-                                    </th>
-                                    <th className="bg-blue-100 border-b border-r border-blue-200 text-blue-800 px-3 py-2 text-center" colSpan={3}>
-                                        센터 시공 관리자 작성
-                                    </th>
-                                    <th className="bg-green-100 border-b border-r border-green-200 text-green-800 px-3 py-2 text-center" colSpan={3}>
-                                        <div>센터 현장 관리자 작성</div>
-                                        <div className="text-[10px] font-normal opacity-70">(1열 "센터 과/오출시 작성")</div>
-                                    </th>
-                                    <th className="bg-purple-100 border-b border-r border-purple-200 text-purple-800 px-3 py-2 text-center" colSpan={4}>
-                                        <div>수신센터 담당자 작성</div>
-                                        <div className="text-[10px] font-normal opacity-70">(1열 "과출" or "오출" 일시 작성)</div>
-                                    </th>
-                                    <th className="bg-slate-100 border-b border-slate-200 text-slate-500 px-3 py-2 text-center w-20" rowSpan={2}>관리</th>
-                                </tr>
-                                {/* 2행: 컬럼 헤더 */}
-                                <tr className="text-[11px] font-bold text-gray-600">
-                                    {[
-                                        ['발생일', BG.field], ['발생센터', BG.field], ['작성자', BG.field],
-                                        ['브랜드', BG.field], ['품목코드', BG.field], ['색상', BG.field], ['수량', BG.field],
-                                        ['발생 사유', BG.construction], ['확인 담당자', BG.construction], ['조치 여부', BG.construction],
-                                        ['반납 센터', BG.returnSec], ['반납 일자', BG.returnSec], ['반납 담당자', BG.returnSec],
-                                        ['수신센터', BG.receive], ['수신자', BG.receive], ['조치 여부', BG.receive], ['완결 여부', BG.receive],
-                                    ].map(([label, bg], i) => (
-                                        <th key={i} className={`border-b border-r border-slate-200 px-3 py-2 text-center whitespace-nowrap ${bg}`}>
-                                            {label}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 text-gray-700">
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={19} className="py-20 text-center text-gray-400 text-sm">데이터를 불러오는 중...</td>
-                                    </tr>
-                                ) : items.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={19} className="py-20 text-center text-gray-400 text-sm">등록된 데이터가 없습니다</td>
-                                    </tr>
-                                ) : items.map((row, idx) => {
-                                    const isEditing = editingRowId === row.id;
-                                    const secs = getSections(row);
-
-                                    return (
-                                        <tr key={row.id}
-                                            className={`hover:bg-slate-50/80 transition-colors
-                                                ${isEditing ? 'ring-1 ring-blue-300 ring-inset bg-blue-50/20' : ''}
-                                                ${row.is_completed ? 'opacity-55' : ''}`}>
-
-                                            {/* # */}
-                                            <td className="px-3 py-2 text-center text-gray-400">{idx + 1}</td>
-
-                                            {/* ── 섹션 1: 현장 관리자 ── */}
-                                            <TD bg={BG.field}>
-                                                {isEditing && secs.field ? editInput('incident_date', 'date') : fmtDate(row.incident_date)}
-                                            </TD>
-                                            <TD bg={BG.field}>
-                                                {isEditing && secs.field
-                                                    ? editInput('incident_center', 'select', workplaceList)
-                                                    : row.incident_center || '-'}
-                                            </TD>
-                                            <TD bg={BG.field}>
-                                                {isEditing && secs.field ? editInput('writer') : row.writer || '-'}
-                                            </TD>
-                                            <TD bg={BG.field}>
-                                                {isEditing && secs.field ? editInput('brand') : row.brand || '-'}
-                                            </TD>
-                                            <TD bg={BG.field}>
-                                                {isEditing && secs.field ? editInput('item_code') : row.item_code || '-'}
-                                            </TD>
-                                            <TD bg={BG.field}>
-                                                {isEditing && secs.field ? editInput('color') : row.color || '-'}
-                                            </TD>
-                                            <TD bg={BG.field}>
-                                                {isEditing && secs.field
-                                                    ? editInput('quantity', 'number')
-                                                    : row.quantity != null ? `${row.quantity} EA` : '-'}
-                                            </TD>
-
-                                            {/* ── 섹션 2: 시공 관리자 ── */}
-                                            <TD bg={BG.construction}>
-                                                {isEditing && secs.construction
-                                                    ? editInput('incident_reason', 'select', INCIDENT_REASONS)
-                                                    : badge(row.incident_reason, REASON_COLORS)}
-                                            </TD>
-                                            <TD bg={BG.construction}>
-                                                {isEditing && secs.construction
-                                                    ? editInput('construction_handler')
-                                                    : row.construction_handler || '-'}
-                                            </TD>
-                                            <TD bg={BG.construction}>
-                                                {isEditing && secs.construction
-                                                    ? editInput('construction_action', 'select', CONSTRUCTION_ACTIONS)
-                                                    : badge(row.construction_action, ACTION_COLORS)}
-                                            </TD>
-
-                                            {/* ── 섹션 3: 반납 (현장 관리자) ── */}
-                                            <TD bg={BG.returnSec}>
-                                                {isEditing && secs.field
-                                                    ? editInput('return_center', 'select', workplaceList)
-                                                    : row.return_center || '-'}
-                                            </TD>
-                                            <TD bg={BG.returnSec}>
-                                                {isEditing && secs.field ? editInput('return_date', 'date') : fmtDate(row.return_date)}
-                                            </TD>
-                                            <TD bg={BG.returnSec}>
-                                                {isEditing && secs.field ? editInput('return_handler') : row.return_handler || '-'}
-                                            </TD>
-
-                                            {/* ── 섹션 4: 수신센터 ── */}
-                                            <TD bg={BG.receive}>
-                                                {isEditing && secs.receive
-                                                    ? editInput('receive_center', 'select', workplaceList)
-                                                    : row.receive_center || '-'}
-                                            </TD>
-                                            <TD bg={BG.receive}>
-                                                {isEditing && secs.receive ? editInput('receiver') : row.receiver || '-'}
-                                            </TD>
-                                            <TD bg={BG.receive}>
-                                                {isEditing && secs.receive
-                                                    ? editInput('receive_action', 'select', RECEIVE_ACTIONS)
-                                                    : badge(row.receive_action, ACTION_COLORS)}
-                                            </TD>
-                                            <TD bg={BG.receive}>
-                                                {row.is_completed
-                                                    ? <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700 border border-green-200">Y</span>
-                                                    : <span className="text-gray-300 text-[11px]">N</span>}
-                                            </TD>
-
-                                            {/* ── 관리 버튼 ── */}
-                                            <td className="px-3 py-2 text-center whitespace-nowrap">
-                                                {isEditing ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={saveEdit}
-                                                            className="px-2.5 py-1 bg-letusBlue text-white text-[11px] font-bold rounded hover:bg-blue-700">
-                                                            저장
-                                                        </button>
-                                                        <button onClick={cancelEdit}
-                                                            className="px-2.5 py-1 border border-gray-300 text-gray-600 text-[11px] font-bold rounded hover:bg-gray-100">
-                                                            취소
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        {canEditRow(row) && (
-                                                            <button onClick={() => startEdit(row)} title="편집"
-                                                                className="p-1.5 text-gray-400 hover:text-letusBlue hover:bg-blue-50 rounded transition-colors">
-                                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                                </svg>
-                                                            </button>
-                                                        )}
-                                                        {isAdmin && (
-                                                            <button onClick={() => handleDelete(row.id)} title="삭제"
-                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
-                                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+            {/* ── 헤더 + 필터 카드 ── */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col gap-3 z-30 shrink-0">
+                {/* 타이틀 + 버튼 */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-sm font-black text-gray-900">회수품 / 전시품 관리</h2>
+                        <p className="text-[11px] text-gray-400 mt-0.5">오출고·과출고 품목의 회수 과정 추적 관리</p>
                     </div>
+                    <button onClick={() => setIsAddModalOpen(true)}
+                        className="bg-letusBlue text-white hover:bg-blue-700 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs flex items-center justify-center shadow-sm gap-1.5">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                        발생 등록
+                    </button>
+                </div>
+
+                {/* 필터 행 */}
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600 whitespace-nowrap">기간</label>
+                        <input type="date" value={filters.startDate}
+                            onChange={e => setFilters(p => ({ ...p, startDate: e.target.value }))}
+                            className={filterSelectCls} />
+                        <span className="text-gray-400 text-xs">~</span>
+                        <input type="date" value={filters.endDate}
+                            onChange={e => setFilters(p => ({ ...p, endDate: e.target.value }))}
+                            className={filterSelectCls} />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600">발생센터</label>
+                        <select value={filters.center} onChange={e => setFilters(p => ({ ...p, center: e.target.value }))} className={filterSelectCls}>
+                            <option value="전체">전체</option>
+                            {workplaceList.map(w => <option key={w} value={w}>{w}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600">발생사유</label>
+                        <select value={filters.reason} onChange={e => setFilters(p => ({ ...p, reason: e.target.value }))} className={filterSelectCls}>
+                            <option value="전체">전체</option>
+                            {INCIDENT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600">완결여부</label>
+                        <select value={filters.completed} onChange={e => setFilters(p => ({ ...p, completed: e.target.value }))} className={filterSelectCls}>
+                            <option value="전체">전체</option>
+                            <option value="N">미완결</option>
+                            <option value="Y">완결</option>
+                        </select>
+                    </div>
+                    <div className="flex items-center bg-blue-50/50 px-3 h-[30px] rounded-[3px] border border-blue-100 ml-auto shrink-0">
+                        <span className="text-[11px] font-bold text-letusBlue">총 {items.length}건</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── 테이블 카드 ── */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar">
+                    <table className="w-full text-left whitespace-nowrap text-[13px]" style={{ minWidth: '1560px' }}>
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
+                            {/* 1행: 섹션 헤더 */}
+                            <tr className="text-[11px] font-black">
+                                <th className="bg-slate-100 border-r border-slate-200 text-slate-400 p-4 text-center w-10" rowSpan={2}>#</th>
+                                <th className="bg-amber-100 border-r border-amber-200 text-amber-800 p-3 text-center" colSpan={7}>
+                                    센터 현장 관리자 작성
+                                </th>
+                                <th className="bg-blue-100 border-r border-blue-200 text-blue-800 p-3 text-center" colSpan={3}>
+                                    센터 시공 관리자 작성
+                                </th>
+                                <th className="bg-green-100 border-r border-green-200 text-green-800 p-3 text-center" colSpan={3}>
+                                    <div>센터 현장 관리자 작성</div>
+                                    <div className="text-[10px] font-normal opacity-70">(1열 "센터 과/오출시 작성")</div>
+                                </th>
+                                <th className="bg-purple-100 border-r border-purple-200 text-purple-800 p-3 text-center" colSpan={4}>
+                                    <div>수신센터 담당자 작성</div>
+                                    <div className="text-[10px] font-normal opacity-70">(1열 "과출" or "오출" 일시 작성)</div>
+                                </th>
+                                <th className="bg-slate-100 text-slate-400 p-3 text-center w-20" rowSpan={2}>관리</th>
+                            </tr>
+                            {/* 2행: 컬럼 헤더 */}
+                            <tr>
+                                {[
+                                    ['발생일', BG.field], ['발생센터', BG.field], ['작성자', BG.field],
+                                    ['브랜드', BG.field], ['품목코드', BG.field], ['색상', BG.field], ['수량', BG.field],
+                                    ['발생 사유', BG.construction], ['확인 담당자', BG.construction], ['조치 여부', BG.construction],
+                                    ['반납 센터', BG.returnSec], ['반납 일자', BG.returnSec], ['반납 담당자', BG.returnSec],
+                                    ['수신센터', BG.receive], ['수신자', BG.receive], ['조치 여부', BG.receive], ['완결 여부', BG.receive],
+                                ].map(([label, bg], i) => (
+                                    <th key={i} className={`p-4 text-center border-r border-gray-200 ${bg}`}>{label}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={19} className="py-32 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div>
+                                            <p className="text-gray-500 font-bold">데이터 로딩 중...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : items.length === 0 ? (
+                                <tr>
+                                    <td colSpan={19} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td>
+                                </tr>
+                            ) : items.map((row, idx) => {
+                                const isEditing = editingRowId === row.id;
+                                const secs = getSections(row);
+
+                                const TD = ({ bg, children }) => (
+                                    <td className={`p-4 text-center border-r border-gray-100 ${bg} ${row.is_completed ? 'opacity-60' : ''}`}>
+                                        {children}
+                                    </td>
+                                );
+
+                                return (
+                                    <tr key={row.id}
+                                        className={`hover:bg-blue-50/30 transition-colors
+                                            ${isEditing ? 'bg-blue-50/20 ring-1 ring-inset ring-blue-200' : ''}`}>
+
+                                        {/* # */}
+                                        <td className="p-4 text-center text-gray-400 text-xs">{idx + 1}</td>
+
+                                        {/* ── 섹션 1: 현장 관리자 ── */}
+                                        <TD bg={BG.field}>
+                                            {isEditing && secs.field ? editInput('incident_date', 'date') : fmtDate(row.incident_date)}
+                                        </TD>
+                                        <TD bg={BG.field}>
+                                            {isEditing && secs.field ? editInput('incident_center', 'select', workplaceList) : row.incident_center || '-'}
+                                        </TD>
+                                        <TD bg={BG.field}>
+                                            {isEditing && secs.field ? editInput('writer') : row.writer || '-'}
+                                        </TD>
+                                        <TD bg={BG.field}>
+                                            {isEditing && secs.field ? editInput('brand') : row.brand || '-'}
+                                        </TD>
+                                        <TD bg={BG.field}>
+                                            {isEditing && secs.field ? editInput('item_code') : <span className="font-mono text-gray-500">{row.item_code || '-'}</span>}
+                                        </TD>
+                                        <TD bg={BG.field}>
+                                            {isEditing && secs.field ? editInput('color') : row.color || '-'}
+                                        </TD>
+                                        <TD bg={BG.field}>
+                                            {isEditing && secs.field
+                                                ? editInput('quantity', 'number')
+                                                : row.quantity != null ? <span className="font-bold">{row.quantity} EA</span> : '-'}
+                                        </TD>
+
+                                        {/* ── 섹션 2: 시공 관리자 ── */}
+                                        <TD bg={BG.construction}>
+                                            {isEditing && secs.construction
+                                                ? editInput('incident_reason', 'select', INCIDENT_REASONS)
+                                                : badge(row.incident_reason, REASON_COLORS)}
+                                        </TD>
+                                        <TD bg={BG.construction}>
+                                            {isEditing && secs.construction ? editInput('construction_handler') : row.construction_handler || '-'}
+                                        </TD>
+                                        <TD bg={BG.construction}>
+                                            {isEditing && secs.construction
+                                                ? editInput('construction_action', 'select', CONSTRUCTION_ACTIONS)
+                                                : badge(row.construction_action, ACTION_COLORS)}
+                                        </TD>
+
+                                        {/* ── 섹션 3: 반납 (현장 관리자) ── */}
+                                        <TD bg={BG.returnSec}>
+                                            {isEditing && secs.field ? editInput('return_center', 'select', workplaceList) : row.return_center || '-'}
+                                        </TD>
+                                        <TD bg={BG.returnSec}>
+                                            {isEditing && secs.field ? editInput('return_date', 'date') : fmtDate(row.return_date)}
+                                        </TD>
+                                        <TD bg={BG.returnSec}>
+                                            {isEditing && secs.field ? editInput('return_handler') : row.return_handler || '-'}
+                                        </TD>
+
+                                        {/* ── 섹션 4: 수신센터 ── */}
+                                        <TD bg={BG.receive}>
+                                            {isEditing && secs.receive ? editInput('receive_center', 'select', workplaceList) : row.receive_center || '-'}
+                                        </TD>
+                                        <TD bg={BG.receive}>
+                                            {isEditing && secs.receive ? editInput('receiver') : row.receiver || '-'}
+                                        </TD>
+                                        <TD bg={BG.receive}>
+                                            {isEditing && secs.receive
+                                                ? editInput('receive_action', 'select', RECEIVE_ACTIONS)
+                                                : badge(row.receive_action, ACTION_COLORS)}
+                                        </TD>
+                                        <TD bg={BG.receive}>
+                                            {row.is_completed
+                                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
+                                                : <span className="text-gray-300 text-xs font-bold">N</span>}
+                                        </TD>
+
+                                        {/* ── 관리 버튼 ── */}
+                                        <td className="p-4 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                                            {isEditing ? (
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <button onClick={saveEdit}
+                                                        className="px-2.5 py-1 bg-letusBlue text-white text-[11px] font-bold rounded-[3px] hover:bg-blue-700 shadow-sm">
+                                                        저장
+                                                    </button>
+                                                    <button onClick={cancelEdit}
+                                                        className="px-2.5 py-1 border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-100">
+                                                        취소
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {canEditRow(row) && (
+                                                        <button onClick={() => startEdit(row)} title="편집"
+                                                            className="p-1.5 text-gray-400 hover:text-letusBlue hover:bg-blue-50 rounded transition-colors">
+                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                    {isAdmin && (
+                                                        <button onClick={() => handleDelete(row.id)} title="삭제"
+                                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
