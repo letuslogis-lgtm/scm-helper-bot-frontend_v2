@@ -51,6 +51,7 @@ const StepIndicator = ({ row }) => {
 const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }) => {
     const isAdmin     = userProfile?.role === '관리자';
     const myWorkplace = userProfile?.workplace;
+    const myName      = userProfile?.name || '';
 
     const secs = {
         field:        isAdmin || row.incident_center === myWorkplace,
@@ -58,7 +59,14 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
         receive:      isAdmin || row.receive_center === myWorkplace,
     };
 
-    const [form, setForm]       = useState({ ...row });
+    const [form, setForm] = useState(() => {
+        const initial = { ...row };
+        if (secs.field        && !initial.writer)               initial.writer               = myName;
+        if (secs.construction && !initial.construction_handler) initial.construction_handler = myName;
+        if (secs.field        && !initial.return_handler)       initial.return_handler       = myName;
+        if (secs.receive      && !initial.receiver)             initial.receiver             = myName;
+        return initial;
+    });
     const [isSaving, setIsSaving] = useState(false);
 
     const set = (field, value) => setForm(prev => {
@@ -257,7 +265,7 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
                             {workplaceList.map(w => <option key={w} value={w}>{w}</option>)}
                         </select>
                     </div>
-                    <div><label className={lbl}>작성자</label><input type="text" value={form.writer} onChange={e => set('writer', e.target.value)} className={inp} /></div>
+                    <div><label className={lbl}>작성자</label><input type="text" value={form.writer} readOnly className="w-full border border-gray-100 rounded-[3px] text-xs px-2.5 h-[30px] bg-gray-50 text-gray-400 cursor-not-allowed" /></div>
                     <div><label className={lbl}>브랜드</label><input type="text" value={form.brand} onChange={e => set('brand', e.target.value)} className={inp} /></div>
                     <div><label className={lbl}>품목코드</label><input type="text" value={form.item_code} onChange={e => set('item_code', e.target.value)} className={inp} /></div>
                     <div><label className={lbl}>색상</label><input type="text" value={form.color} onChange={e => set('color', e.target.value)} className={inp} /></div>
