@@ -285,12 +285,16 @@ const ReturnsManagement = ({ userProfile }) => {
 
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const today = new Date().toISOString().split('T')[0];
-    const [filters, setFilters] = useState({ startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', completed: '전체' });
+    const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', completed: '전체' };
+    const [draftFilters, setDraftFilters]     = useState(initialFilters);
+    const [appliedFilters, setAppliedFilters] = useState(initialFilters);
 
     const isAdmin = userProfile?.role === '관리자';
 
     useEffect(() => { fetchWorkplaces(); }, []);
-    useEffect(() => { fetchData(); }, [filters]);
+    useEffect(() => { fetchData(); }, [appliedFilters]);
+
+    const handleSearchClick = () => setAppliedFilters({ ...draftFilters });
 
     const fetchWorkplaces = async () => {
         const { data } = await supabase.from('workers').select('workplace').not('workplace', 'is', null);
@@ -301,12 +305,12 @@ const ReturnsManagement = ({ userProfile }) => {
         setIsLoading(true);
         try {
             let q = supabase.from('logistics_returns').select('*').order('created_at', { ascending: false });
-            if (filters.startDate) q = q.gte('incident_date', filters.startDate);
-            if (filters.endDate)   q = q.lte('incident_date', filters.endDate);
-            if (filters.center !== '전체')  q = q.eq('incident_center', filters.center);
-            if (filters.reason !== '전체')  q = q.eq('incident_reason', filters.reason);
-            if (filters.completed === 'Y') q = q.eq('is_completed', true);
-            if (filters.completed === 'N') q = q.eq('is_completed', false);
+            if (appliedFilters.startDate) q = q.gte('incident_date', appliedFilters.startDate);
+            if (appliedFilters.endDate)   q = q.lte('incident_date', appliedFilters.endDate);
+            if (appliedFilters.center !== '전체')  q = q.eq('incident_center', appliedFilters.center);
+            if (appliedFilters.reason !== '전체')  q = q.eq('incident_reason', appliedFilters.reason);
+            if (appliedFilters.completed === 'Y') q = q.eq('is_completed', true);
+            if (appliedFilters.completed === 'N') q = q.eq('is_completed', false);
             const { data, error } = await q;
             if (error) throw error;
             setItems(data || []);
@@ -331,43 +335,48 @@ const ReturnsManagement = ({ userProfile }) => {
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ── 헤더 + 필터 ── */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col gap-3 z-30 shrink-0">
-                <div className="flex items-center justify-between">
-                    <button onClick={() => setIsAddModalOpen(true)}
-                        className="bg-letusBlue text-white hover:bg-blue-700 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs flex items-center gap-1.5 shadow-sm">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                        발생 등록
-                    </button>
-                </div>
+            {/* ── 필터 ── */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 z-30 shrink-0">
                 <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 whitespace-nowrap">기간</label>
-                        <input type="date" value={filters.startDate} onChange={e => setFilters(p => ({ ...p, startDate: e.target.value }))} className={filterSel} />
+                        <input type="date" value={draftFilters.startDate} onChange={e => setDraftFilters(p => ({ ...p, startDate: e.target.value }))} className={filterSel} />
                         <span className="text-gray-400 text-xs">~</span>
-                        <input type="date" value={filters.endDate} onChange={e => setFilters(p => ({ ...p, endDate: e.target.value }))} className={filterSel} />
+                        <input type="date" value={draftFilters.endDate} onChange={e => setDraftFilters(p => ({ ...p, endDate: e.target.value }))} className={filterSel} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[11px] font-bold text-gray-600">발생센터</label>
-                        <select value={filters.center} onChange={e => setFilters(p => ({ ...p, center: e.target.value }))} className={filterSel}>
+                        <select value={draftFilters.center} onChange={e => setDraftFilters(p => ({ ...p, center: e.target.value }))} className={filterSel}>
                             <option value="전체">전체</option>
                             {workplaceList.map(w => <option key={w} value={w}>{w}</option>)}
                         </select>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[11px] font-bold text-gray-600">발생사유</label>
-                        <select value={filters.reason} onChange={e => setFilters(p => ({ ...p, reason: e.target.value }))} className={filterSel}>
+                        <select value={draftFilters.reason} onChange={e => setDraftFilters(p => ({ ...p, reason: e.target.value }))} className={filterSel}>
                             <option value="전체">전체</option>
                             {INCIDENT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[11px] font-bold text-gray-600">완결여부</label>
-                        <select value={filters.completed} onChange={e => setFilters(p => ({ ...p, completed: e.target.value }))} className={filterSel}>
+                        <select value={draftFilters.completed} onChange={e => setDraftFilters(p => ({ ...p, completed: e.target.value }))} className={filterSel}>
                             <option value="전체">전체</option>
                             <option value="N">미완결</option>
                             <option value="Y">완결</option>
                         </select>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2 shrink-0">
+                        <button onClick={() => setIsAddModalOpen(true)}
+                            className="bg-letusBlue text-white hover:bg-blue-700 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs flex items-center gap-1.5 shadow-sm">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                            발생 등록
+                        </button>
+                        <button onClick={handleSearchClick}
+                            className="bg-letusOrange text-white hover:bg-orange-600 font-bold px-6 h-[30px] rounded-[3px] transition-colors text-xs flex items-center gap-1.5 shadow-sm">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            조회하기
+                        </button>
                     </div>
                 </div>
             </div>
@@ -384,7 +393,7 @@ const ReturnsManagement = ({ userProfile }) => {
                                             <input type="checkbox"
                                                 checked={items.length > 0 && selectedIds.size === items.length}
                                                 onChange={e => setSelectedIds(e.target.checked ? new Set(items.map(r => r.id)) : new Set())}
-                                                className="cursor-pointer accent-letusBlue"
+                                                className="w-4 h-4 cursor-pointer accent-letusBlue"
                                             />
                                         ) : col.label}
                                     </th>
@@ -413,7 +422,7 @@ const ReturnsManagement = ({ userProfile }) => {
                                                 e.target.checked ? next.add(row.id) : next.delete(row.id);
                                                 return next;
                                             })}
-                                            className="cursor-pointer accent-letusBlue"
+                                            className="w-4 h-4 cursor-pointer accent-letusBlue"
                                         />
                                     </td>
                                     <td className="p-4 text-center text-gray-600">{fmtDate(row.incident_date) || '-'}</td>
