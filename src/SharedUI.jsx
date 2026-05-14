@@ -128,6 +128,8 @@ const ImageSlider = ({ imageUrlString }) => {
 };
 
 // --- 👤 사용자 정보 수정 모달 (UserEditModal - UI 간소화 및 메뉴권한 모달 분리) ---
+const WORKPLACE_LIST = ['양지1센터', '양지2센터', '양지3센터', '안성센터', '평택센터', '음성센터', '대전센터', '대구센터', '부산센터', '광주센터'];
+
 const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
     const [name, setName] = useState(user.name || '');
     const [loginId, setLoginId] = useState(user.login_id || '');
@@ -136,6 +138,7 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
     const [status, setStatus] = useState(user.status || '정상');
     const [brand, setBrand] = useState(user.brands || '전체');
     const [team, setTeam] = useState(user.team || '');
+    const [workplace, setWorkplace] = useState(user.workplace || '');
     const [managedVendors, setManagedVendors] = useState(user.managed_vendors || '');
     const [managedBrands, setManagedBrands] = useState(user.managed_brands || '');
 
@@ -168,6 +171,7 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
             //   - isProfileMode=false: 관리자가 타인 프로필 수정 → profiles_admin_all 통과
             const { error: profileError } = await supabase.from('profiles').update({
                 name, login_id: loginId, role: group, status, brands: brand, team,
+                workplace: workplace || null,
                 managed_vendors: managedVendors, managed_brands: managedBrands,
                 accessible_menus: accessibleMenus.join(','),
             }).eq('id', user.id);
@@ -242,6 +246,14 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
                                         <option value="전체">전체 (All)</option><option value="퍼시스">퍼시스</option><option value="일룸">일룸</option><option value="슬로우베드">슬로우베드</option><option value="데스커">데스커</option><option value="시디즈">시디즈</option><option value="알로소">알로소</option><option value="바로스">바로스</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-gray-700">근무지</label>
+                                <select value={workplace} onChange={(e) => setWorkplace(e.target.value)} className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-[11px] focus:outline-none focus:border-letusBlue transition-all bg-white text-gray-800 font-medium cursor-pointer">
+                                    <option value="">미지정</option>
+                                    {WORKPLACE_LIST.map(w => <option key={w} value={w}>{w}</option>)}
+                                </select>
                             </div>
 
                             <div className="flex flex-col gap-1.5">

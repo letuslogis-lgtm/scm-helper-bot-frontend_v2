@@ -5,6 +5,8 @@ import { CloseIcon } from './SharedUI.jsx';
 import { DEFAULT_MENUS } from './menuConfig.jsx';
 import { loadXLSX } from './utils.js';
 
+const WORKPLACE_LIST = ['양지1센터', '양지2센터', '양지3센터', '안성센터', '평택센터', '음성센터', '대전센터', '대구센터', '부산센터', '광주센터'];
+
 const UserAddModal = ({ onClose, onReload }) => {
     const [name, setName] = useState('');
     const [loginId, setLoginId] = useState('');
@@ -13,6 +15,7 @@ const UserAddModal = ({ onClose, onReload }) => {
     const [status, setStatus] = useState('정상');
     const [brand, setBrand] = useState('퍼시스');
     const [team, setTeam] = useState('');
+    const [workplace, setWorkplace] = useState('');
     const [managedVendors, setManagedVendors] = useState('');
     const [managedBrands, setManagedBrands] = useState('');
     const [vendorModalOpen, setVendorModalOpen] = useState(false);
@@ -45,6 +48,7 @@ const UserAddModal = ({ onClose, onReload }) => {
             const { error: profileError } = await supabase.from('profiles').insert([
                 {
                     id: newUserId, name: name, login_id: loginId, role: group, status: status, brands: brand, team: team,
+                    workplace: workplace || null,
                     managed_vendors: managedVendors, managed_brands: managedBrands,
                     accessible_menus: accessibleMenus.join(','),
                     created_at: new Date().toISOString()
@@ -112,6 +116,14 @@ const UserAddModal = ({ onClose, onReload }) => {
                                         <option value="전체">전체 (All)</option><option value="퍼시스">퍼시스</option><option value="일룸">일룸</option><option value="슬로우베드">슬로우베드</option><option value="데스커">데스커</option><option value="시디즈">시디즈</option><option value="알로소">알로소</option><option value="바로스">바로스</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-gray-700">근무지</label>
+                                <select value={workplace} onChange={(e) => setWorkplace(e.target.value)} className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-[11px] focus:outline-none focus:border-letusBlue transition-all bg-white text-gray-800 font-medium cursor-pointer">
+                                    <option value="">미지정</option>
+                                    {WORKPLACE_LIST.map(w => <option key={w} value={w}>{w}</option>)}
+                                </select>
                             </div>
 
                             <div className="flex flex-col gap-1.5">
@@ -187,9 +199,10 @@ const UserAddModal = ({ onClose, onReload }) => {
 
 // 2. 사용자 일괄 수정 모달
 const UserBulkEditModal = ({ selectedUserIds, users, onClose, onReload }) => {
-    const [updateTarget, setUpdateTarget] = useState({ vendor: false, menu: false });
+    const [updateTarget, setUpdateTarget] = useState({ vendor: false, workplace: false, menu: false });
     const [managedVendors, setManagedVendors] = useState('');
     const [managedBrands, setManagedBrands] = useState('');
+    const [workplace, setWorkplace] = useState('');
     const [accessibleMenus, setAccessibleMenus] = useState([]);
     const [vendorModalOpen, setVendorModalOpen] = useState(false);
     const [menuModalOpen, setMenuModalOpen] = useState(false);
@@ -198,7 +211,8 @@ const UserBulkEditModal = ({ selectedUserIds, users, onClose, onReload }) => {
     const targetUsers = users.filter(u => selectedUserIds.includes(u.id));
 
     const handleSave = async () => {
-        if (!updateTarget.vendor && !updateTarget.menu) return alert('변경할 대상을 선택해 주세요.');
+        if (!updateTarget.vendor && !updateTarget.workplace && !updateTarget.menu) return alert('변경할 대상을 선택해 주세요.');
+        if (updateTarget.workplace && !workplace) return alert('변경할 근무지를 선택해 주세요.');
 
         setIsSaving(true);
         try {
@@ -206,6 +220,9 @@ const UserBulkEditModal = ({ selectedUserIds, users, onClose, onReload }) => {
             if (updateTarget.vendor) {
                 updateData.managed_vendors = managedVendors;
                 updateData.managed_brands = managedBrands;
+            }
+            if (updateTarget.workplace) {
+                updateData.workplace = workplace;
             }
             if (updateTarget.menu) {
                 updateData.accessible_menus = accessibleMenus.join(',');
@@ -256,7 +273,23 @@ const UserBulkEditModal = ({ selectedUserIds, users, onClose, onReload }) => {
                                 )}
                             </div>
 
-                            {/* 옵션 2: 메뉴 권한 일괄 변경 */}
+                            {/* 옵션 2: 근무지 일괄 변경 */}
+                            <div className={`border rounded-lg p-4 transition-colors ${updateTarget.workplace ? 'border-indigo-400 bg-white shadow-sm' : 'border-gray-200 bg-gray-50'}`}>
+                                <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-800 text-sm mb-3">
+                                    <input type="checkbox" checked={updateTarget.workplace} onChange={e => setUpdateTarget({ ...updateTarget, workplace: e.target.checked })} className="w-4 h-4 accent-indigo-500" />
+                                    근무지 일괄 변경
+                                </label>
+                                {updateTarget.workplace && (
+                                    <div className="pl-6 animate-fade-in">
+                                        <select value={workplace} onChange={e => setWorkplace(e.target.value)} className="border border-gray-300 rounded px-2.5 py-1.5 text-[11px] outline-none w-full bg-white cursor-pointer text-gray-700">
+                                            <option value="">선택 안함</option>
+                                            {WORKPLACE_LIST.map(w => <option key={w} value={w}>{w}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 옵션 3: 메뉴 권한 일괄 변경 */}
                             <div className={`border rounded-lg p-4 transition-colors ${updateTarget.menu ? 'border-purple-400 bg-white shadow-sm' : 'border-gray-200 bg-gray-50'}`}>
                                 <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-800 text-sm mb-3">
                                     <input type="checkbox" checked={updateTarget.menu} onChange={e => setUpdateTarget({ ...updateTarget, menu: e.target.checked })} className="w-4 h-4 accent-purple-500" />
@@ -276,7 +309,7 @@ const UserBulkEditModal = ({ selectedUserIds, users, onClose, onReload }) => {
 
                     <div className="p-4 border-t bg-white flex justify-end gap-2">
                         <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-[11px] font-bold rounded hover:bg-gray-50">취소</button>
-                        <button onClick={handleSave} disabled={isSaving || (!updateTarget.vendor && !updateTarget.menu)} className="px-5 py-2 bg-letusBlue text-white text-[11px] font-bold rounded hover:bg-blue-600 flex items-center gap-1.5 disabled:opacity-50">
+                        <button onClick={handleSave} disabled={isSaving || (!updateTarget.vendor && !updateTarget.workplace && !updateTarget.menu)} className="px-5 py-2 bg-letusBlue text-white text-[11px] font-bold rounded hover:bg-blue-600 flex items-center gap-1.5 disabled:opacity-50">
                             {isSaving ? '일괄 적용 중...' : '선택 대상 일괄 적용'}
                         </button>
                     </div>
@@ -299,13 +332,13 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
         const templateData = [
             {
                 '이름(필수)': '홍길동', '아이디(필수)': 'gildong', '비밀번호(필수/선택)': '123456',
-                '소속팀(필수)': '물류사업1팀', '소속브랜드': '퍼시스', '권한그룹': '사용자', '상태': '정상',
+                '소속팀(필수)': '물류사업1팀', '소속브랜드': '퍼시스', '근무지': '양지1센터', '권한그룹': '사용자', '상태': '정상',
                 '담당브랜드': '퍼시스, 일룸', '담당업체': 'CJ대한통운',
                 '허용메뉴(ID)': DEFAULT_MENUS.join(',')
             }
         ];
         const ws = XLSX.utils.json_to_sheet(templateData);
-        ws['!cols'] = [{ wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 40 }];
+        ws['!cols'] = [{ wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 40 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "사용자업로드양식");
         XLSX.writeFile(wb, `사용자_일괄등록수정_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -365,6 +398,7 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
                         login_id: loginId,
                         team: cleanRow['소속팀(필수)'] || '',
                         brands: cleanRow['소속브랜드'] || '',
+                        workplace: cleanRow['근무지'] || null,
                         role: cleanRow['권한그룹'] || '사용자',
                         status: cleanRow['상태'] || '정상',
                         managed_brands: cleanRow['담당브랜드'] || '',
