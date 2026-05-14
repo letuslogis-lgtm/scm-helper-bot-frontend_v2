@@ -16,6 +16,91 @@ const formatDate = (dt) => {
     return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const today = () => new Date().toISOString().split('T')[0];
+const monthAgo = () => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split('T')[0];
+};
+
+const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
+    const [start, setStart] = useState(dateRange.start);
+    const [end, setEnd] = useState(dateRange.end);
+
+    return (
+        <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl">
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-10 h-1 rounded-full bg-slate-200" />
+                </div>
+                <div className="px-5 pb-10 pt-3 space-y-4">
+                    <p className="text-slate-800 font-black text-base">조회 기간 설정</p>
+
+                    <div className="flex gap-3 items-center">
+                        <div className="flex-1">
+                            <label className="text-[11px] font-bold text-slate-400 mb-1.5 block">시작일</label>
+                            <input
+                                type="date"
+                                value={start}
+                                max={end || today()}
+                                onChange={e => setStart(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue"
+                            />
+                        </div>
+                        <span className="text-slate-300 font-bold mt-5">~</span>
+                        <div className="flex-1">
+                            <label className="text-[11px] font-bold text-slate-400 mb-1.5 block">종료일</label>
+                            <input
+                                type="date"
+                                value={end}
+                                min={start}
+                                max={today()}
+                                onChange={e => setEnd(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue"
+                            />
+                        </div>
+                    </div>
+
+                    {/* 빠른 선택 */}
+                    <div className="flex gap-2">
+                        {[
+                            { label: '오늘', s: today(), e: today() },
+                            { label: '이번 주', s: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split('T')[0]; })(), e: today() },
+                            { label: '이번 달', s: (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; })(), e: today() },
+                            { label: '한 달', s: monthAgo(), e: today() },
+                        ].map(({ label, s, e }) => (
+                            <button
+                                key={label}
+                                onClick={() => { setStart(s); setEnd(e); }}
+                                className="flex-1 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold active:bg-slate-200 transition-colors"
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-2.5">
+                        <button
+                            onClick={() => onApply({ start: '', end: '' })}
+                            className="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-500 font-bold text-sm active:bg-slate-200 transition-colors"
+                        >
+                            전체 기간
+                        </button>
+                        <button
+                            onClick={() => onApply({ start, end })}
+                            disabled={!start || !end}
+                            className="flex-[2] py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors disabled:bg-slate-200 disabled:text-slate-400"
+                        >
+                            조회
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+};
+
 const IssueDetailSheet = ({ issue, onClose }) => {
     if (!issue) return null;
     return (
@@ -25,9 +110,7 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                 <div className="flex justify-center pt-3 pb-1">
                     <div className="w-10 h-1 rounded-full bg-slate-200" />
                 </div>
-
                 <div className="px-5 pb-10 pt-3 space-y-4">
-                    {/* 상태 + 접수번호 */}
                     <div className="flex items-center justify-between">
                         <p className="text-slate-400 text-xs font-mono">{issue.reception_no}</p>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_STYLE[issue.status] || 'bg-slate-50 text-slate-400 border-slate-200'}`}>
@@ -35,7 +118,6 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                         </span>
                     </div>
 
-                    {/* 브랜드 + 이슈 유형 */}
                     <div className="flex gap-2 flex-wrap">
                         <span className="px-2.5 py-1 rounded-full bg-letusBlue/10 text-letusBlue text-xs font-bold border border-letusBlue/20">
                             {issue.brand}
@@ -45,7 +127,6 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                         </span>
                     </div>
 
-                    {/* 품목코드 */}
                     {issue.product_code && (
                         <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 flex items-center gap-2">
                             <span className="text-[11px] font-bold text-slate-400">품목코드</span>
@@ -53,7 +134,6 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                         </div>
                     )}
 
-                    {/* 등록자 */}
                     <div className="flex items-center gap-2 text-xs text-slate-400">
                         <span>등록자</span>
                         <span className="font-bold text-slate-600">{issue.reporter}</span>
@@ -63,7 +143,6 @@ const IssueDetailSheet = ({ issue, onClose }) => {
 
                     <div className="h-px bg-slate-100" />
 
-                    {/* 접수 내용 */}
                     <div>
                         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">접수 내용</p>
                         <p className="text-slate-700 text-sm leading-relaxed">
@@ -71,7 +150,6 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                         </p>
                     </div>
 
-                    {/* 조치 내용 */}
                     {issue.status === '조치완료' && (
                         <>
                             <div className="h-px bg-slate-100" />
@@ -85,16 +163,13 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                                         {issue.final_handler && (
                                             <span>담당자: <span className="font-bold text-slate-500">{issue.final_handler}</span></span>
                                         )}
-                                        {issue.resolved_at && (
-                                            <span>{formatDate(issue.resolved_at)}</span>
-                                        )}
+                                        {issue.resolved_at && <span>{formatDate(issue.resolved_at)}</span>}
                                     </div>
                                 )}
                             </div>
                         </>
                     )}
 
-                    {/* 처리 중 안내 */}
                     {issue.status === '처리 중' && (
                         <>
                             <div className="h-px bg-slate-100" />
@@ -123,30 +198,34 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedIssue, setSelectedIssue] = useState(null);
     const [activeTab, setActiveTab] = useState('전체');
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [showDateSheet, setShowDateSheet] = useState(false);
 
-    const fetchIssues = async () => {
+    const fetchIssues = async (range = dateRange) => {
         if (!userProfile?.name) return;
         setIsLoading(true);
         try {
             let reporterNames = [userProfile.name];
-
             if (userProfile.team) {
                 const { data: teammates } = await supabase
                     .from('profiles')
                     .select('name')
                     .eq('team', userProfile.team)
                     .eq('status', '재직');
-                if (teammates?.length) {
-                    reporterNames = teammates.map(p => p.name);
-                }
+                if (teammates?.length) reporterNames = teammates.map(p => p.name);
             }
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from('logistics_issues')
                 .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at')
                 .in('reporter', reporterNames)
                 .order('created_at', { ascending: false })
-                .limit(100);
+                .limit(200);
+
+            if (range.start) query = query.gte('created_at', range.start);
+            if (range.end)   query = query.lte('created_at', range.end + 'T23:59:59');
+
+            const { data, error } = await query;
             if (error) throw error;
             setIssues(data || []);
         } catch (err) {
@@ -163,11 +242,18 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
         }
     }, [userProfile]);
 
+    const handleDateApply = (range) => {
+        setDateRange(range);
+        setShowDateSheet(false);
+        fetchIssues(range);
+    };
+
     const filteredIssues = activeTab === '전체'
         ? issues
         : issues.filter(i => i.status === activeTab);
 
     const countByStatus = (status) => issues.filter(i => i.status === status).length;
+    const hasDateFilter = dateRange.start && dateRange.end;
 
     return (
         <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -188,8 +274,21 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                             <p className="text-slate-400 text-xs mt-0.5">{userProfile.team} 팀</p>
                         )}
                     </div>
+                    {/* 날짜 필터 버튼 */}
                     <button
-                        onClick={fetchIssues}
+                        onClick={() => setShowDateSheet(true)}
+                        className="relative p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
+                    >
+                        <svg className={`w-5 h-5 ${hasDateFilter ? 'text-letusOrange' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {hasDateFilter && (
+                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-letusOrange" />
+                        )}
+                    </button>
+                    {/* 새로고침 버튼 */}
+                    <button
+                        onClick={() => fetchIssues()}
                         className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
                     >
                         <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -197,6 +296,21 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                         </svg>
                     </button>
                 </div>
+
+                {/* 날짜 필터 표시 */}
+                {hasDateFilter && (
+                    <div className="px-4 pb-2 flex items-center gap-2">
+                        <span className="text-xs text-letusOrange font-bold">
+                            {dateRange.start} ~ {dateRange.end}
+                        </span>
+                        <button
+                            onClick={() => handleDateApply({ start: '', end: '' })}
+                            className="text-[11px] text-slate-400 font-bold underline"
+                        >
+                            해제
+                        </button>
+                    </div>
+                )}
 
                 {/* 상태 탭 */}
                 <div className="flex border-t border-slate-100">
@@ -207,9 +321,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`flex-1 py-2.5 text-xs font-bold transition-colors relative ${
-                                    isActive ? 'text-letusOrange' : 'text-slate-400'
-                                }`}
+                                className={`flex-1 py-2.5 text-xs font-bold transition-colors relative ${isActive ? 'text-letusOrange' : 'text-slate-400'}`}
                             >
                                 {tab}
                                 {count > 0 && (
@@ -241,7 +353,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                         <p className="text-slate-700 font-bold text-base">
                             {activeTab === '전체' ? '등록 이력이 없습니다' : `${activeTab} 항목이 없습니다`}
                         </p>
-                        {activeTab === '전체' && (
+                        {activeTab === '전체' && !hasDateFilter && (
                             <>
                                 <p className="text-slate-400 text-sm mt-1">입고 특이사항을 등록하면<br />여기에 표시됩니다.</p>
                                 <button
@@ -255,9 +367,6 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2.5">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-1">
-                            {filteredIssues.length}건
-                        </p>
                         {filteredIssues.map(issue => (
                             <button
                                 key={issue.id}
@@ -298,6 +407,13 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                 )}
             </div>
 
+            {showDateSheet && (
+                <DateFilterSheet
+                    dateRange={dateRange}
+                    onApply={handleDateApply}
+                    onClose={() => setShowDateSheet(false)}
+                />
+            )}
             <IssueDetailSheet issue={selectedIssue} onClose={() => setSelectedIssue(null)} />
         </div>
     );
