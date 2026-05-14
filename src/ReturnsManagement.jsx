@@ -281,6 +281,7 @@ const ReturnsManagement = ({ userProfile }) => {
     const [workplaceList, setWorkplaceList]   = useState([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [activeRow, setActiveRow]           = useState(null);
+    const [selectedIds, setSelectedIds]       = useState(new Set());
 
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const today = new Date().toISOString().split('T')[0];
@@ -313,17 +314,10 @@ const ReturnsManagement = ({ userProfile }) => {
         finally { setIsLoading(false); }
     };
 
-    const handleDelete = async (e, id) => {
-        e.stopPropagation();
-        if (!window.confirm('이 건을 삭제하시겠습니까?')) return;
-        const { error } = await supabase.from('logistics_returns').delete().eq('id', id);
-        if (!error) setItems(prev => prev.filter(item => item.id !== id));
-    };
-
     const filterSel = 'border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700 bg-white';
 
     const COLS = [
-        { label: '#',       w: '44px'  },
+        { isCheckbox: true, w: '44px'  },
         { label: '발생일',  w: '90px'  },
         { label: '발생센터', w: '110px' },
         { label: '브랜드',  w: '80px'  },
@@ -332,7 +326,6 @@ const ReturnsManagement = ({ userProfile }) => {
         { label: '발생 사유', w: '140px' },
         { label: '진행 단계', w: '110px' },
         { label: '완결',    w: '60px'  },
-        ...(isAdmin ? [{ label: '', w: '48px' }] : []),
     ];
 
     return (
@@ -341,10 +334,6 @@ const ReturnsManagement = ({ userProfile }) => {
             {/* ── 헤더 + 필터 ── */}
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col gap-3 z-30 shrink-0">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-sm font-black text-gray-900">회수품 / 전시품 관리</h2>
-                        <p className="text-[11px] text-gray-400 mt-0.5">오출고·과출고 품목의 회수 과정 추적 관리 · 행 클릭 시 상세 정보 및 편집</p>
-                    </div>
                     <button onClick={() => setIsAddModalOpen(true)}
                         className="bg-letusBlue text-white hover:bg-blue-700 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs flex items-center gap-1.5 shadow-sm">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
@@ -380,9 +369,6 @@ const ReturnsManagement = ({ userProfile }) => {
                             <option value="Y">완결</option>
                         </select>
                     </div>
-                    <div className="flex items-center bg-blue-50/50 px-3 h-[30px] rounded-[3px] border border-blue-100 ml-auto shrink-0">
-                        <span className="text-[11px] font-bold text-letusBlue">총 {items.length}건</span>
-                    </div>
                 </div>
             </div>
 
@@ -393,7 +379,15 @@ const ReturnsManagement = ({ userProfile }) => {
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
                                 {COLS.map((col, i) => (
-                                    <th key={i} className="p-4 text-center" style={{ width: col.w }}>{col.label}</th>
+                                    <th key={i} className="p-4 text-center" style={{ width: col.w }}>
+                                        {col.isCheckbox ? (
+                                            <input type="checkbox"
+                                                checked={items.length > 0 && selectedIds.size === items.length}
+                                                onChange={e => setSelectedIds(e.target.checked ? new Set(items.map(r => r.id)) : new Set())}
+                                                className="cursor-pointer accent-letusBlue"
+                                            />
+                                        ) : col.label}
+                                    </th>
                                 ))}
                             </tr>
                         </thead>
@@ -411,7 +405,17 @@ const ReturnsManagement = ({ userProfile }) => {
                                 <tr key={row.id}
                                     onClick={() => setActiveRow(row)}
                                     className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${row.is_completed ? 'opacity-60' : ''}`}>
-                                    <td className="p-4 text-center text-gray-400 text-xs">{idx + 1}</td>
+                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
+                                        <input type="checkbox"
+                                            checked={selectedIds.has(row.id)}
+                                            onChange={e => setSelectedIds(prev => {
+                                                const next = new Set(prev);
+                                                e.target.checked ? next.add(row.id) : next.delete(row.id);
+                                                return next;
+                                            })}
+                                            className="cursor-pointer accent-letusBlue"
+                                        />
+                                    </td>
                                     <td className="p-4 text-center text-gray-600">{fmtDate(row.incident_date) || '-'}</td>
                                     <td className="p-4 text-center font-semibold">{row.incident_center || '-'}</td>
                                     <td className="p-4 text-center text-gray-600">{row.brand || '-'}</td>
@@ -428,16 +432,6 @@ const ReturnsManagement = ({ userProfile }) => {
                                             ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
                                             : <span className="text-gray-300 text-xs font-bold">N</span>}
                                     </td>
-                                    {isAdmin && (
-                                        <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                                            <button onClick={e => handleDelete(e, row.id)} title="삭제"
-                                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </td>
-                                    )}
                                 </tr>
                             ))}
                         </tbody>
