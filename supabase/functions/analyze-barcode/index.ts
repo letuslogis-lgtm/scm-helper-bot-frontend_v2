@@ -20,18 +20,26 @@ async function checkAndGetInfo(
   if (!code) return { is_valid: false, brand: null, vendor: null }
   const parts = code.split('-')
   try {
-    let query = admin.from('products').select('brand_category,brand,vendor,production_line,supplier')
+    let query = admin.from('products').select('*')
     if (parts.length > 1) {
       query = query.eq('item_code', parts.slice(0, -1).join('-')).eq('item_color', parts[parts.length - 1])
     } else {
       query = query.eq('item_code', code)
     }
-    const { data } = await query.limit(1).single()
-    if (!data) return { is_valid: false, brand: null, vendor: null }
+    const { data, error } = await query.limit(1).maybeSingle()
+    if (error) {
+      console.error('products 조회 에러:', JSON.stringify(error), '| 코드:', code)
+      return { is_valid: false, brand: null, vendor: null }
+    }
+    if (!data) {
+      console.log('products 미매칭:', code)
+      return { is_valid: false, brand: null, vendor: null }
+    }
     const brand = data.brand_category || data.brand || null
     const vendor = data.vendor || data.production_line || data.supplier || null
     return { is_valid: true, brand, vendor }
-  } catch {
+  } catch (e) {
+    console.error('checkAndGetInfo 예외:', e, '| 코드:', code)
     return { is_valid: false, brand: null, vendor: null }
   }
 }
@@ -64,6 +72,7 @@ Deno.serve(async (req) => {
 2. 예외: 품목코드 자체에 이미 하이픈과 색상코드가 결합되어 있다면 별도 색상코드는 무시하세요.
 
 [절대 무시 규칙] 괄호 기호 안의 내용, 생산일자, 벤더 영문 코드, 로트 번호 등 무시.
+[숫자/문자 구분 규칙] 물류 품목코드에서 숫자처럼 생긴 문자는 반드시 숫자로 인식하세요. 특히 '0'(숫자 영)과 'O'(알파벳 오)를 혼동하지 마세요. 예: CH0027MAF 에서 '00'은 숫자 영이며 알파벳 O가 아닙니다.
 [예시] 입력: "HSOC1140DTRA 2026-03-16 F", 옆에 "WW" → 정답: {"product_code": "HSOC1140DTRA-WW"}
 
 오직 아래 JSON 형식으로만 응답하세요:
@@ -81,7 +90,7 @@ Deno.serve(async (req) => {
               { text: prompt },
             ],
           }],
-          generationConfig: { temperature: 0.1 },
+          generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } },
         }),
       }
     )
@@ -112,10 +121,23 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { is_valid, brand, vendor } = await checkAndGetInfo(admin, rawCode)
+    let { is_valid, brand, vendor } = await checkAndGetInfo(admin, rawCode)
+    let finalCode = rawCode
+
+    // O(알파벳)를 0(숫자)으로 치환 후 재조회 — OCR 오인식 폴백
+    if (!is_valid && /O/.test(rawCode)) {
+      const normalized = rawCode.replace(/O/g, '0')
+      const result = await checkAndGetInfo(admin, normalized)
+      if (result.is_valid) {
+        is_valid = true
+        brand = result.brand
+        vendor = result.vendor
+        finalCode = normalized
+      }
+    }
 
     return json({
-      product_code: rawCode,
+      product_code: finalCode,
       is_valid,
       brand,
       vendor,

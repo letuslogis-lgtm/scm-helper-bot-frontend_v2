@@ -13,7 +13,7 @@
 //     issue_type:   string,   // ISSUE_TYPES 화이트리스트 중 하나
 //     product_code: string?,  // optional
 //     vendor:       string?,  // optional
-//     detail:       string,   // 1~5000자
+//     detail:       string?,  // optional, 최대 5000자
 //     photos: [
 //       { base64: string, mimeType?: string }   // base64는 data: 접두사 없이 순수 인코딩만
 //     ]
@@ -130,7 +130,6 @@ Deno.serve(async (req) => {
     // ---- 2) 화이트리스트 + 길이 검증 ----
     if (!BRANDS.has(brand)) return json({ error: `Invalid brand: ${brand}` }, 400)
     if (!ISSUE_TYPES.has(issueType)) return json({ error: `Invalid issue_type: ${issueType}` }, 400)
-    if (!detail) return json({ error: 'detail is required' }, 400)
     if (detail.length > MAX_DETAIL_LEN) {
       return json({ error: `detail too long (max ${MAX_DETAIL_LEN} chars)` }, 400)
     }
