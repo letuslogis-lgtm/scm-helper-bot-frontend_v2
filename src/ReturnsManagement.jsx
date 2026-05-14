@@ -322,63 +322,119 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
 
 // ── 일괄 변경 모달 ───────────────────────────────────────────────────────────
 const ReturnsBulkEditModal = ({ selectedIds, onClose, onReload }) => {
-    const FIELD_OPTIONS = {
-        incident_reason:    { label: '발생사유',          options: INCIDENT_REASONS },
-        construction_action:{ label: '조치여부 (시공)',    options: CONSTRUCTION_ACTIONS },
-        receive_action:     { label: '조치여부 (수신)',    options: RECEIVE_ACTIONS },
-    };
-    const [field, setField] = useState('incident_reason');
-    const [value, setValue] = useState('');
+    const [updateTarget, setUpdateTarget] = useState({
+        incidentReasonGroup: false,
+        constructionGroup:   false,
+        receiveGroup:        false,
+    });
+    const [incidentReason,    setIncidentReason]    = useState('');
+    const [constructionAction, setConstructionAction] = useState('');
+    const [receiveAction,     setReceiveAction]     = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSave = async () => {
-        if (!value) return alert('변경 값을 선택해주세요.');
+        const { incidentReasonGroup, constructionGroup, receiveGroup } = updateTarget;
+        if (!incidentReasonGroup && !constructionGroup && !receiveGroup)
+            return alert('변경할 항목 그룹을 최소 하나 이상 체크해 주세요.');
+        if (incidentReasonGroup && !incidentReason)    return alert('발생사유를 선택해 주세요.');
+        if (constructionGroup   && !constructionAction) return alert('조치여부(시공)를 선택해 주세요.');
+        if (receiveGroup        && !receiveAction)      return alert('조치여부(수신)을 선택해 주세요.');
+
         setIsSaving(true);
         try {
-            const updateData = { [field]: value, updated_at: new Date().toISOString() };
-            if (field === 'receive_action' && value) updateData.is_completed = true;
+            const updateData = { updated_at: new Date().toISOString() };
+            if (incidentReasonGroup) updateData.incident_reason     = incidentReason;
+            if (constructionGroup)   updateData.construction_action = constructionAction;
+            if (receiveGroup)        { updateData.receive_action = receiveAction; updateData.is_completed = true; }
+
             const CHUNK = 200;
             for (let i = 0; i < selectedIds.length; i += CHUNK) {
                 const chunk = selectedIds.slice(i, i + CHUNK);
                 const { error } = await supabase.from('logistics_returns').update(updateData).in('id', chunk);
                 if (error) throw error;
             }
-            alert(`${selectedIds.length}건이 일괄 변경되었습니다.`);
+            alert(`총 ${selectedIds.length}건의 항목이 일괄 수정되었습니다.`);
             onReload(); onClose();
         } catch (e) { alert('저장 실패: ' + e.message); }
         finally { setIsSaving(false); }
     };
 
+    const isAnyChecked = updateTarget.incidentReasonGroup || updateTarget.constructionGroup || updateTarget.receiveGroup;
+    const selectCls = 'border border-gray-300 rounded px-2.5 py-1.5 text-[11px] outline-none w-full bg-white cursor-pointer text-gray-700';
+
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-sm border border-gray-100 overflow-hidden flex flex-col">
-                <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="font-black text-gray-900 text-sm">일괄 변경 ({selectedIds.length}건)</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] overflow-hidden flex flex-col slide-up">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full mr-2"></span>
+                        선택 항목 일괄 수정
+                    </h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">✕</button>
                 </div>
-                <div className="p-5 space-y-4">
-                    <div>
-                        <label className="text-[11px] font-bold text-gray-600 mb-1 block">변경 항목</label>
-                        <select value={field} onChange={e => { setField(e.target.value); setValue(''); }}
-                            className="w-full border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue cursor-pointer text-gray-700 bg-white">
-                            {Object.entries(FIELD_OPTIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                        </select>
+
+                <div className="p-6 bg-slate-50 flex-1 flex flex-col overflow-hidden">
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-[11px] font-bold text-letusBlue text-center shrink-0 mb-4">
+                        현재 <span className="text-lg mx-1">{selectedIds.length}</span>건이 선택되었습니다.
                     </div>
-                    <div>
-                        <label className="text-[11px] font-bold text-gray-600 mb-1 block">변경 값</label>
-                        <select value={value} onChange={e => setValue(e.target.value)}
-                            className="w-full border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue cursor-pointer text-gray-700 bg-white">
-                            <option value="">선택</option>
-                            {(FIELD_OPTIONS[field]?.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
+                        {/* 발생사유 */}
+                        <div className={`border rounded-lg transition-all overflow-hidden ${updateTarget.incidentReasonGroup ? 'border-letusBlue bg-white shadow-sm' : 'border-gray-200 bg-gray-50/70'}`}>
+                            <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-800 text-sm p-3 hover:bg-gray-50 transition-colors">
+                                <input type="checkbox" checked={updateTarget.incidentReasonGroup} onChange={e => setUpdateTarget({ ...updateTarget, incidentReasonGroup: e.target.checked })} className="w-4 h-4 accent-letusBlue" />
+                                발생사유 변경
+                            </label>
+                            {updateTarget.incidentReasonGroup && (
+                                <div className="px-4 pb-4 pt-1 animate-fade-in">
+                                    <select value={incidentReason} onChange={e => setIncidentReason(e.target.value)} className={selectCls}>
+                                        <option value="">선택 안함</option>
+                                        {INCIDENT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 조치여부(시공) */}
+                        <div className={`border rounded-lg transition-all overflow-hidden ${updateTarget.constructionGroup ? 'border-orange-400 bg-white shadow-sm' : 'border-gray-200 bg-gray-50/70'}`}>
+                            <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-800 text-sm p-3 hover:bg-gray-50 transition-colors">
+                                <input type="checkbox" checked={updateTarget.constructionGroup} onChange={e => setUpdateTarget({ ...updateTarget, constructionGroup: e.target.checked })} className="w-4 h-4 accent-orange-500" />
+                                조치여부 (시공) 변경
+                            </label>
+                            {updateTarget.constructionGroup && (
+                                <div className="px-4 pb-4 pt-1 animate-fade-in">
+                                    <select value={constructionAction} onChange={e => setConstructionAction(e.target.value)} className={selectCls}>
+                                        <option value="">선택 안함</option>
+                                        {CONSTRUCTION_ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 조치여부(수신) */}
+                        <div className={`border rounded-lg transition-all overflow-hidden ${updateTarget.receiveGroup ? 'border-green-500 bg-white shadow-sm' : 'border-gray-200 bg-gray-50/70'}`}>
+                            <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-800 text-sm p-3 hover:bg-gray-50 transition-colors">
+                                <input type="checkbox" checked={updateTarget.receiveGroup} onChange={e => setUpdateTarget({ ...updateTarget, receiveGroup: e.target.checked })} className="w-4 h-4 accent-green-500" />
+                                조치여부 (수신) 변경
+                            </label>
+                            {updateTarget.receiveGroup && (
+                                <div className="px-4 pb-4 pt-1 animate-fade-in">
+                                    <select value={receiveAction} onChange={e => setReceiveAction(e.target.value)} className={selectCls}>
+                                        <option value="">선택 안함</option>
+                                        {RECEIVE_ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                                    </select>
+                                    <p className="text-[10px] text-green-600 font-bold mt-1.5">* 수신 조치 선택 시 완결여부 자동 Y 처리됩니다.</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded-[3px] hover:bg-gray-100">취소</button>
-                    <button onClick={handleSave} disabled={isSaving}
-                        className="px-4 py-2 bg-letusBlue text-white text-xs font-bold rounded-[3px] hover:bg-blue-700 disabled:opacity-50 shadow-sm">
-                        {isSaving ? '저장 중...' : '일괄 변경'}
+
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+                    <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-[11px] font-bold rounded hover:bg-gray-50">취소</button>
+                    <button onClick={handleSave} disabled={isSaving || !isAnyChecked}
+                        className="px-5 py-2 bg-letusBlue text-white text-[11px] font-bold rounded hover:bg-blue-600 flex items-center gap-1.5 disabled:opacity-50">
+                        {isSaving ? '적용 중...' : '선택 대상 일괄 덮어쓰기'}
                     </button>
                 </div>
             </div>

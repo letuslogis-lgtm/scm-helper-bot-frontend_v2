@@ -13,13 +13,12 @@ export const MobileReturnsRegister = ({ userProfile }) => {
     const [itemCode, setItemCode]         = useState('');
     const [brand, setBrand]               = useState('');
     const [color, setColor]               = useState('');
-    const [quantity, setQuantity]         = useState('');
-    const [incidentDate, setIncidentDate] = useState(new Date().toISOString().split('T')[0]);
+    const [quantity, setQuantity]               = useState('');
+    const [incidentDate, setIncidentDate]       = useState(new Date().toISOString().split('T')[0]);
+    const [incidentCenter, setIncidentCenter]   = useState(userProfile?.workplace || '');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted]       = useState(false);
-
-    const incidentCenter = userProfile?.workplace || '';
 
     /* ── 이미지 압축 ── */
     const compressImage = (file, maxWidth = 1024, quality = 0.6) =>
@@ -126,6 +125,7 @@ export const MobileReturnsRegister = ({ userProfile }) => {
         setPhotos([]); setAiResult(null);
         setItemCode(''); setBrand(''); setColor(''); setQuantity('');
         setIncidentDate(new Date().toISOString().split('T')[0]);
+        setIncidentCenter(userProfile?.workplace || '');
         setSubmitted(false);
     };
 
@@ -296,12 +296,10 @@ export const MobileReturnsRegister = ({ userProfile }) => {
 
                     <div>
                         <label className="text-slate-500 text-xs font-bold mb-1.5 block">발생센터</label>
-                        <div className="w-full bg-slate-100 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold min-h-[48px] flex items-center">
-                            {incidentCenter
-                                ? <span className="text-slate-700">{incidentCenter}</span>
-                                : <span className="text-slate-300 font-normal">센터 정보 없음</span>
-                            }
-                        </div>
+                        <input type="text" value={incidentCenter}
+                            onChange={e => setIncidentCenter(e.target.value)}
+                            placeholder="발생센터 입력"
+                            className={inputCls} />
                     </div>
                 </section>
             </div>
