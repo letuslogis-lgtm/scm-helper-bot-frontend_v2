@@ -315,7 +315,22 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
     const [causeDetail, setCauseDetail] = useState('');
     const [dept, setDept] = useState(isUser ? userProfile?.team : '');
     const [actionResult, setActionResult] = useState('미확인');
+    const [handlerTeam, setHandlerTeam] = useState('');
+    const [actionContent, setActionContent] = useState('');
+    const [vendorList, setVendorList] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        const fetchVendors = async () => {
+            try {
+                const { data, error } = await supabase.from('workers').select('vendor_name');
+                if (error || !data) return;
+                const uniqueVendors = [...new Set(data.map(item => item.vendor_name))].filter(Boolean).sort();
+                setVendorList(uniqueVendors);
+            } catch {}
+        };
+        fetchVendors();
+    }, []);
 
     const handleSave = async () => {
         if (!causeType) return alert('발생 원인을 선택해 주세요.');
@@ -333,6 +348,8 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                     responsible_dept: dept,
                     cause_detail: finalCauseStr,
                     action_result: actionResult !== '미확인' ? actionResult : undefined,
+                    handler_team: handlerTeam || undefined,
+                    action_content: actionContent || undefined,
                     status: '등록 완료',
                     handler_name: userProfile?.name || '관리자',
                     updated_at: new Date().toISOString()
@@ -388,20 +405,74 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                             </div>
                         </div>
 
-                        {userProfile?.role === '관리자' && (
-                            <div>
-                                <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5">조치 결과 일괄 변경 (선택사항)</label>
-                                <select value={actionResult} onChange={e => setActionResult(e.target.value)} className="w-full border border-blue-300 rounded-lg p-2.5 text-sm font-bold outline-none transition-all focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue cursor-pointer bg-blue-50/30 text-letusBlue">
-                                    <option value="미확인">변경 안 함 (기존 값 유지)</option>
-                                    <option value="정상출고">정상출고</option><option value="미출고">미출고</option><option value="오출고">오출고</option><option value="과출고">과출고</option><option value="물류파손">물류파손</option><option value="시공파손">시공파손</option><option value="현장직출">현장직출</option><option value="센터직출">센터직출</option><option value="납기연기(건)">납기연기(건)</option><option value="납기연기(품목)">납기연기(품목)</option><option value="제품분실">제품분실</option>
-                                </select>
-                            </div>
-                        )}
-
                         <div>
                             <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5">발생 원인 상세 일괄 기입</label>
                             <textarea value={causeDetail} onChange={e => setCauseDetail(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue resize-none transition-all placeholder:text-gray-300" placeholder="예: 시공팀 오등록 확인, 일괄 마감 처리건"></textarea>
                         </div>
+
+                        {/* 하단: 관리자 전용 구역 */}
+                        {userProfile?.role === '관리자' && (
+                            <div className="pt-5 border-t border-slate-200 slide-up">
+                                <h5 className="text-[12px] font-black text-letusOrange mb-3 flex items-center gap-1.5">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                    관리자 전용 마감
+                                </h5>
+                                <div className="grid grid-cols-3 gap-4 bg-orange-50/40 p-4 rounded-lg border border-orange-100">
+
+                                    {/* 1. 확인 결과 */}
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-700 mb-2 flex items-center gap-1">
+                                            <span className="text-letusOrange">*</span> 확인 결과
+                                        </label>
+                                        <select value={actionResult} onChange={e => setActionResult(e.target.value)} className="w-full border border-blue-300 bg-blue-50/30 text-letusBlue rounded-[4px] p-2.5 text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue">
+                                            <option value="미확인">미확인 (빈칸)</option>
+                                            <option value="정상출고">정상출고</option>
+                                            <option value="미출고">미출고</option>
+                                            <option value="오출고">오출고</option>
+                                            <option value="과출고">과출고</option>
+                                            <option value="물류파손">물류파손</option>
+                                            <option value="시공파손">시공파손</option>
+                                            <option value="현장직출">현장직출</option>
+                                            <option value="센터직출">센터직출</option>
+                                            <option value="납기연기(건)">납기연기(건)</option>
+                                            <option value="납기연기(품목)">납기연기(품목)</option>
+                                            <option value="제품분실">제품분실</option>
+                                        </select>
+                                    </div>
+
+                                    {/* 2. 수행처 */}
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-700 mb-2 flex items-center gap-1">
+                                            <span className="text-letusOrange">*</span> 수행처
+                                        </label>
+                                        <select value={handlerTeam} onChange={e => setHandlerTeam(e.target.value)} className="w-full border border-gray-300 bg-white text-gray-800 rounded-[4px] p-2.5 text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue">
+                                            <option value="">선택</option>
+                                            {vendorList.map(vendor => (
+                                                <option key={vendor} value={vendor}>{vendor}</option>
+                                            ))}
+                                            <option value="기타">기타</option>
+                                        </select>
+                                    </div>
+
+                                    {/* 3. 조치 내용 */}
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-700 mb-2 flex items-center gap-1">
+                                            <span className="text-letusOrange">*</span> 조치 내용
+                                        </label>
+                                        <select value={actionContent} onChange={e => setActionContent(e.target.value)} className="w-full border border-gray-300 bg-white text-gray-800 rounded-[4px] p-2.5 text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue">
+                                            <option value="">선택</option>
+                                            <option value="출차 전 조치">출차 전 조치</option>
+                                            <option value="선조치">선조치</option>
+                                            <option value="당일 배차">당일 배차</option>
+                                            <option value="일정 연기">일정 연기</option>
+                                            <option value="과출고 회수">과출고 회수</option>
+                                            <option value="추가 수주/AS 접수">추가 수주/AS 접수</option>
+                                        </select>
+                                    </div>
+
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
