@@ -113,7 +113,7 @@ const IssueDetailSheet = ({ issue, onClose, onRespond }) => {
     return (
         <>
             <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[80svh] overflow-y-auto overscroll-contain">
                 <div className="flex justify-center pt-3 pb-1">
                     <div className="w-10 h-1 rounded-full bg-slate-200" />
                 </div>
@@ -239,6 +239,11 @@ const WorkerResponseSheet = ({ issue, onClose, onSubmitted }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const fileRef = useRef(null);
 
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+    }, []);
+
     const compressImage = (file) =>
         new Promise((resolve) => {
             const img = new Image();
@@ -297,7 +302,7 @@ const WorkerResponseSheet = ({ issue, onClose, onSubmitted }) => {
     return (
         <>
             <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
-            <div className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl shadow-2xl max-h-[85svh] overflow-y-auto overscroll-contain">
                 <div className="flex justify-center pt-3 pb-1">
                     <div className="w-10 h-1 rounded-full bg-slate-200" />
                 </div>
