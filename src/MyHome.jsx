@@ -219,20 +219,13 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
 
     useEffect(() => {
         const fetchHolidays = async () => {
-            const y = currentDate.getFullYear();
-            const m = currentDate.getMonth();
-            const pad = n => String(n).padStart(2, '0');
-            const startStr = `${y}-${pad(m + 1)}-01`;
-            const endStr = `${y}-${pad(m + 1)}-${new Date(y, m + 1, 0).getDate()}`;
             const { data } = await supabase
                 .from('company_holidays')
-                .select('holiday_date')
-                .gte('holiday_date', startStr)
-                .lte('holiday_date', endStr);
-            setHolidays(new Set((data || []).map(h => h.holiday_date)));
+                .select('holiday_date');
+            setHolidays(new Set((data || []).map(h => String(h.holiday_date).trim())));
         };
         fetchHolidays();
-    }, [currentDate]);
+    }, []);
     const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
     const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
