@@ -354,14 +354,23 @@ const PreDeliveryDetailModal = ({ row, onClose, onSaved, workplaceList, userProf
                     {/* ③ 회수 정보 */}
                     <Section no="③" title="회수 정보" canEdit={true}
                         borderColor="border-green-200" bgColor="bg-green-50/40" titleColor="text-green-700">
-                        <Field label="회수여부" span={3}>
-                            <button type="button" onClick={handleToggleRecovered}
-                                className={`h-[30px] px-4 rounded-[3px] text-xs font-bold border transition-colors ${form.is_recovered ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
-                                {form.is_recovered ? '✓ 회수완료' : '미회수 — 클릭하면 회수완료 처리'}
-                            </button>
-                        </Field>
-                        <Field label="회수일">{inp('recovered_at', 'date', !form.is_recovered)}</Field>
-                        <Field label="회수담당자" span={2}>{inp('recovery_handler', 'text', !form.is_recovered)}</Field>
+                        <div className="col-span-3 grid gap-3" style={{ gridTemplateColumns: '1fr 120px 170px' }}>
+                            <div>
+                                <label className={lbl}>회수여부</label>
+                                <button type="button" onClick={handleToggleRecovered}
+                                    className={`w-full h-[30px] px-3 rounded-[3px] text-xs font-bold border transition-colors ${form.is_recovered ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
+                                    {form.is_recovered ? '✓ 회수완료' : '미회수 — 클릭 시 회수완료'}
+                                </button>
+                            </div>
+                            <div>
+                                <label className={lbl}>회수일</label>
+                                {inp('recovered_at', 'date', !form.is_recovered)}
+                            </div>
+                            <div>
+                                <label className={lbl}>회수담당자</label>
+                                {inp('recovery_handler', 'text', !form.is_recovered)}
+                            </div>
+                        </div>
                     </Section>
                 </div>
 
