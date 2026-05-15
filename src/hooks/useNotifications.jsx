@@ -216,6 +216,66 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
         return () => { supabase.removeChannel(noticeChannel); };
     }, [session, userProfile]);
 
+    // logistics_returns 알림 (관리자 전용)
+    useEffect(() => {
+        if (!session || !userProfile) return;
+        if (!userProfile?.role?.includes('관리자')) return;
+
+        const handleReturnsChange = (newData, oldData, event) => {
+            let shouldAlert = false;
+            let type = '';
+            let message = '';
+
+            if (event === 'INSERT') {
+                const typeLabel = newData.type === '선출고' ? '선출고' : '회수품';
+                type = `신규 ${typeLabel} 접수`;
+                message = `[${typeLabel}] ${newData.incident_center || '-'} · ${newData.item_code || '-'}${newData.quantity ? ' ' + newData.quantity + 'EA' : ''} (등록: ${newData.writer || '-'})`;
+                shouldAlert = true;
+            } else if (event === 'UPDATE') {
+                if (newData.type === '선출고' && newData.is_recovered && !oldData?.is_recovered) {
+                    type = '선출고 회수 완료';
+                    message = `[선출고 회수] ${newData.incident_center || '-'} · ${newData.item_code || '-'} 회수 처리 완료`;
+                    shouldAlert = true;
+                } else if (newData.type !== '선출고' && newData.is_completed && !oldData?.is_completed) {
+                    type = '회수품 완결 처리';
+                    message = `[회수품 완결] ${newData.incident_center || '-'} · ${newData.item_code || '-'} 완결 처리됨`;
+                    shouldAlert = true;
+                }
+            }
+
+            if (shouldAlert) {
+                const nowTime = new Date().getTime();
+                const dupKey = `returns_${newData.id}_${event}`;
+                if (window.lastReturnsAlertKey === dupKey && nowTime - (window.lastReturnsAlertTime || 0) < 2000) return;
+                window.lastReturnsAlertKey = dupKey;
+                window.lastReturnsAlertTime = nowTime;
+
+                const newNoti = {
+                    id: 'returns_' + newData.id + '_' + nowTime,
+                    title: type,
+                    message: message,
+                    date: new Date(nowTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    read: false,
+                    read_at: null,
+                    filterObj: { type: 'returns' },
+                };
+
+                setNotifications(prev => [newNoti, ...prev].slice(0, 10));
+
+                if (Notification.permission === 'granted') {
+                    new Notification(`LETUS LOGIS - ${type}`, { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' });
+                }
+            }
+        };
+
+        const returnsChannel = supabase.channel('logistics_returns_notifications')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logistics_returns' }, (payload) => handleReturnsChange(payload.new, null, 'INSERT'))
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'logistics_returns' }, (payload) => handleReturnsChange(payload.new, payload.old, 'UPDATE'))
+            .subscribe();
+
+        return () => { supabase.removeChannel(returnsChannel); };
+    }, [session, userProfile]);
+
     const handleMarkAllAsRead = () => {
         const now = new Date().getTime();
         setNotifications(prev => prev.map(n => ({ ...n, read: true, read_at: now })));

@@ -85,6 +85,8 @@ const AppContent = () => {
             navigate('/team_calendar');
         } else if (filterObj && filterObj.type === 'notice') {
             navigate('/notice');
+        } else if (filterObj && filterObj.type === 'returns') {
+            navigate('/returns_management');
         } else if (filterObj) {
             handleDrillDown(filterObj);
         }
@@ -136,6 +138,7 @@ const AppContent = () => {
 const ProtectedMobileRoute = () => {
     const { session, authLoading, userProfile, handleLogout } = useAuth();
     const [completedNotiCount, setCompletedNotiCount] = React.useState(0);
+    const [returnsNotiCount, setReturnsNotiCount] = React.useState(0);
 
     React.useEffect(() => {
         if (!userProfile?.name) return;
@@ -156,6 +159,27 @@ const ProtectedMobileRoute = () => {
         return () => { supabase.removeChannel(channel); };
     }, [userProfile]);
 
+    React.useEffect(() => {
+        if (!userProfile?.name) return;
+
+        const channel = supabase.channel('mobile_returns_updates')
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'logistics_returns',
+                filter: `writer=eq.${userProfile.name}`,
+            }, (payload) => {
+                const isNewlyRecovered = payload.new?.is_recovered && !payload.old?.is_recovered;
+                const isNewlyCompleted = payload.new?.is_completed && !payload.old?.is_completed;
+                if (isNewlyRecovered || isNewlyCompleted) {
+                    setReturnsNotiCount(prev => prev + 1);
+                }
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [userProfile]);
+
     if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center font-bold text-blue-300">세션 확인 중...</div>;
     if (!session) return <MobileLoginView />;
     return (
@@ -165,12 +189,13 @@ const ProtectedMobileRoute = () => {
                     userProfile={userProfile}
                     handleLogout={handleLogout}
                     completedNotiCount={completedNotiCount}
+                    returnsNotiCount={returnsNotiCount}
                 />
             } />
             <Route path="register" element={<MobileIssueRegister />} />
             <Route path="returns" element={<MobileReturnsRegister userProfile={userProfile} />} />
             <Route path="pre-delivery" element={<MobilePreDeliveryManage userProfile={userProfile} />} />
-            <Route path="returns-list" element={<MobileReturnsList userProfile={userProfile} />} />
+            <Route path="returns-list" element={<MobileReturnsList userProfile={userProfile} onNotificationsRead={() => setReturnsNotiCount(0)} />} />
             <Route path="my-issues" element={
                 <MobileMyIssues userProfile={userProfile} onNotificationsRead={() => setCompletedNotiCount(0)} />
             } />

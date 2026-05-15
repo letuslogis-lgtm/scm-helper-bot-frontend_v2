@@ -426,6 +426,7 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
         try {
             const { error } = await supabase.from('logistics_returns').insert([{
                 ...form,
+                type: '회수품',
                 quantity: form.quantity !== '' ? parseInt(form.quantity, 10) : null,
             }]);
             if (error) throw error;
@@ -651,7 +652,8 @@ const ReturnsManagement = ({ userProfile }) => {
             if (appliedFilters.returnCenter !== '전체') q = q.eq('return_center', appliedFilters.returnCenter);
             if (appliedFilters.completed === 'Y')      q = q.eq('is_completed', true);
             if (appliedFilters.completed === 'N')      q = q.eq('is_completed', false);
-            if (appliedFilters.type !== '전체')         q = q.eq('type', appliedFilters.type);
+            if (appliedFilters.type === '회수품')        q = q.or('type.eq.회수품,type.is.null');
+            else if (appliedFilters.type !== '전체')    q = q.eq('type', appliedFilters.type);
             const { data, error } = await q;
             if (error) throw error;
             setItems(data || []);

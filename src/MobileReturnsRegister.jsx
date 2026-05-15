@@ -108,6 +108,7 @@ export const MobileReturnsRegister = ({ userProfile }) => {
         setIsSubmitting(true);
         try {
             const { error } = await supabase.from('logistics_returns').insert([{
+                type:            '회수품',
                 incident_date:   incidentDate,
                 incident_center: incidentCenter,
                 writer:          userProfile?.name || '',

@@ -99,7 +99,7 @@ const ReturnDetailSheet = ({ item, onClose }) => {
                 <div className="px-5 pb-10 pt-3 space-y-4">
                     <div className="flex items-center justify-between">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${item.type === '선출고' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
-                            {item.type}
+                            {item.type || '회수품'}
                         </span>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${status.cls}`}>
                             {status.label}
@@ -175,7 +175,7 @@ const ReturnDetailSheet = ({ item, onClose }) => {
                         </>
                     )}
 
-                    {item.type === '회수품' && item.is_completed && (
+                    {item.type !== '선출고' && item.is_completed && (
                         <>
                             <div className="h-px bg-slate-100" />
                             <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3">
@@ -194,7 +194,7 @@ const ReturnDetailSheet = ({ item, onClose }) => {
     );
 };
 
-export const MobileReturnsList = ({ userProfile }) => {
+export const MobileReturnsList = ({ userProfile, onNotificationsRead }) => {
     const navigate = useNavigate();
     const [items, setItems] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -225,7 +225,10 @@ export const MobileReturnsList = ({ userProfile }) => {
         }
     };
 
-    useEffect(() => { fetchItems(); }, []);
+    useEffect(() => {
+        onNotificationsRead?.();
+        fetchItems();
+    }, []);
 
     const handleDateApply = (range) => {
         setDateRange(range);
@@ -235,7 +238,7 @@ export const MobileReturnsList = ({ userProfile }) => {
 
     const filteredItems = activeTab === '전체'
         ? items
-        : items.filter(i => i.type === activeTab);
+        : items.filter(i => activeTab === '회수품' ? (i.type === '회수품' || !i.type) : i.type === activeTab);
 
     const hasDateFilter = dateRange.start && dateRange.end;
 

@@ -29,7 +29,7 @@ const MENU_GROUPS = [
     },
 ];
 
-export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount = 0 }) => {
+export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount = 0, returnsNotiCount = 0 }) => {
     const navigate = useNavigate();
     const [installPrompt, setInstallPrompt] = useState(null);
     const [installed, setInstalled] = useState(isStandalone);
@@ -152,6 +152,11 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                                     {item.id === 'my-issues' && completedNotiCount > 0 && (
                                         <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center">
                                             {completedNotiCount > 9 ? '9+' : completedNotiCount}
+                                        </span>
+                                    )}
+                                    {item.id === 'returns-list' && returnsNotiCount > 0 && (
+                                        <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center">
+                                            {returnsNotiCount > 9 ? '9+' : returnsNotiCount}
                                         </span>
                                     )}
                                 </button>
