@@ -31,6 +31,8 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
 
     const [calendarEvents, setCalendarEvents] = useState([]);
     const [holidays, setHolidays] = useState(new Set());
+    const [recentNotices, setRecentNotices] = useState([]);
+    const [recentRpaRuns, setRecentRpaRuns] = useState([]);
     const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
     const [selectedDateForEvent, setSelectedDateForEvent] = useState('');
@@ -69,7 +71,21 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                 const { count: doneIssueCount } = await supabase.from('logistics_issues').select('id', { count: 'exact' }).eq('final_handler', userProfile.name).gte('resolved_at', firstDay);
                 const { count: doneAccCount } = await supabase.from('logistics_accidents').select('id', { count: 'exact' }).eq('handler_name', userProfile.name).gte('updated_at', firstDay);
 
-                setStats({ todoIssues: issueCount || 0, todoAccidents: accCount || 0, doneIssues: doneIssueCount || 0, doneAccidents: doneAccCount || 0 });
+                const { count: returnsTodoCount } = await supabase.from('logistics_returns').select('id', { count: 'exact' }).or('type.eq.회수품,type.is.null').eq('is_completed', false);
+                const { count: predeliveryTodoCount } = await supabase.from('logistics_returns').select('id', { count: 'exact' }).eq('type', '선출고').eq('is_recovered', false);
+                const { count: newIssuesCount } = await supabase.from('logistics_issues').select('id', { count: 'exact' }).gte('created_at', firstDay);
+                const { count: newAccidentsCount } = await supabase.from('logistics_accidents').select('id', { count: 'exact' }).gte('created_at', firstDay);
+
+                const { data: noticesData } = await supabase.from('notices').select('id, title, is_important').order('is_important', { ascending: false }).order('created_at', { ascending: false }).limit(3);
+                setRecentNotices(noticesData || []);
+
+                const { data: rpaRunsData } = await supabase.from('rpa_runs').select('id, status, definition_id').order('created_at', { ascending: false }).limit(3);
+                const { data: rpaJobsData } = await supabase.from('rpa_jobs').select('id, rpa_name');
+                const jobMap = {};
+                (rpaJobsData || []).forEach(j => { jobMap[j.id] = j.rpa_name; });
+                setRecentRpaRuns((rpaRunsData || []).map(r => ({ ...r, rpa_name: jobMap[r.definition_id] || '-' })));
+
+                setStats({ todoIssues: issueCount || 0, todoAccidents: accCount || 0, doneIssues: doneIssueCount || 0, doneAccidents: doneAccCount || 0, returnsTodo: returnsTodoCount || 0, predeliveryTodo: predeliveryTodoCount || 0, newIssues: newIssuesCount || 0, newAccidents: newAccidentsCount || 0 });
 
                 const { data: eventsData, error: eventsError } = await supabase
                     .from('calendar_events')
@@ -325,6 +341,12 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
         { id: 'issue_done', title: '입고 처리 실적', icon: '✅', color: 'green' },
         { id: 'acc_done', title: '상차 마감 실적', icon: '🏆', color: 'purple' },
         { id: 'favorites', title: '⭐ 즐겨찾기', icon: '⭐', color: 'yellow' },
+        { id: 'returns_todo', title: '미처리 회수품', icon: '🔄', color: 'teal' },
+        { id: 'predelivery_todo', title: '미회수 선출고', icon: '⚡', color: 'amber' },
+        { id: 'new_issues_month', title: '이번달 입고이슈 신규', icon: '📋', color: 'indigo' },
+        { id: 'new_accidents_month', title: '이번달 사고 신규', icon: '🚨', color: 'rose' },
+        { id: 'recent_notices', title: '최근 공지사항', icon: '📢', color: 'orange' },
+        { id: 'rpa_status', title: 'RPA 최근 실행', icon: '🤖', color: 'slate' },
     ];
 
     const renderWidget = (type, index) => {
@@ -340,6 +362,50 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
         }
 
         const closeBtn = <button onClick={(e) => { e.stopPropagation(); removeWidget(index); }} className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all z-10"><CloseIcon /></button>;
+
+        if (type === 'recent_notices') {
+            return (
+                <div className="h-24 bg-white rounded-xl shadow-sm border border-slate-200 p-3 relative group flex flex-col">
+                    {closeBtn}
+                    <span className="text-[11px] font-bold text-gray-500 mb-1.5 block shrink-0">📢 최근 공지사항</span>
+                    <div className="flex flex-col gap-0.5 overflow-hidden flex-1">
+                        {recentNotices.length === 0
+                            ? <span className="text-[10px] text-gray-400">공지사항 없음</span>
+                            : recentNotices.map(n => (
+                                <div key={n.id} onClick={() => setPage('notice')}
+                                    className="text-[10px] font-bold text-gray-700 hover:bg-orange-50 hover:text-orange-600 px-1.5 py-0.5 rounded cursor-pointer truncate transition-colors pr-5">
+                                    {n.is_important ? <span className="text-red-500 mr-0.5">●</span> : <span className="text-gray-300 mr-0.5">●</span>}{n.title}
+                                </div>
+                            ))
+                        }
+                    </div>
+                </div>
+            );
+        }
+
+        if (type === 'rpa_status') {
+            const statusStyle = { success: 'text-green-500', failed: 'text-red-500', running: 'text-blue-500', pending: 'text-yellow-500' };
+            const statusLabel = { success: '성공', failed: '실패', running: '실행중', pending: '대기중' };
+            return (
+                <div className="h-24 bg-white rounded-xl shadow-sm border border-slate-200 p-3 relative group flex flex-col">
+                    {closeBtn}
+                    <span className="text-[11px] font-bold text-gray-500 mb-1.5 block shrink-0">🤖 RPA 최근 실행</span>
+                    <div className="flex flex-col gap-0.5 overflow-hidden flex-1">
+                        {recentRpaRuns.length === 0
+                            ? <span className="text-[10px] text-gray-400">실행 이력 없음</span>
+                            : recentRpaRuns.map(r => (
+                                <div key={r.id} onClick={() => setPage('rpa_management')}
+                                    className="text-[10px] font-bold text-gray-700 flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-1.5 py-0.5 rounded pr-5">
+                                    <span className={`font-black shrink-0 ${statusStyle[r.status] || 'text-gray-400'}`}>●</span>
+                                    <span className="truncate flex-1">{r.rpa_name}</span>
+                                    <span className={`text-[9px] shrink-0 ${statusStyle[r.status] || 'text-gray-400'}`}>{statusLabel[r.status] || r.status}</span>
+                                </div>
+                            ))
+                        }
+                    </div>
+                </div>
+            );
+        }
 
         if (type === 'favorites') {
             return (
@@ -375,6 +441,22 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                 title: '이번달 사고마감', count: stats.doneAccidents, color: 'purple',
                 onClick: () => { if (setGlobalFilter) setGlobalFilter('처리완료'); setPage('accident_list'); }
             },
+            returns_todo: {
+                title: '미처리 회수품', count: stats.returnsTodo, color: 'teal',
+                onClick: () => setPage('returns_management')
+            },
+            predelivery_todo: {
+                title: '미회수 선출고', count: stats.predeliveryTodo, color: 'amber',
+                onClick: () => setPage('returns_management')
+            },
+            new_issues_month: {
+                title: '이번달 신규 입고이슈', count: stats.newIssues, color: 'indigo',
+                onClick: () => setPage('list')
+            },
+            new_accidents_month: {
+                title: '이번달 신규 사고', count: stats.newAccidents, color: 'rose',
+                onClick: () => setPage('accident_list')
+            },
         };
 
         const conf = WIDGET_UI[type];
@@ -384,7 +466,11 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
             blue: 'text-blue-600 bg-blue-50 border-blue-100 hover:border-blue-300',
             orange: 'text-orange-600 bg-orange-50 border-orange-100 hover:border-orange-300',
             green: 'text-green-600 bg-green-50 border-green-100 hover:border-green-300',
-            purple: 'text-purple-600 bg-purple-50 border-purple-100 hover:border-purple-300'
+            purple: 'text-purple-600 bg-purple-50 border-purple-100 hover:border-purple-300',
+            teal: 'text-teal-600 bg-teal-50 border-teal-100 hover:border-teal-300',
+            amber: 'text-amber-600 bg-amber-50 border-amber-100 hover:border-amber-300',
+            indigo: 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:border-indigo-300',
+            rose: 'text-rose-600 bg-rose-50 border-rose-100 hover:border-rose-300',
         };
 
         return (
