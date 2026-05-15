@@ -5,46 +5,27 @@ import { subscribePush } from './hooks/usePushNotification.js';
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
 
-const MENU_ITEMS = [
+const MENU_GROUPS = [
     {
-        id: 'register',
-        icon: '📦',
-        title: '입고 특이사항 등록',
-        subtitle: '입고 시 발생한 이슈를 빠르게 등록',
-        iconBg: 'bg-blue-50',
-        path: '/mobile/register',
+        label: '입고 업무',
+        items: [
+            { id: 'register',  icon: '📦', title: '입고 특이사항 등록',    subtitle: '이슈 빠르게 등록',  iconBg: 'bg-blue-50',   path: '/mobile/register' },
+            { id: 'my-issues', icon: '📋', title: '입고 특이사항 리스트 조회', subtitle: '등록 이력 확인', iconBg: 'bg-violet-50', path: '/mobile/my-issues' },
+        ],
     },
     {
-        id: 'my-issues',
-        icon: '📋',
-        title: '내 등록 이력',
-        subtitle: '최근 등록한 특이사항 확인',
-        iconBg: 'bg-violet-50',
-        path: '/mobile/my-issues',
+        label: '회수 · 선출고',
+        items: [
+            { id: 'returns',      icon: '🔄', title: '회수품 등록',   subtitle: '오출고·과출고 접수',    iconBg: 'bg-green-50', path: '/mobile/returns' },
+            { id: 'pre-delivery', icon: '⚡', title: '선출고 관리',   subtitle: '선출고 등록·회수 처리', iconBg: 'bg-amber-50', path: '/mobile/pre-delivery' },
+            { id: 'returns-list', icon: '📊', title: '회수·선출 조회', subtitle: '전체 리스트 조회',     iconBg: 'bg-teal-50',  path: '/mobile/returns-list' },
+        ],
     },
     {
-        id: 'returns',
-        icon: '🔄',
-        title: '회수품 등록',
-        subtitle: '오출고·과출고 품목 회수 접수',
-        iconBg: 'bg-green-50',
-        path: '/mobile/returns',
-    },
-    {
-        id: 'pre-delivery',
-        icon: '⚡',
-        title: '선출고 관리',
-        subtitle: '선출고 등록 및 회수 처리',
-        iconBg: 'bg-amber-50',
-        path: '/mobile/pre-delivery',
-    },
-    {
-        id: 'notice',
-        icon: '📢',
-        title: '공지사항',
-        subtitle: '팀 공지사항 및 업무 지시 확인',
-        iconBg: 'bg-orange-50',
-        path: '/mobile/notice',
+        label: '공지',
+        items: [
+            { id: 'notice', icon: '📢', title: '공지사항', subtitle: '팀 공지 확인', iconBg: 'bg-orange-50', path: '/mobile/notice' },
+        ],
     },
 ];
 
@@ -58,8 +39,8 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
     const exitTimerRef = useRef(null);
 
     useEffect(() => {
-        if (userProfile?.name) subscribePush(userProfile.name)
-    }, [userProfile?.name])
+        if (userProfile?.name) subscribePush(userProfile.name);
+    }, [userProfile?.name]);
 
     useEffect(() => {
         window.history.pushState(null, '', window.location.href);
@@ -124,10 +105,7 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                             <h1 className="text-2xl font-black text-letusOrange tracking-tighter">LETUS LOGIS</h1>
                             <p className="text-sm text-slate-400 font-medium mt-0.5">통합 물류 관리 시스템</p>
                         </div>
-                        <button
-                            onClick={() => navigate('/mobile/my-issues')}
-                            className="relative p-2 mt-1"
-                        >
+                        <button onClick={() => navigate('/mobile/my-issues')} className="relative p-2 mt-1">
                             <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                             </svg>
@@ -150,70 +128,68 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                         </div>
                     )}
                 </div>
-
             </div>
 
-            {/* 메뉴 목록 */}
-            <div className="flex-1 px-4 py-5 flex flex-col gap-2.5">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-1">메뉴</p>
-
-                {MENU_ITEMS.map(item => (
-                    <button
-                        key={item.id}
-                        onClick={() => navigate(item.path)}
-                        className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left hover:shadow-md"
-                    >
-                        <div className={`w-11 h-11 rounded-xl ${item.iconBg} flex items-center justify-center text-xl flex-shrink-0`}>
-                            {item.icon}
+            {/* 메뉴 */}
+            <div className="flex-1 px-4 py-5 flex flex-col gap-5">
+                {MENU_GROUPS.map(group => (
+                    <div key={group.label}>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-2">{group.label}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {group.items.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => navigate(item.path)}
+                                    className="relative bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex flex-col gap-2 active:scale-[0.97] transition-transform text-left"
+                                >
+                                    <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center text-lg flex-shrink-0`}>
+                                        {item.icon}
+                                    </div>
+                                    <div className="pr-4">
+                                        <p className="text-slate-800 font-bold text-[13px] leading-snug">{item.title}</p>
+                                        <p className="text-slate-400 text-[11px] mt-0.5 leading-tight">{item.subtitle}</p>
+                                    </div>
+                                    {item.id === 'my-issues' && completedNotiCount > 0 && (
+                                        <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
+                                            {completedNotiCount > 9 ? '9+' : completedNotiCount}
+                                        </span>
+                                    )}
+                                    <svg className="absolute bottom-3 right-3 w-3 h-3 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            ))}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-slate-800 font-bold text-[15px]">{item.title}</p>
-                            <p className="text-slate-400 text-xs mt-0.5">{item.subtitle}</p>
-                        </div>
-                        {item.id === 'my-issues' && completedNotiCount > 0 && (
-                            <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center flex-shrink-0">
-                                {completedNotiCount > 9 ? '9+' : completedNotiCount}
-                            </span>
-                        )}
-                        <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
+                    </div>
                 ))}
 
                 {/* 계정 */}
-                <div className="mt-3">
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-2.5">계정</p>
+                <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-2">계정</p>
 
-                    {/* 홈 화면 바로가기 추가 */}
                     {!installed && (
-                        <div className="mb-2.5">
-                            <button
-                                onClick={handleInstall}
-                                className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-                            >
-                                <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                        <div className="mb-2">
+                            <button onClick={handleInstall}
+                                className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform text-left">
+                                <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
                                     <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                     </svg>
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-slate-800 font-bold text-[15px]">홈 화면에 추가</p>
+                                    <p className="text-slate-800 font-bold text-[14px]">홈 화면에 추가</p>
                                     <p className="text-slate-400 text-xs mt-0.5">
                                         {installPrompt ? '탭하면 바로 설치됩니다' : '설치 방법을 안내합니다'}
                                     </p>
                                 </div>
                                 {!installPrompt && (
-                                    <svg
-                                        className={`w-4 h-4 text-slate-300 flex-shrink-0 transition-transform duration-200 ${showGuide ? 'rotate-90' : ''}`}
-                                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                    >
+                                    <svg className={`w-4 h-4 text-slate-300 flex-shrink-0 transition-transform duration-200 ${showGuide ? 'rotate-90' : ''}`}
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                                     </svg>
                                 )}
                             </button>
 
-                            {/* 수동 설치 안내 */}
                             {showGuide && !installPrompt && (
                                 <div className="mt-1.5 bg-slate-50 border border-slate-200 rounded-xl p-4">
                                     {isIOS ? (
@@ -235,16 +211,13 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                         </div>
                     )}
 
-                    {/* 로그아웃 */}
-                    <button
-                        onClick={handleLogout}
-                        className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-                    >
-                        <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center text-xl flex-shrink-0">
+                    <button onClick={handleLogout}
+                        className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform text-left">
+                        <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center text-lg flex-shrink-0">
                             🚪
                         </div>
                         <div className="flex-1">
-                            <p className="text-red-500 font-bold text-[15px]">로그아웃</p>
+                            <p className="text-red-500 font-bold text-[14px]">로그아웃</p>
                             <p className="text-red-300 text-xs mt-0.5">계정에서 안전하게 로그아웃</p>
                         </div>
                     </button>

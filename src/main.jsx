@@ -27,6 +27,7 @@ import { ReturnsManagement } from './ReturnsManagement.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
 import { MobileReturnsRegister } from './MobileReturnsRegister.jsx';
 import { MobilePreDeliveryManage } from './MobilePreDeliveryManage.jsx';
+import { MobileReturnsList } from './MobileReturnsList.jsx';
 import { MobileMenuScreen } from './MobileMenuScreen.jsx';
 import { MobileMyIssues } from './MobileMyIssues.jsx';
 import { MobileNotice } from './MobileNotice.jsx';
@@ -169,6 +170,7 @@ const ProtectedMobileRoute = () => {
             <Route path="register" element={<MobileIssueRegister />} />
             <Route path="returns" element={<MobileReturnsRegister userProfile={userProfile} />} />
             <Route path="pre-delivery" element={<MobilePreDeliveryManage userProfile={userProfile} />} />
+            <Route path="returns-list" element={<MobileReturnsList userProfile={userProfile} />} />
             <Route path="my-issues" element={
                 <MobileMyIssues userProfile={userProfile} onNotificationsRead={() => setCompletedNotiCount(0)} />
             } />

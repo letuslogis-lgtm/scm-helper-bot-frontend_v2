@@ -556,9 +556,9 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
                         <input type="text" value={itemCode} onChange={e => setItemCode(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleManualSearch()}
                             placeholder="품목코드 직접 입력"
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all" />
+                            className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm placeholder-slate-300 focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all" />
                         <button onClick={handleManualSearch} disabled={isAnalyzing || !itemCode.trim()}
-                            className={`px-5 py-3 rounded-xl font-bold text-sm transition-all
+                            className={`shrink-0 w-16 py-3 rounded-xl font-bold text-sm transition-all
                                 ${isAnalyzing || !itemCode.trim() ? 'bg-slate-100 text-slate-400' : 'bg-letusBlue text-white active:scale-[0.98]'}`}>
                             {isAnalyzing ? '...' : '조회'}
                         </button>
