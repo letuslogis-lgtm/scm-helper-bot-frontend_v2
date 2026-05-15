@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon, ImageSlider } from './SharedUI.jsx';
+import { CloseIcon, ImageSlider, formatDateTime } from './SharedUI.jsx';
 
 
 
@@ -356,7 +356,8 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><CloseIcon /></button>
  </div>
 
- <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch overflow-y-auto max-h-[80vh]">
+ <div className="p-5 bg-white overflow-y-auto max-h-[80vh]">
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
 
  <div className="flex flex-col h-full">
  <h4 className="text-sm font-bold text-gray-700 mb-2">📸 현장 사진</h4>
@@ -383,6 +384,26 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  ></textarea>
  </div>
  </div>
+ </div>
+
+ {row.worker_responded_at && (
+ <div className="border-t border-gray-100 pt-4 mt-4">
+ <h4 className="text-sm font-bold text-blue-600 mb-3">
+ 📤 작업자 조치 결과
+ <span className="text-xs font-normal text-gray-400 ml-2">{formatDateTime(row.worker_responded_at)}</span>
+ </h4>
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ {row.worker_response && (
+ <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 leading-relaxed">
+ {row.worker_response}
+ </div>
+ )}
+ {row.worker_response_photos && (
+ <ImageSlider imageUrlString={row.worker_response_photos} />
+ )}
+ </div>
+ </div>
+ )}
  </div>
 
  <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center gap-2">

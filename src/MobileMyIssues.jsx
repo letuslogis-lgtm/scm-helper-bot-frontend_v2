@@ -108,7 +108,7 @@ const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
     );
 };
 
-const IssueDetailSheet = ({ issue, onClose }) => {
+const IssueDetailSheet = ({ issue, onClose, onRespond }) => {
     if (!issue) return null;
     return (
         <>
@@ -187,12 +187,185 @@ const IssueDetailSheet = ({ issue, onClose }) => {
                         </>
                     )}
 
+                    {issue.status === '조치완료' && issue.is_notified && (
+                        <>
+                            <div className="h-px bg-slate-100" />
+                            {issue.worker_responded_at ? (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <p className="text-[11px] font-bold text-blue-500 uppercase tracking-widest">작업자 조치 결과</p>
+                                        <span className="text-[10px] text-slate-400">{formatDate(issue.worker_responded_at)}</span>
+                                    </div>
+                                    {issue.worker_response && (
+                                        <p className="text-slate-700 text-sm leading-relaxed">{issue.worker_response}</p>
+                                    )}
+                                    {issue.worker_response_photos && (
+                                        <div className="flex gap-2 overflow-x-auto mt-2 pb-1">
+                                            {issue.worker_response_photos.split(',').filter(Boolean).map((url, idx) => (
+                                                <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                                                    <img src={url} alt={`조치사진 ${idx + 1}`} className="w-20 h-20 rounded-xl object-cover border border-slate-200" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => onRespond?.(issue)}
+                                    className="w-full py-3.5 rounded-xl bg-green-50 border border-green-200 text-green-700 font-bold text-sm active:bg-green-100 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span>📤</span>
+                                    조치 결과 전달하기
+                                </button>
+                            )}
+                        </>
+                    )}
+
                     <button
                         onClick={onClose}
                         className="w-full py-3.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm active:bg-slate-200 transition-colors"
                     >
                         닫기
                     </button>
+                </div>
+            </div>
+        </>
+    );
+};
+
+const WorkerResponseSheet = ({ issue, onClose, onSubmitted }) => {
+    const [photos, setPhotos] = useState([]);
+    const [responseText, setResponseText] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const fileRef = useRef(null);
+
+    const compressImage = (file) =>
+        new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ratio = Math.min(1024 / img.width, 1024 / img.height, 1);
+                canvas.width = img.width * ratio;
+                canvas.height = img.height * ratio;
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
+            };
+            img.src = URL.createObjectURL(file);
+        });
+
+    const handlePhotoCapture = (e) => {
+        const files = Array.from(e.target.files || []);
+        const newPhotos = files.map(f => ({ file: f, preview: URL.createObjectURL(f) }));
+        setPhotos(prev => [...prev, ...newPhotos].slice(0, 3));
+        e.target.value = '';
+    };
+
+    const handleSubmit = async () => {
+        setIsSubmitting(true);
+        try {
+            let photoUrls = '';
+            if (photos.length > 0) {
+                const urlList = await Promise.all(photos.map(async (p) => {
+                    const base64 = await compressImage(p.file);
+                    const byteStr = atob(base64);
+                    const arr = new Uint8Array(byteStr.length);
+                    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+                    const blob = new Blob([arr], { type: 'image/jpeg' });
+                    const fileName = `worker-response/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+                    const { error: uploadErr } = await supabase.storage
+                        .from('issue_images')
+                        .upload(fileName, blob, { contentType: 'image/jpeg' });
+                    if (uploadErr) throw uploadErr;
+                    return supabase.storage.from('issue_images').getPublicUrl(fileName).data.publicUrl;
+                }));
+                photoUrls = urlList.join(',');
+            }
+            const { error } = await supabase.from('logistics_issues').update({
+                worker_response: responseText || null,
+                worker_response_photos: photoUrls || null,
+                worker_responded_at: new Date().toISOString(),
+            }).eq('id', issue.id);
+            if (error) throw error;
+            onSubmitted();
+        } catch (err) {
+            alert('전달 중 오류가 발생했습니다: ' + (err.message || ''));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <>
+            <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+            <div className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-10 h-1 rounded-full bg-slate-200" />
+                </div>
+                <div className="px-5 pb-10 pt-3 space-y-4">
+                    <div className="flex items-center gap-2">
+                        <p className="text-slate-800 font-black text-base flex-1">조치 결과 전달</p>
+                        <span className="text-xs font-mono text-slate-400">{issue.reception_no}</span>
+                    </div>
+
+                    <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+                        <p className="text-[11px] font-bold text-green-600 mb-1">관리자 조치 내용</p>
+                        <p className="text-sm text-green-800">{issue.action_content || '(내용 없음)'}</p>
+                    </div>
+
+                    <div>
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">조치 결과 메모</label>
+                        <textarea
+                            value={responseText}
+                            onChange={e => setResponseText(e.target.value)}
+                            placeholder="예) 반송 PLT 입구 우측 보관구역에 배치 완료"
+                            rows={3}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">조치 결과 사진 (최대 3장)</label>
+                        <div className="grid grid-cols-3 gap-2.5">
+                            {photos.map((p, idx) => (
+                                <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200">
+                                    <img src={p.preview} alt={`사진${idx + 1}`} className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => setPhotos(prev => prev.filter((_, i) => i !== idx))}
+                                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white text-xs flex items-center justify-center"
+                                    >✕</button>
+                                </div>
+                            ))}
+                            {photos.length < 3 && (
+                                <button
+                                    onClick={() => fileRef.current?.click()}
+                                    className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1 text-slate-400 active:bg-slate-50 transition-colors"
+                                >
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span className="text-[10px] font-bold">사진 추가</span>
+                                </button>
+                            )}
+                        </div>
+                        <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple onChange={handlePhotoCapture} className="hidden" />
+                    </div>
+
+                    <div className="flex gap-2.5">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm active:bg-slate-200 transition-colors"
+                        >
+                            취소
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting || (!responseText.trim() && photos.length === 0)}
+                            className="flex-[2] py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors disabled:bg-slate-200 disabled:text-slate-400"
+                        >
+                            {isSubmitting ? '전달 중...' : '전달하기'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </>
@@ -207,6 +380,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const [activeTab, setActiveTab] = useState('전체');
     const [dateRange, setDateRange] = useState({ start: daysAgo(3), end: today() });
     const [showDateSheet, setShowDateSheet] = useState(false);
+    const [respondingIssue, setRespondingIssue] = useState(null);
 
     const fetchIssues = async (range = dateRange) => {
         if (!userProfile?.name) return;
@@ -224,7 +398,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
 
             let query = supabase
                 .from('logistics_issues')
-                .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at')
+                .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at, is_notified, worker_response, worker_response_photos, worker_responded_at')
                 .in('reporter', reporterNames)
                 .order('created_at', { ascending: false })
                 .limit(200);
@@ -421,7 +595,18 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                     onClose={() => setShowDateSheet(false)}
                 />
             )}
-            <IssueDetailSheet issue={selectedIssue} onClose={() => setSelectedIssue(null)} />
+            <IssueDetailSheet issue={selectedIssue} onClose={() => setSelectedIssue(null)} onRespond={(issue) => setRespondingIssue(issue)} />
+            {respondingIssue && (
+                <WorkerResponseSheet
+                    issue={respondingIssue}
+                    onClose={() => setRespondingIssue(null)}
+                    onSubmitted={() => {
+                        setRespondingIssue(null);
+                        setSelectedIssue(null);
+                        fetchIssues();
+                    }}
+                />
+            )}
         </div>
     );
 };
