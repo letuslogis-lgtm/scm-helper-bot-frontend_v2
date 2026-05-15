@@ -107,8 +107,7 @@ export const TeamCalendar = ({ userProfile }) => {
             const { data } = await supabase
                 .from('company_holidays')
                 .select('holiday_date');
-            console.log('[holiday fetch]', data);
-            setHolidays(new Set((data || []).map(h => String(h.holiday_date).trim())));
+setHolidays(new Set((data || []).map(h => String(h.holiday_date).trim())));
         };
         fetchHolidays();
     }, []);
