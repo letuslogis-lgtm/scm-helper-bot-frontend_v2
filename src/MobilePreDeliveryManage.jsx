@@ -90,7 +90,7 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
             .from('logistics_returns')
             .select('id, incident_date, incident_center, brand, item_code, color, quantity, construction_team, incident_reason, writer')
             .eq('item_code', code)
-            .eq('type', '선출')
+            .eq('type', '선출고')
             .eq('is_recovered', false)
             .gte('incident_date', fromDate)
             .order('incident_date', { ascending: false });
@@ -184,7 +184,7 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
         setIsProcessing(true);
         try {
             const { error } = await supabase.from('logistics_returns').insert([{
-                type: '선출',
+                type: '선출고',
                 incident_date: incidentDate,
                 incident_center: incidentCenter,
                 writer: userProfile?.name || '',

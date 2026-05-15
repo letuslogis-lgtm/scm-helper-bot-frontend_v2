@@ -15,10 +15,10 @@ const daysAgo = (n) => {
     return d.toISOString().split('T')[0];
 };
 
-const TABS = ['전체', '회수품', '선출'];
+const TABS = ['전체', '회수품', '선출고'];
 
 const getStatusInfo = (item) => {
-    if (item.type === '선출') {
+    if (item.type === '선출고') {
         return item.is_recovered
             ? { label: '회수완료', cls: 'bg-green-50 text-green-600 border-green-200' }
             : { label: '미회수',   cls: 'bg-amber-50 text-amber-600 border-amber-200' };
@@ -98,7 +98,7 @@ const ReturnDetailSheet = ({ item, onClose }) => {
                 </div>
                 <div className="px-5 pb-10 pt-3 space-y-4">
                     <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${item.type === '선출' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${item.type === '선출고' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
                             {item.type}
                         </span>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${status.cls}`}>
@@ -149,7 +149,7 @@ const ReturnDetailSheet = ({ item, onClose }) => {
                                 <span className="text-sm font-bold text-slate-700 text-right max-w-[60%]">{item.incident_reason}</span>
                             </div>
                         )}
-                        {item.type === '선출' && item.construction_team && (
+                        {item.type === '선출고' && item.construction_team && (
                             <div className="flex justify-between items-center">
                                 <span className="text-[11px] font-bold text-slate-400">시공팀</span>
                                 <span className="text-sm font-bold text-slate-700">{item.construction_team}</span>
@@ -161,7 +161,7 @@ const ReturnDetailSheet = ({ item, onClose }) => {
                         </div>
                     </div>
 
-                    {item.type === '선출' && item.is_recovered && (
+                    {item.type === '선출고' && item.is_recovered && (
                         <>
                             <div className="h-px bg-slate-100" />
                             <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 space-y-1">
@@ -312,7 +312,7 @@ export const MobileReturnsList = ({ userProfile }) => {
                                     className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-4 text-left active:scale-[0.99] transition-transform">
                                     <div className="flex items-start justify-between gap-2 mb-2">
                                         <div className="flex gap-1.5 flex-wrap">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${item.type === '선출' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${item.type === '선출고' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
                                                 {item.type}
                                             </span>
                                             {item.brand && (

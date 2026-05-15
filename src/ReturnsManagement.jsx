@@ -227,6 +227,160 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
     );
 };
 
+// ── 선출고 상세 / 편집 모달 ──────────────────────────────────────────────────
+const PreDeliveryDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }) => {
+    const isAdmin     = userProfile?.role === '관리자';
+    const myWorkplace = userProfile?.workplace;
+    const myName      = userProfile?.name || '';
+
+    const [form, setForm]         = useState({ ...row });
+    const [isSaving, setIsSaving] = useState(false);
+
+    const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+    const handleToggleRecovered = () => {
+        const newVal = !form.is_recovered;
+        setForm(prev => ({
+            ...prev,
+            is_recovered:      newVal,
+            recovered_at:      newVal && !prev.recovered_at      ? new Date().toISOString().split('T')[0] : prev.recovered_at,
+            recovery_handler:  newVal && !prev.recovery_handler  ? myName : prev.recovery_handler,
+        }));
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const payload = { ...form, updated_at: new Date().toISOString() };
+            const { error } = await supabase.from('logistics_returns').update(payload).eq('id', row.id);
+            if (error) throw error;
+            onSaved();
+            onClose();
+        } catch (e) {
+            alert('저장 실패: ' + e.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const inp = (field, type = 'text', disabled = false) => {
+        const cls = `w-full border rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue
+            ${disabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100' : 'border-gray-200 text-gray-700 bg-white'}`;
+        return <input type={type} value={form[field] ?? ''} onChange={e => !disabled && set(field, e.target.value)} disabled={disabled} className={cls} />;
+    };
+
+    const sel = (field, options, disabled = false) => {
+        const cls = `w-full border rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue
+            ${disabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100' : 'border-gray-200 text-gray-700 bg-white cursor-pointer'}`;
+        return (
+            <select value={form[field] ?? ''} onChange={e => !disabled && set(field, e.target.value)} disabled={disabled} className={cls}>
+                <option value="">선택</option>
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+        );
+    };
+
+    const lbl = 'text-[11px] font-bold text-gray-500 mb-1 block';
+
+    const Section = ({ title, no, canEdit, borderColor, bgColor, titleColor, children }) => (
+        <div className={`rounded-lg border p-4 ${canEdit ? `${borderColor} ${bgColor}` : 'border-gray-100 bg-gray-50/50'}`}>
+            <h4 className={`text-[11px] font-black mb-3 flex items-center gap-1.5 ${canEdit ? titleColor : 'text-gray-400'}`}>
+                <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black ${canEdit ? `${borderColor} border ${bgColor}` : 'bg-gray-200 text-gray-400'}`}>{no}</span>
+                {title}
+                {!canEdit && <span className="text-gray-300 font-normal text-[10px]">(열람 전용)</span>}
+            </h4>
+            <div className="grid grid-cols-3 gap-3">{children}</div>
+        </div>
+    );
+
+    const Field = ({ label, children, span = 1 }) => (
+        <div className={span === 2 ? 'col-span-2' : span === 3 ? 'col-span-3' : ''}>
+            <label className={lbl}>{label}</label>
+            {children}
+        </div>
+    );
+
+    const canEditBase = isAdmin || row.incident_center === myWorkplace;
+    const d1 = !canEditBase;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-2xl border border-gray-100 overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }}>
+
+                {/* 헤더 */}
+                <div className="p-4 border-b border-amber-100 bg-amber-50 flex justify-between items-start shrink-0">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">선출고</span>
+                            {form.is_recovered
+                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">회수완료</span>
+                                : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">미회수</span>}
+                        </div>
+                        <p className="text-[11px] text-gray-400">
+                            {fmtDate(form.incident_date) || '-'} · {form.incident_center || '-'}
+                            {form.item_code && ` · ${form.item_code}`}
+                            {form.quantity != null && ` · ${form.quantity}EA`}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none mt-0.5">✕</button>
+                </div>
+
+                {/* 바디 */}
+                <div className="overflow-y-auto p-5 flex flex-col gap-4 custom-scrollbar">
+
+                    {/* ① 품목 정보 */}
+                    <Section no="①" title="품목 정보" canEdit={canEditBase}
+                        borderColor="border-amber-200" bgColor="bg-amber-50/40" titleColor="text-amber-700">
+                        <Field label="발생일">{inp('incident_date', 'date', d1)}</Field>
+                        <Field label="발생센터">{sel('incident_center', workplaceList, d1)}</Field>
+                        <Field label="작성자">{inp('writer', 'text', true)}</Field>
+                        <Field label="브랜드">{inp('brand', 'text', d1)}</Field>
+                        <Field label="품목코드">{inp('item_code', 'text', d1)}</Field>
+                        <Field label="색상">{inp('color', 'text', d1)}</Field>
+                        <Field label="수량" span={3}>
+                            <input type="number" value={form.quantity ?? ''} onChange={e => !d1 && set('quantity', e.target.value === '' ? null : parseInt(e.target.value, 10))} disabled={d1}
+                                className={`w-full border rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusBlue ${d1 ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100' : 'border-gray-200 text-gray-700 bg-white'}`} />
+                        </Field>
+                    </Section>
+
+                    {/* ② 선출 정보 */}
+                    <Section no="②" title="선출 정보" canEdit={canEditBase}
+                        borderColor="border-blue-200" bgColor="bg-blue-50/40" titleColor="text-blue-700">
+                        <Field label="발생 사유">{sel('incident_reason', INCIDENT_REASONS, d1)}</Field>
+                        <Field label="시공팀명" span={2}>{inp('construction_team', 'text', d1)}</Field>
+                    </Section>
+
+                    {/* ③ 회수 정보 */}
+                    <Section no="③" title="회수 정보" canEdit={true}
+                        borderColor="border-green-200" bgColor="bg-green-50/40" titleColor="text-green-700">
+                        <Field label="회수여부" span={3}>
+                            <button type="button" onClick={handleToggleRecovered}
+                                className={`h-[30px] px-4 rounded-[3px] text-xs font-bold border transition-colors ${form.is_recovered ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
+                                {form.is_recovered ? '✓ 회수완료' : '미회수 — 클릭하면 회수완료 처리'}
+                            </button>
+                        </Field>
+                        <Field label="회수일">{inp('recovered_at', 'date', !form.is_recovered)}</Field>
+                        <Field label="회수담당자" span={2}>{inp('recovery_handler', 'text', !form.is_recovered)}</Field>
+                    </Section>
+                </div>
+
+                {/* 푸터 */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+                    <p className="text-[10px] text-gray-400">③ 회수 정보는 모든 담당자가 수정 가능합니다</p>
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded-[3px] hover:bg-gray-100">닫기</button>
+                        <button onClick={handleSave} disabled={isSaving}
+                            className="px-5 py-2 bg-letusBlue text-white text-xs font-bold rounded-[3px] hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+                            {isSaving ? '저장 중...' : '저장'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── 신규 등록 모달 ──────────────────────────────────────────────────────────
 const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
     const isAdmin = userProfile?.role === '관리자';
@@ -630,7 +784,7 @@ const ReturnsManagement = ({ userProfile }) => {
                         <select value={draftFilters.type} onChange={e => setDraftFilters(p => ({ ...p, type: e.target.value }))} className={filterSel}>
                             <option value="전체">전체</option>
                             <option value="회수품">회수품</option>
-                            <option value="선출">선출</option>
+                            <option value="선출고">선출고</option>
                         </select>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -762,8 +916,8 @@ const ReturnsManagement = ({ userProfile }) => {
                                         />
                                     </td>
                                     <td className="p-4 text-center">
-                                        {row.type === '선출'
-                                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">선출</span>
+                                        {row.type === '선출고'
+                                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">선출고</span>
                                             : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">회수품</span>}
                                     </td>
                                     <td className="p-4 text-center text-gray-600">{fmtDate(row.incident_date) || '-'}</td>
@@ -779,7 +933,7 @@ const ReturnsManagement = ({ userProfile }) => {
                                     </td>
                                     <td className="p-4 text-center"><StepIndicator row={row} /></td>
                                     <td className="p-4 text-center">
-                                        {row.type === '선출'
+                                        {row.type === '선출고'
                                             ? (row.is_recovered
                                                 ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">회수</span>
                                                 : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">미회수</span>)
@@ -795,7 +949,16 @@ const ReturnsManagement = ({ userProfile }) => {
             </div>
 
             {/* ── 상세 모달 ── */}
-            {activeRow && (
+            {activeRow && activeRow.type === '선출고' && (
+                <PreDeliveryDetailModal
+                    row={activeRow}
+                    onClose={() => setActiveRow(null)}
+                    onSaved={fetchData}
+                    workplaceList={workplaceList}
+                    userProfile={userProfile}
+                />
+            )}
+            {activeRow && activeRow.type !== '선출고' && (
                 <ReturnDetailModal
                     row={activeRow}
                     onClose={() => setActiveRow(null)}
