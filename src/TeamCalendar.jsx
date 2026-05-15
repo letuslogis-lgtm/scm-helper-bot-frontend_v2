@@ -47,13 +47,6 @@ export const TeamCalendar = ({ userProfile }) => {
 
             if (error) throw error;
 
-            const { data: holidayData } = await supabase
-                .from('company_holidays')
-                .select('holiday_date')
-                .gte('holiday_date', startStr)
-                .lte('holiday_date', endStr);
-            setHolidays(new Set((holidayData || []).map(h => h.holiday_date)));
-
             const { data: profiles } = await supabase.from('profiles').select('name, team');
             const teamMap = {};
             if (profiles) profiles.forEach(p => teamMap[p.name] = p.team);
@@ -108,6 +101,22 @@ export const TeamCalendar = ({ userProfile }) => {
             fetchEvents();
         }
     }, [year, month, userProfile]);
+
+    useEffect(() => {
+        const fetchHolidays = async () => {
+            const pad = n => String(n).padStart(2, '0');
+            const startStr = `${year}-${pad(month + 1)}-01`;
+            const endStr = `${year}-${pad(month + 1)}-${new Date(year, month + 1, 0).getDate()}`;
+            const { data, error } = await supabase
+                .from('company_holidays')
+                .select('holiday_date')
+                .gte('holiday_date', startStr)
+                .lte('holiday_date', endStr);
+            console.log('[holiday fetch]', { startStr, endStr, data, error });
+            setHolidays(new Set((data || []).map(h => String(h.holiday_date).trim())));
+        };
+        fetchHolidays();
+    }, [year, month]);
 
     const getEventStyles = (ev) => {
         if (ev.is_important) return 'bg-red-100 text-red-700 border-red-200';
