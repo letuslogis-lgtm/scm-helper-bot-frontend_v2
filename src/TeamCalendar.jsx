@@ -12,6 +12,7 @@ export const TeamCalendar = ({ userProfile }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [holidays, setHolidays] = useState(new Set());
 
     const [searchQuery, setSearchQuery] = useState('');
     const [listDate, setListDate] = useState(getLocalDateString(new Date()));
@@ -45,6 +46,13 @@ export const TeamCalendar = ({ userProfile }) => {
                 .order('start_date', { ascending: true });
 
             if (error) throw error;
+
+            const { data: holidayData } = await supabase
+                .from('company_holidays')
+                .select('holiday_date')
+                .gte('holiday_date', startStr)
+                .lte('holiday_date', endStr);
+            setHolidays(new Set((holidayData || []).map(h => h.holiday_date)));
 
             const { data: profiles } = await supabase.from('profiles').select('name, team');
             const teamMap = {};
@@ -292,6 +300,7 @@ export const TeamCalendar = ({ userProfile }) => {
 
                             const isToday = dateStr === getLocalDateString(new Date());
                             const isSelectedList = dateStr === listDate;
+                            const isHoliday = cell.isCurrentMonth && holidays.has(dateStr);
 
                             return (
                                 <div
@@ -300,7 +309,7 @@ export const TeamCalendar = ({ userProfile }) => {
                                     className={`border-r border-b border-slate-100 p-1.5 sm:p-2 cursor-pointer flex flex-col h-[80px] sm:h-[100px] overflow-hidden group transition-colors ${isSelectedList ? 'bg-blue-50/60 ring-inset ring-2 ring-blue-200' : cell.isCurrentMonth ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100'}`}
                                 >
                                     <div className="flex justify-between items-start shrink-0">
-                                        <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-letusBlue text-white' : !cell.isCurrentMonth ? 'text-gray-300' : idx % 7 === 0 ? 'text-red-500' : idx % 7 === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                                        <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-letusBlue text-white' : !cell.isCurrentMonth ? 'text-gray-300' : (idx % 7 === 0 || isHoliday) ? 'text-red-500' : idx % 7 === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
                                             {cell.date.getDate()}
                                         </span>
                                         <button

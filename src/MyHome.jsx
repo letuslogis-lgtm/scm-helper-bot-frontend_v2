@@ -30,6 +30,7 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const [calendarEvents, setCalendarEvents] = useState([]);
+    const [holidays, setHolidays] = useState(new Set());
     const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
     const [selectedDateForEvent, setSelectedDateForEvent] = useState('');
@@ -215,6 +216,23 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
 
     const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+
+    useEffect(() => {
+        const fetchHolidays = async () => {
+            const y = currentDate.getFullYear();
+            const m = currentDate.getMonth();
+            const pad = n => String(n).padStart(2, '0');
+            const startStr = `${y}-${pad(m + 1)}-01`;
+            const endStr = `${y}-${pad(m + 1)}-${new Date(y, m + 1, 0).getDate()}`;
+            const { data } = await supabase
+                .from('company_holidays')
+                .select('holiday_date')
+                .gte('holiday_date', startStr)
+                .lte('holiday_date', endStr);
+            setHolidays(new Set((data || []).map(h => h.holiday_date)));
+        };
+        fetchHolidays();
+    }, [currentDate]);
     const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
     const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
@@ -515,6 +533,8 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                                     return t.repeat.includes(dayOfWeekStr);
                                 });
 
+                                const isHoliday = holidays.has(dateStr);
+
                                 return (
                                     <div
                                         key={day}
@@ -530,7 +550,7 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                                             : ''
                                             }`}
                                     >
-                                        <span className={`text-[13px] font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-letusBlue text-white shadow-sm' : 'text-gray-600'}`}>
+                                        <span className={`text-[13px] font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-letusBlue text-white shadow-sm' : isHoliday ? 'text-red-500' : 'text-gray-600'}`}>
                                             {day}
                                         </span>
 
