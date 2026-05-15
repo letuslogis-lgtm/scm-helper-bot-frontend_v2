@@ -335,6 +335,13 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
         setWidgets(newWidgets);
     };
 
+    const WIDGET_GROUPS = [
+        { label: '입고 특이사항', ids: ['issue_todo', 'issue_done', 'new_issues_month'] },
+        { label: '출고 특이사항', ids: ['acc_todo', 'acc_done', 'returns_todo', 'predelivery_todo', 'new_accidents_month'] },
+        { label: '공지 · 자동화', ids: ['recent_notices', 'rpa_status'] },
+        { label: '기타', ids: ['favorites'] },
+    ];
+
     const availableWidgets = [
         { id: 'issue_todo', title: '입고 이슈 (대기)', icon: '📦', color: 'blue' },
         { id: 'acc_todo', title: '상차 사고 (대기)', icon: '🚚', color: 'orange' },
@@ -703,22 +710,31 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
             {isWidgetModalOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsWidgetModalOpen(false)}></div>
-                    <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-sm slide-up border border-gray-100 overflow-hidden flex flex-col">
+                    <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-md slide-up border border-gray-100 overflow-hidden flex flex-col">
                         <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
                             <h3 className="font-bold text-sm text-gray-800">위젯 선택</h3>
                             <button onClick={() => setIsWidgetModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600"><CloseIcon /></button>
                         </div>
-                        <div className="p-4 flex flex-col gap-2">
-                            {availableWidgets.map(w => {
-                                const isAdded = widgets.includes(w.id);
+                        <div className="p-4 flex flex-col gap-4">
+                            {WIDGET_GROUPS.map(group => {
+                                const groupWidgets = availableWidgets.filter(w => group.ids.includes(w.id));
                                 return (
-                                    <button key={w.id} onClick={() => !isAdded && selectWidget(w.id)} disabled={isAdded} className={`flex items-center p-3 rounded-lg border text-left transition-colors ${isAdded ? 'bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed' : 'bg-white border-gray-200 hover:border-letusBlue hover:bg-blue-50 cursor-pointer'}`}>
-                                        <span className="text-2xl mr-3">{w.icon}</span>
-                                        <div className="flex-1">
-                                            <span className="text-[13px] font-bold text-gray-800 block">{w.title}</span>
-                                            <span className="text-[10px] text-gray-500">{isAdded ? '이미 추가된 위젯입니다' : '클릭하여 추가하기'}</span>
+                                    <div key={group.label}>
+                                        <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">{group.label}</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {groupWidgets.map(w => {
+                                                const isAdded = widgets.includes(w.id);
+                                                return (
+                                                    <button key={w.id} onClick={() => !isAdded && selectWidget(w.id)} disabled={isAdded}
+                                                        className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-center transition-all w-[88px] ${isAdded ? 'bg-gray-50 border-gray-100 opacity-40 cursor-not-allowed' : 'bg-white border-gray-200 hover:border-letusBlue hover:bg-blue-50 hover:shadow-sm cursor-pointer'}`}>
+                                                        <span className="text-xl leading-none">{w.icon}</span>
+                                                        <span className="text-[10px] font-bold text-gray-700 leading-tight break-keep">{w.title}</span>
+                                                        {isAdded && <span className="text-[9px] text-gray-400 font-medium">추가됨</span>}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>
