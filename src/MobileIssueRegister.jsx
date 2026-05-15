@@ -127,10 +127,20 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
             });
             if (error) throw error;
             if (data?.product_code) {
-                setProductCode(data.product_code);
+                let fullCode = data.product_code;
+                // 색상 suffix가 없으면 products 테이블에서 조회해 합침
+                if (!fullCode.includes('-')) {
+                    const { data: pd } = await supabase
+                        .from('products')
+                        .select('item_color')
+                        .eq('item_code', fullCode)
+                        .single();
+                    if (pd?.item_color) fullCode = `${fullCode}-${pd.item_color}`;
+                }
+                setProductCode(fullCode);
                 if (data.brand) setBrand(data.brand);
                 if (data.vendor) setVendor(data.vendor);
-                setAiResult({ success: true, code: data.product_code, description: data.description || '' });
+                setAiResult({ success: true, code: fullCode, description: data.description || '' });
             } else {
                 setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
             }

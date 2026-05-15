@@ -198,153 +198,161 @@ const FaqAddModal = ({ onClose, onReload }) => {
 };
 
 const RequestModal = ({ row, onClose, onReload, userProfile }) => {
- const [text, setText] = useState(row.request_content || '');
- const [actionText, setActionText] = useState(row?.action_content || '');
+ const [requestText, setRequestText] = useState(row.request_content || '');
+ const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
  const [isSaving, setIsSaving] = useState(false);
+ const isAdmin = userProfile?.role !== '사용자';
+ const isWaiting = row.status === '조치대기';
+ const isProcessing = row.status === '처리 중';
+ const isDone = row.status === '조치완료';
+ const hasPurchaseResponse = !!(row.purchase_response);
 
- const handleAction = async (newStatus) => {
+ const handleTransfer = async () => {
  setIsSaving(true);
  try {
- const nowIso = new Date().toISOString();
-
- const { error } = await supabase
- .from('logistics_issues')
- .update({
- request_content: text,
- action_content: actionText,
- status: newStatus,
- final_handler: userProfile?.name || '관리자',
- resolved_at: nowIso
- })
- .eq('id', row.id);
-
+ const { error } = await supabase.from('logistics_issues').update({
+ request_content: requestText,
+ status: '처리 중',
+ }).eq('id', row.id);
  if (error) throw error;
-
- await onReload();
- onClose();
- } catch (error) {
- console.error('Update error:', error);
- alert('상태 업데이트 중 오류가 발생했습니다.');
- } finally {
- setIsSaving(false);
- }
+ await onReload(); onClose();
+ } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
  };
+
+ const handlePurchaseConfirm = async () => {
+ if (!purchaseText.trim()) return alert('구매/생산 확인 내용을 입력해주세요.');
+ setIsSaving(true);
+ try {
+ const { error } = await supabase.from('logistics_issues').update({
+ purchase_response: purchaseText,
+ }).eq('id', row.id);
+ if (error) throw error;
+ await onReload(); onClose();
+ } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
+ };
+
+ const stepStyle = (active, done) =>
+ active ? 'text-orange-500 font-black' : done ? 'text-green-500 font-bold' : 'text-gray-300';
 
  return (
  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-
  <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl slide-up border border-gray-100 overflow-hidden flex flex-col">
  <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
- <h3 className="font-bold text-gray-900">현장 특이사항 요청 내용 ({row.reception_no})</h3>
+ <div>
+ <h3 className="font-bold text-gray-900">현장 특이사항 접수/이관 ({row.reception_no})</h3>
+ <div className="flex items-center gap-1 mt-1 text-[11px]">
+ <span className={stepStyle(isWaiting, !isWaiting)}>① 접수</span>
+ <span className="text-gray-300">›</span>
+ <span className={stepStyle(isProcessing && !hasPurchaseResponse, !isWaiting)}>② 이관</span>
+ <span className="text-gray-300">›</span>
+ <span className={stepStyle(isProcessing && !hasPurchaseResponse, hasPurchaseResponse || isDone)}>③ 구매/생산 확인</span>
+ <span className="text-gray-300">›</span>
+ <span className={stepStyle(false, isDone)}>④ 담당자 조치</span>
+ <span className="text-gray-300">›</span>
+ <span className={stepStyle(false, row.is_notified)}>⑤ 피드백</span>
+ </div>
+ </div>
  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><CloseIcon /></button>
  </div>
 
- <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch overflow-y-auto max-h-[80vh]">
-
- <div className="flex flex-col h-full">
+ <div className="p-5 bg-white overflow-y-auto max-h-[70vh]">
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+ <div className="flex flex-col">
  <h4 className="text-sm font-bold text-gray-700 mb-2">📸 현장 사진</h4>
  <ImageSlider imageUrlString={row.image_url} />
  </div>
 
- <div className="flex flex-col h-full space-y-4">
-
- <div className="flex-1 flex flex-col">
- <h4 className="text-sm font-bold text-gray-700 mb-2">요청 내용</h4>
+ <div className="flex flex-col space-y-4">
+ <div className="flex flex-col">
+ <h4 className="text-sm font-bold text-gray-700 mb-2">① 접수 내용</h4>
+ {isWaiting ? (
  <textarea
- value={text}
- onChange={(e) => setText(e.target.value)}
+ value={requestText}
+ onChange={e => setRequestText(e.target.value)}
  placeholder="특이사항 조치 관련 요청 상세 내용이나 확인된 메모를 자유롭게 입력해 주세요."
- disabled={userProfile?.role === '사용자' || row.status !== '조치대기'}
- className={`flex-1 w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-letusBlue focus:border-letusBlue outline-none resize-none transition-shadow ${userProfile?.role === '사용자' || row.status !== '조치대기' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
- ></textarea>
+ disabled={!isAdmin}
+ className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-800 outline-none resize-none focus:ring-2 focus:ring-letusBlue focus:border-letusBlue min-h-[80px]"
+ />
+ ) : (
+ <div className="w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-600 min-h-[60px]">
+ {row.request_content || '(내용 없음)'}
+ </div>
+ )}
  </div>
 
- <div className="flex-1 flex flex-col">
- <h4 className="text-sm font-bold text-blue-600 mb-2">🛠️ 조치 내용 (현장 작업자 피드백용)</h4>
+ {(isProcessing || isDone) && (
+ <div className="flex flex-col">
+ <h4 className="text-sm font-bold text-blue-600 mb-2">③ 구매/생산 확인 내용</h4>
+ {isDone || hasPurchaseResponse ? (
+ <div className="w-full border border-blue-100 bg-blue-50 rounded-lg p-3 text-sm text-blue-800 min-h-[60px]">
+ {row.purchase_response || '(내용 없음)'}
+ </div>
+ ) : (
  <textarea
- value={actionText}
- onChange={(e) => setActionText(e.target.value)}
- placeholder="현장 작업자의 텔레그램으로 전송될 상세 조치 결과를 입력해 주세요."
- disabled={userProfile?.role === '사용자' || row.status !== '조치대기'}
- className={`flex-1 w-full border border-blue-300 rounded-lg p-3 text-sm text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none transition-shadow ${userProfile?.role === '사용자' || row.status !== '조치대기' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-blue-50'}`}
- ></textarea>
+ value={purchaseText}
+ onChange={e => setPurchaseText(e.target.value)}
+ placeholder="구매/생산팀 확인 내용을 입력해주세요."
+ className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 text-sm text-gray-800 outline-none resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+ />
+ )}
  </div>
-
+ )}
+ </div>
  </div>
  </div>
 
  <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center gap-2">
-
  <div>
- {row.status !== '조치대기' && (
- <span className="text-gray-500 font-bold text-sm">✅ 처리가 이관/완료되어 내용을 수정할 수 없습니다.</span>
- )}
+ {isDone && <span className="text-gray-500 font-bold text-sm">✅ 조치가 완료되어 수정할 수 없습니다.</span>}
+ {isProcessing && hasPurchaseResponse && <span className="text-blue-500 font-bold text-sm">✅ 구매/생산 확인이 완료되었습니다.</span>}
  </div>
-
  <div className="flex gap-2">
- <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-sm font-bold rounded hover:bg-gray-100 transition-colors shadow-sm bg-white">
- {row.status !== '조치대기' ? '닫기' : '취소'}
+ <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-sm font-bold rounded hover:bg-gray-100 transition-colors bg-white">
+ {isDone || (isProcessing && hasPurchaseResponse) ? '닫기' : '취소'}
  </button>
-
- {row.status === '조치대기' && (
- <>
- <button
- onClick={() => handleAction('처리 중')}
- disabled={isSaving || userProfile?.role === '사용자'}
- className={`px-6 py-2 text-white text-sm font-bold rounded shadow transition-colors flex items-center gap-2 ${userProfile?.role === '사용자' ? 'bg-gray-300 cursor-not-allowed opacity-60' : 'bg-yellow-500 hover:bg-yellow-600'} ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
- >
- {isSaving ? '진행 중...' : '이관'}
+ {isWaiting && isAdmin && (
+ <button onClick={handleTransfer} disabled={isSaving}
+ className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
+ {isSaving ? '처리 중...' : '② 이관'}
  </button>
- <button
- onClick={() => handleAction('조치완료')}
- disabled={isSaving || userProfile?.role === '사용자'}
- className={`px-6 py-2 text-white text-sm font-bold rounded shadow transition-colors flex items-center gap-2 ${userProfile?.role === '사용자' ? 'bg-gray-300 cursor-not-allowed opacity-60' : 'bg-green-500 hover:bg-green-600'
- } ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
- >
- {isSaving ? '진행 중...' : '조치완료'}
+ )}
+ {isProcessing && !hasPurchaseResponse && isAdmin && (
+ <button onClick={handlePurchaseConfirm} disabled={isSaving || !purchaseText.trim()}
+ className={`px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
+ {isSaving ? '저장 중...' : '③ 구매/생산 확인 완료'}
  </button>
- </>
  )}
  </div>
  </div>
-
  </div>
  </div>
  );
 };
 
 const HandleModal = ({ row, onClose, onReload, userProfile }) => {
- const [text, setText] = useState(row.handleComment || '');
  const [actionText, setActionText] = useState(row.action_content || '');
  const [isSaving, setIsSaving] = useState(false);
+ const isDone = row.status === '조치완료';
 
- const handleAction = async (newStatus) => {
+ const handleComplete = async () => {
  setIsSaving(true);
  try {
  const nowIso = new Date().toISOString();
-
- const { error } = await supabase
- .from('logistics_issues')
- .update({
- request_content: text,
+ const { error } = await supabase.from('logistics_issues').update({
  action_content: actionText,
- status: newStatus,
+ status: '조치완료',
  final_handler: userProfile?.name || '관리자',
- resolved_at: nowIso
- })
- .eq('id', row.id);
-
+ resolved_at: nowIso,
+ is_notified: true,
+ feedback_sent_at: nowIso,
+ }).eq('id', row.id);
  if (error) throw error;
-
- await onReload();
- onClose();
- } catch (error) {
- console.error('Update error:', error);
+ await onReload(); onClose();
+ } catch (e) {
+ console.error('Update error:', e);
  alert('상태 업데이트 중 오류가 발생했습니다.');
- } finally {
- setIsSaving(false);
- }
+ } finally { setIsSaving(false); }
  };
 
  return (
@@ -357,31 +365,38 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  </div>
 
  <div className="p-5 bg-white overflow-y-auto max-h-[80vh]">
- <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-
- <div className="flex flex-col h-full">
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+ <div className="flex flex-col">
  <h4 className="text-sm font-bold text-gray-700 mb-2">📸 현장 사진</h4>
  <ImageSlider imageUrlString={row.image_url} />
  </div>
 
- <div className="flex flex-col h-full space-y-4">
-
- <div className="flex-1 flex flex-col">
- <h4 className="text-sm font-bold text-gray-700 mb-2">요청 내용</h4>
- <div className="flex-1 w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-600 overflow-y-auto">
- {row.request_content || '등록된 요청 내용이 없습니다.'}
+ <div className="flex flex-col space-y-4">
+ <div>
+ <h4 className="text-sm font-bold text-gray-700 mb-2">① 접수 내용</h4>
+ <div className="w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-600 min-h-[50px]">
+ {row.request_content || '(내용 없음)'}
  </div>
  </div>
 
- <div className="flex-1 flex flex-col">
- <h4 className="text-sm font-bold text-green-600 mb-2">🛠️ 조치 내용</h4>
+ {row.purchase_response && (
+ <div>
+ <h4 className="text-sm font-bold text-blue-600 mb-2">③ 구매/생산 확인 내용</h4>
+ <div className="w-full border border-blue-100 bg-blue-50 rounded-lg p-3 text-sm text-blue-800 min-h-[50px]">
+ {row.purchase_response}
+ </div>
+ </div>
+ )}
+
+ <div>
+ <h4 className="text-sm font-bold text-green-600 mb-2">④ 담당자 조치 내용</h4>
  <textarea
- value={text}
- onChange={(e) => setText(e.target.value)}
- disabled={row.status === '조치완료'}
- placeholder="추가 조치된 내용이나 완료 피드백을 상세하게 입력해 주세요."
- className={`flex-1 w-full border rounded-lg p-3 text-sm text-gray-800 outline-none resize-none transition-shadow ${row.status === '조치완료' ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'}`}
- ></textarea>
+ value={actionText}
+ onChange={e => setActionText(e.target.value)}
+ disabled={isDone}
+ placeholder="현장 작업자에게 전달할 조치 결과를 입력해주세요."
+ className={`w-full border rounded-lg p-3 text-sm text-gray-800 outline-none resize-none transition-shadow min-h-[100px] ${isDone ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'}`}
+ />
  </div>
  </div>
  </div>
@@ -408,21 +423,16 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
 
  <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center gap-2">
  <div>
- {row.status === '조치완료' && (
- <span className="text-green-600 font-bold text-sm">✅ 조치가 완료되어 내용을 수정할 수 없습니다.</span>
- )}
+ {isDone && <span className="text-green-600 font-bold text-sm">✅ 조치가 완료되어 수정할 수 없습니다.</span>}
  </div>
  <div className="flex gap-2">
- <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-sm font-bold rounded hover:bg-gray-100 transition-colors shadow-sm bg-white">
- {row.status === '조치완료' ? '닫기' : '취소'}
+ <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-sm font-bold rounded hover:bg-gray-100 transition-colors bg-white">
+ {isDone ? '닫기' : '취소'}
  </button>
- {row.status !== '조치완료' && (
- <button
- onClick={() => handleAction('조치완료')}
- disabled={isSaving}
- className={`px-6 py-2 bg-green-500 text-white text-sm font-bold rounded shadow hover:bg-green-600 transition-colors flex items-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
- >
- {isSaving ? '진행 중...' : '조치완료'}
+ {!isDone && (
+ <button onClick={handleComplete} disabled={isSaving}
+ className={`px-6 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded shadow transition-colors flex items-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
+ {isSaving ? '진행 중...' : '④ 조치완료 (피드백 자동 전송)'}
  </button>
  )}
  </div>
