@@ -461,7 +461,7 @@ const ReturnsManagement = ({ userProfile }) => {
 
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const today = new Date().toISOString().split('T')[0];
-    const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', returnCenter: '전체', completed: '전체' };
+    const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', returnCenter: '전체', completed: '전체', type: '전체' };
     const [draftFilters, setDraftFilters]     = useState(initialFilters);
     const [appliedFilters, setAppliedFilters] = useState(initialFilters);
 
@@ -488,6 +488,7 @@ const ReturnsManagement = ({ userProfile }) => {
             if (appliedFilters.returnCenter !== '전체') q = q.eq('return_center', appliedFilters.returnCenter);
             if (appliedFilters.completed === 'Y')      q = q.eq('is_completed', true);
             if (appliedFilters.completed === 'N')      q = q.eq('is_completed', false);
+            if (appliedFilters.type !== '전체')         q = q.eq('type', appliedFilters.type);
             const { data, error } = await q;
             if (error) throw error;
             setItems(data || []);
@@ -577,6 +578,7 @@ const ReturnsManagement = ({ userProfile }) => {
 
     const COLS = [
         { isCheckbox: true,  key: null,              w: '44px'  },
+        { label: '유형',      key: 'type',             w: '70px'  },
         { label: '발생일',    key: 'incident_date',   w: '90px'  },
         { label: '발생센터',  key: 'incident_center', w: '110px' },
         { label: '브랜드',    key: 'brand',            w: '80px'  },
@@ -621,6 +623,14 @@ const ReturnsManagement = ({ userProfile }) => {
                         <select value={draftFilters.returnCenter} onChange={e => setDraftFilters(p => ({ ...p, returnCenter: e.target.value }))} className={filterSel}>
                             <option value="전체">전체</option>
                             {RETURN_CENTER_LIST.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600">유형</label>
+                        <select value={draftFilters.type} onChange={e => setDraftFilters(p => ({ ...p, type: e.target.value }))} className={filterSel}>
+                            <option value="전체">전체</option>
+                            <option value="회수품">회수품</option>
+                            <option value="선출">선출</option>
                         </select>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -751,6 +761,11 @@ const ReturnsManagement = ({ userProfile }) => {
                                             className="w-4 h-4 cursor-pointer accent-letusBlue"
                                         />
                                     </td>
+                                    <td className="p-4 text-center">
+                                        {row.type === '선출'
+                                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">선출</span>
+                                            : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">회수품</span>}
+                                    </td>
                                     <td className="p-4 text-center text-gray-600">{fmtDate(row.incident_date) || '-'}</td>
                                     <td className="p-4 text-center font-semibold">{row.incident_center || '-'}</td>
                                     <td className="p-4 text-center text-gray-600">{row.brand || '-'}</td>
@@ -764,9 +779,13 @@ const ReturnsManagement = ({ userProfile }) => {
                                     </td>
                                     <td className="p-4 text-center"><StepIndicator row={row} /></td>
                                     <td className="p-4 text-center">
-                                        {row.is_completed
-                                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
-                                            : <span className="text-gray-300 text-xs font-bold">N</span>}
+                                        {row.type === '선출'
+                                            ? (row.is_recovered
+                                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">회수</span>
+                                                : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">미회수</span>)
+                                            : (row.is_completed
+                                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
+                                                : <span className="text-gray-300 text-xs font-bold">N</span>)}
                                     </td>
                                 </tr>
                             ))}

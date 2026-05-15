@@ -31,6 +31,14 @@ const MENU_ITEMS = [
         path: '/mobile/returns',
     },
     {
+        id: 'pre-delivery',
+        icon: '⚡',
+        title: '선출고 관리',
+        subtitle: '선출고 등록 및 회수 처리',
+        iconBg: 'bg-amber-50',
+        path: '/mobile/pre-delivery',
+    },
+    {
         id: 'notice',
         icon: '📢',
         title: '공지사항',
