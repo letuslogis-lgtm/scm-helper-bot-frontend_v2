@@ -10,7 +10,7 @@ const MENU_GROUPS = [
         label: '입고 업무',
         items: [
             { id: 'register',  icon: '📦', title: '입고 특이사항 등록',    subtitle: '이슈 빠르게 등록',  iconBg: 'bg-blue-50',   path: '/mobile/register' },
-            { id: 'my-issues', icon: '📋', title: '입고 특이사항 리스트 조회', subtitle: '등록 이력 확인', iconBg: 'bg-violet-50', path: '/mobile/my-issues' },
+            { id: 'my-issues', icon: '📋', title: '입고 특이사항 조회', subtitle: '등록 이력 확인', iconBg: 'bg-violet-50', path: '/mobile/my-issues' },
         ],
     },
     {
@@ -140,23 +140,20 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                                 <button
                                     key={item.id}
                                     onClick={() => navigate(item.path)}
-                                    className="relative bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex flex-col gap-2 active:scale-[0.97] transition-transform text-left"
+                                    className="relative bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex flex-row items-center gap-3 active:scale-[0.97] transition-transform text-left"
                                 >
                                     <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center text-lg flex-shrink-0`}>
                                         {item.icon}
                                     </div>
-                                    <div className="pr-4">
+                                    <div className="flex-1 min-w-0">
                                         <p className="text-slate-800 font-bold text-[13px] leading-snug">{item.title}</p>
                                         <p className="text-slate-400 text-[11px] mt-0.5 leading-tight">{item.subtitle}</p>
                                     </div>
                                     {item.id === 'my-issues' && completedNotiCount > 0 && (
-                                        <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
+                                        <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center">
                                             {completedNotiCount > 9 ? '9+' : completedNotiCount}
                                         </span>
                                     )}
-                                    <svg className="absolute bottom-3 right-3 w-3 h-3 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                                    </svg>
                                 </button>
                             ))}
                         </div>

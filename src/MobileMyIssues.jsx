@@ -276,7 +276,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                         </svg>
                     </button>
                     <div className="flex-1">
-                        <p className="text-slate-800 font-black text-base leading-none">입고 특이사항 리스트 조회</p>
+                        <p className="text-slate-800 font-black text-base leading-none">입고 특이사항 조회</p>
                         {userProfile?.team && (
                             <p className="text-slate-400 text-xs mt-0.5">{userProfile.team}</p>
                         )}
