@@ -197,7 +197,7 @@ const FaqAddModal = ({ onClose, onReload }) => {
  );
 };
 
-const RequestModal = ({ row, onClose, onReload, userProfile }) => {
+const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) => {
  const [requestText, setRequestText] = useState(row.request_content || '');
  const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
  const [isSaving, setIsSaving] = useState(false);
@@ -216,6 +216,19 @@ const RequestModal = ({ row, onClose, onReload, userProfile }) => {
  }).eq('id', row.id);
  if (error) throw error;
  await onReload(); onClose();
+ } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
+ };
+
+ const handleDirectAction = async () => {
+ setIsSaving(true);
+ try {
+ const { error } = await supabase.from('logistics_issues').update({
+ request_content: requestText,
+ status: '처리 중',
+ }).eq('id', row.id);
+ if (error) throw error;
+ await onReload();
+ onDirectHandle?.({ ...row, request_content: requestText, status: '처리 중' });
  } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
  };
 
@@ -312,10 +325,16 @@ const RequestModal = ({ row, onClose, onReload, userProfile }) => {
  {isDone || (isProcessing && hasPurchaseResponse) ? '닫기' : '취소'}
  </button>
  {isWaiting && isAdmin && (
+ <>
+ <button onClick={handleDirectAction} disabled={isSaving}
+ className={`px-6 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
+ {isSaving ? '처리 중...' : '직접 조치'}
+ </button>
  <button onClick={handleTransfer} disabled={isSaving}
  className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
  {isSaving ? '처리 중...' : '② 이관'}
  </button>
+ </>
  )}
  {isProcessing && !hasPurchaseResponse && isAdmin && (
  <button onClick={handlePurchaseConfirm} disabled={isSaving || !purchaseText.trim()}

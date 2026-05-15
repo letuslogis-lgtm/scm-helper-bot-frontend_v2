@@ -323,7 +323,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                 </div>
             </div>
 
-            {activeModalRow && <RequestModal row={activeModalRow} onClose={() => setActiveModalRow(null)} onReload={onReload} userProfile={userProfile} />}
+            {activeModalRow && <RequestModal row={activeModalRow} onClose={() => setActiveModalRow(null)} onReload={onReload} userProfile={userProfile} onDirectHandle={(updatedRow) => { setActiveModalRow(null); setActiveHandleRow(updatedRow); }} />}
             {activeHandleRow && <HandleModal row={activeHandleRow} onClose={() => setActiveHandleRow(null)} onReload={onReload} userProfile={userProfile} />}
         </div>
     );
