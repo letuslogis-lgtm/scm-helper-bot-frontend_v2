@@ -517,7 +517,8 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                                 const isToday = isCurrentMonth && day === today.getDate();
                                 const pad = n => String(n).padStart(2, '0');
                                 const dateStr = `${currentDate.getFullYear()}-${pad(currentDate.getMonth() + 1)}-${pad(day)}`;
-                                const dayOfWeekStr = ['일', '월', '화', '수', '목', '금', '토'][new Date(currentDate.getFullYear(), currentDate.getMonth(), day).getDay()];
+                                const dayOfWeek = new Date(currentDate.getFullYear(), currentDate.getMonth(), day).getDay();
+                                const dayOfWeekStr = ['일', '월', '화', '수', '목', '금', '토'][dayOfWeek];
 
                                 const dayEvents = calendarEvents.filter(e => dateStr >= e.startDate && dateStr <= e.endDate);
 
@@ -543,7 +544,7 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                                             : ''
                                             }`}
                                     >
-                                        <span className={`text-[13px] font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-letusBlue text-white shadow-sm' : isHoliday ? 'text-red-500' : 'text-gray-600'}`}>
+                                        <span className={`text-[13px] font-bold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-letusBlue text-white shadow-sm' : (dayOfWeek === 0 || isHoliday) ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : 'text-gray-600'}`}>
                                             {day}
                                         </span>
 
