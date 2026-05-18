@@ -396,7 +396,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                             <div className="flex items-center gap-1">
                                                 <div className="flex-1 h-3.5 rounded overflow-hidden bg-gray-100">
                                                     <div className="h-full rounded-r transition-all duration-700"
-                                                        style={{ width: `${(d.shortageQty / cvShortageTotal * 100).toFixed(1)}%`, backgroundColor: SHORTAGE_COLORS[idx % SHORTAGE_COLORS.length] }}></div>
+                                                        style={{ width: `${(d.shortageQty / cvShortageTotal * 100).toFixed(1)}%`, backgroundColor: '#f97316' }}></div>
                                                 </div>
                                                 <span className="w-10 text-right font-bold text-gray-500 shrink-0">{d.shortageQty.toLocaleString()}</span>
                                             </div>
