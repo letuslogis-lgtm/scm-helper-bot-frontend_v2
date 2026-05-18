@@ -548,7 +548,29 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                         </div>
                                     );
                                 }} />
-                                <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', paddingTop: '15px' }} iconType="circle" />
+                                <Legend content={({ payload }) => {
+                                    if (!payload?.length) return null;
+                                    const issues = payload.filter(p => p.value?.startsWith('[특이사항]'));
+                                    const shortages = payload.filter(p => p.value?.startsWith('[결품]'));
+                                    const Item = ({ p }) => (
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12, fontSize: 12, fontWeight: 'bold', color: '#475569' }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                                            {p.value.replace('[특이사항] ', '').replace('[결품] ', '')}
+                                        </span>
+                                    );
+                                    return (
+                                        <div style={{ paddingTop: 15, display: 'flex', justifyContent: 'center', gap: 32 }}>
+                                            <div>
+                                                <p style={{ fontSize: 11, fontWeight: 'bold', color: '#9ca3af', marginBottom: 6 }}>특이사항</p>
+                                                <div>{issues.map(p => <Item key={p.value} p={p} />)}</div>
+                                            </div>
+                                            <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 32 }}>
+                                                <p style={{ fontSize: 11, fontWeight: 'bold', color: '#9ca3af', marginBottom: 6 }}>결품</p>
+                                                <div>{shortages.map(p => <Item key={p.value} p={p} />)}</div>
+                                            </div>
+                                        </div>
+                                    );
+                                }} />
                                 {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map((b, idx, arr) => (
                                     <Bar key={`bar_${b}`} yAxisId="left" dataKey={`issue_${b}`} name={`[특이사항] ${b}`}
                                         stackId="issues" fill={TREND_COLORS[b]}
