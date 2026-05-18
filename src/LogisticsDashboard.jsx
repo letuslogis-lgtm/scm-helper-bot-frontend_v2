@@ -261,6 +261,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
         };
         return Object.entries(map)
             .map(([vendor, d]) => ({ vendor, ...d }))
+            .filter(d => score(d) > 0)
             .sort((a, b) => score(b) - score(a))
             .slice(0, 5);
     }, [targetIssues, targetShortageData, barToggles]);
