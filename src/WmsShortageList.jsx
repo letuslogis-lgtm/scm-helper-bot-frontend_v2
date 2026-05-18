@@ -209,28 +209,21 @@ export const WmsShortageList = ({ userProfile }) => {
                 const codes = [...new Set(chunk.map(p => p.split('||')[0]).filter(Boolean))];
                 if (codes.length === 0) continue;
                 console.log('[DEBUG] products 쿼리 codes 샘플:', codes.slice(0, 5));
-                const { data: products, error: productError } = await supabase
+                const { data: products } = await supabase
                     .from('products')
-                    .select('item_code, item_color, vendor')
+                    .select('item_code, item_color, vendor, production_line')
                     .in('item_code', codes);
-                if (productError) console.error('[DEBUG] products 쿼리 에러:', productError);
-                console.log('[DEBUG] products 쿼리 결과:', products?.length ?? 0, '건');
-                if (products?.length > 0) console.log('[DEBUG] products 샘플:', products.slice(0, 3));
                 (products || []).forEach(p => {
-                    vendorMap.set(`${p.item_code}||${(p.item_color || '').trim()}`, p.vendor);
+                    const resolved = (p.vendor || '').trim() || (p.production_line || '').trim();
+                    if (resolved) vendorMap.set(`${p.item_code}||${(p.item_color || '').trim()}`, resolved);
                 });
             }
 
-            console.log('[DEBUG] vendorMap 크기:', vendorMap.size);
-            console.log('[DEBUG] WMS uniquePairs 샘플:', uniquePairs.slice(0, 5));
-
-            let matchCount = 0;
             records.forEach(r => {
                 const { code, color } = splitItemCode(r.item_code);
                 const matched = vendorMap.get(`${code}||${color.trim()}`);
-                if (matched) { r.vendor = matched; matchCount++; }
+                if (matched) r.vendor = matched;
             });
-            console.log('[DEBUG] vendor 매칭 결과:', matchCount, '/', records.length, '건');
 
             const CHUNK = 500;
             for (let i = 0; i < records.length; i += CHUNK) {
