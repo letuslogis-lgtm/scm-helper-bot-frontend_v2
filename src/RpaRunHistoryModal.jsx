@@ -87,7 +87,7 @@ export const RpaRunHistoryModal = ({ job, onClose }) => {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-3xl slide-up border border-gray-100 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-5xl slide-up border border-gray-100 overflow-hidden flex flex-col max-h-[85vh]">
 
                 {/* 헤더 */}
                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
