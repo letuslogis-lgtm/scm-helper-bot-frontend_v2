@@ -112,16 +112,6 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     });
 
     const displayBrands = ['퍼시스', '일룸', '시디즈', '슬로우베드', '알로소', '데스커'];
-
-    // 브랜드별 결품 총수량
-    const brandShortageQty = useMemo(() => {
-        const map = {};
-        shortageData.forEach(r => {
-            if (r.brand) map[r.brand] = (map[r.brand] || 0) + (Number(r.shortage_qty) || 0);
-        });
-        return map;
-    }, [shortageData]);
-
     const brandStatsDetails = displayBrands.reduce((acc, brand) => {
         acc[brand] = { pending: 0, processing: 0, completed: 0 };
         return acc;
@@ -233,38 +223,31 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                             <div
                                 key={brand}
                                 onClick={() => toggleBrand(brand)}
-                                className={`rounded-xl border text-sm cursor-pointer transition-all overflow-hidden flex items-stretch ${isSelected
-                                    ? 'border-orange-400 shadow-sm ring-1 ring-orange-400/50'
-                                    : 'border-gray-100 hover:border-gray-200'
+                                className={`rounded-xl px-4 py-2.5 flex items-center border text-sm cursor-pointer transition-all ${isSelected
+                                    ? 'bg-orange-50 border-orange-400 shadow-sm ring-1 ring-orange-400/50'
+                                    : 'bg-gray-50/60 border-gray-100 hover:border-gray-200 hover:bg-gray-100'
                                     }`}
                             >
-                                {/* 브랜드명 */}
-                                <div className={`px-4 py-2.5 flex items-center font-bold tracking-tight whitespace-nowrap truncate ${isSelected ? 'bg-orange-50 text-orange-700' : 'bg-gray-50/60 text-gray-800'}`} style={{ width: '22%' }}>
+                                <div style={{ width: '31%' }} className={`font-bold tracking-tight whitespace-nowrap truncate pr-2 ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
                                     {brand}
                                 </div>
 
-                                {/* 특이사항 현황 */}
-                                <div className="flex items-center flex-1 border-l border-gray-200 bg-white">
-                                    <div className="flex justify-between items-center px-3 py-2.5 border-r border-gray-100 flex-1">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치대기</span>
-                                        <span className="text-red-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치대기', startDate, endDate }); }}>{stats.pending}</span>
+                                <div className="flex items-center flex-1">
+                                    {/* 날짜 데이터까지 같이 넘겨주는 드릴다운 이벤트 */}
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center pr-3 sm:pr-4 border-r border-gray-200">
+                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">조치대기</span>
+                                        <span className="text-red-500 font-bold text-sm sm:text-base cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치대기', startDate, endDate }); }}>{stats.pending}</span>
                                     </div>
-                                    <div className="flex justify-between items-center px-3 py-2.5 border-r border-gray-100 flex-1">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">처리 중</span>
-                                        <span className="text-yellow-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '처리 중', startDate, endDate }); }}>{stats.processing}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center px-3 py-2.5 flex-1">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치완료</span>
-                                        <span className="text-green-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치완료', startDate, endDate }); }}>{stats.completed}</span>
-                                    </div>
-                                </div>
 
-                                {/* D-2 결품수량 — 오렌지 구분 영역 */}
-                                <div className="flex flex-col items-center justify-center px-4 py-2 bg-orange-50 border-l-2 border-orange-200 min-w-[80px] shrink-0">
-                                    <span className="text-[10px] font-bold text-orange-300 whitespace-nowrap">D-2 결품</span>
-                                    <span className="text-letusOrange font-black text-base leading-tight">
-                                        {(brandShortageQty[brand] || 0).toLocaleString()}
-                                    </span>
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 sm:px-4 border-r border-gray-200">
+                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">처리 중</span>
+                                        <span className="text-yellow-500 font-bold text-sm sm:text-base cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '처리 중', startDate, endDate }); }}>{stats.processing}</span>
+                                    </div>
+
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center pl-3 sm:pl-4">
+                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치완료</span>
+                                        <span className="text-green-500 font-bold text-sm sm:text-base cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치완료', startDate, endDate }); }}>{stats.completed}</span>
+                                    </div>
                                 </div>
                             </div>
                         );
