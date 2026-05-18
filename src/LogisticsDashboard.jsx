@@ -13,6 +13,8 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     const [shortageData, setShortageData] = useState([]);
     const [barToggles, setBarToggles] = useState({ issue: true, shortage: true });
     const [trendType, setTrendType] = useState('daily');
+    const [trendIssues, setTrendIssues] = useState([]);
+    const [trendShortages, setTrendShortages] = useState([]);
 
     // 🔥 1. 날짜 필터 상태 (기본값: 'W' 주간)
     const [filterType, setFilterType] = useState('W'); // 'D', 'W', 'M', 'CUSTOM'
@@ -72,6 +74,29 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
         };
         fetchShortage();
     }, [startDate, endDate]);
+
+    useEffect(() => {
+        const fetchTrend = async () => {
+            const [eYear, eMonth] = endDate.split('-').map(Number);
+            const pad = n => n.toString().padStart(2, '0');
+            let tStart, tEnd;
+            if (trendType === 'daily') {
+                const lastDay = new Date(eYear, eMonth, 0).getDate();
+                tStart = `${eYear}-${pad(eMonth)}-01`;
+                tEnd   = `${eYear}-${pad(eMonth)}-${pad(lastDay)}`;
+            } else {
+                tStart = `${eYear}-01-01`;
+                tEnd   = `${eYear}-12-31`;
+            }
+            const [{ data: issues }, { data: shortages }] = await Promise.all([
+                supabase.from('logistics_issues').select('created_at, brand, vendor').gte('created_at', tStart).lte('created_at', tEnd + 'T23:59:59'),
+                supabase.from('wms_shortage_list').select('upload_date, brand, vendor, shortage_qty').gte('upload_date', tStart).lte('upload_date', tEnd),
+            ]);
+            setTrendIssues(issues || []);
+            setTrendShortages(shortages || []);
+        };
+        fetchTrend();
+    }, [trendType, endDate]);
 
     // 결품 KPI 계산
     const shortageKpi = useMemo(() => {
@@ -145,45 +170,31 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
     const trendData = useMemo(() => {
         const pad = n => n.toString().padStart(2, '0');
+        const [eYear, eMonth] = endDate.split('-').map(Number);
+        const fi = selectedBrands.length > 0 ? trendIssues.filter(i => selectedBrands.includes(i.brand)) : trendIssues;
+        const fs = selectedBrands.length > 0 ? trendShortages.filter(r => selectedBrands.includes(r.brand)) : trendShortages;
+
         if (trendType === 'monthly') {
-            // 조회 기간 내 월별 집계
-            const monthMap = new Map();
-            const cur = new Date(startDate + 'T00:00:00');
-            const end = new Date(endDate + 'T00:00:00');
-            while (cur <= end) {
-                const key = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}`;
-                if (!monthMap.has(key)) monthMap.set(key, { issues: 0, shortage: 0 });
-                cur.setDate(cur.getDate() + 1);
-            }
-            targetIssues.forEach(i => {
-                if (!i.created_at) return;
-                const key = i.created_at.slice(0, 7);
-                if (monthMap.has(key)) monthMap.get(key).issues += 1;
-            });
-            targetShortageData.forEach(r => {
-                if (!r.upload_date) return;
-                const key = String(r.upload_date).slice(0, 7);
-                if (monthMap.has(key)) monthMap.get(key).shortage += (Number(r.shortage_qty) || 0);
-            });
-            return Array.from(monthMap.entries()).map(([k, v]) => ({ date: k.slice(5) + '월', ...v }));
-        } else {
-            // 일간
-            const dates = [];
-            const cur = new Date(startDate + 'T00:00:00');
-            const end = new Date(endDate + 'T00:00:00');
-            while (cur <= end) {
-                dates.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`);
-                cur.setDate(cur.getDate() + 1);
-            }
-            return dates.map(date => {
-                const issues = targetIssues.filter(i => i.created_at?.startsWith(date)).length;
-                const shortage = targetShortageData
-                    .filter(r => String(r.upload_date).startsWith(date))
+            return Array.from({ length: 12 }, (_, i) => {
+                const m = i + 1;
+                const prefix = `${eYear}-${pad(m)}`;
+                const issues = fi.filter(i => i.created_at?.startsWith(prefix)).length;
+                const shortage = fs.filter(r => String(r.upload_date).startsWith(prefix))
                     .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
-                return { date: date.slice(5), issues, shortage };
+                return { date: `${m}월`, issues, shortage };
+            });
+        } else {
+            const lastDay = new Date(eYear, eMonth, 0).getDate();
+            return Array.from({ length: lastDay }, (_, i) => {
+                const d = i + 1;
+                const dateStr = `${eYear}-${pad(eMonth)}-${pad(d)}`;
+                const issues = fi.filter(i => i.created_at?.startsWith(dateStr)).length;
+                const shortage = fs.filter(r => String(r.upload_date).startsWith(dateStr))
+                    .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
+                return { date: `${d}일`, issues, shortage };
             });
         }
-    }, [targetIssues, targetShortageData, startDate, endDate, trendType]);
+    }, [trendIssues, trendShortages, selectedBrands, trendType, endDate]);
 
     // 파이 차트 (특이사항 유형)
     const chartStats = {};
@@ -338,7 +349,9 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
                 {/* 특이사항 유형 도넛 */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
-                    <h3 className="text-sm font-bold text-gray-900 mb-3">특이사항 유형</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-bold text-gray-900">특이사항 유형</h3>
+                    </div>
                     <div className="flex items-center justify-center gap-6 w-full h-[220px]">
                         <div className="relative w-40 h-40 shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
@@ -375,7 +388,9 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
                 {/* D-2 결품 품목코드별 도넛 */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
-                    <h3 className="text-sm font-bold text-gray-900 mb-3">D-2 결품 품목코드별 비율 (Top 5)</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-bold text-gray-900">D-2 결품 품목코드별 비율 (Top 5)</h3>
+                    </div>
                     <div className="flex items-center justify-center gap-6 w-full h-[220px]">
                         <div className="relative w-40 h-40 shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
@@ -415,7 +430,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
                 {/* 공급업체별 현황 통합 바차트 (토글) */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-bold text-gray-900">공급업체별 현황 (Top 5)</h3>
                         <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
                             {[
