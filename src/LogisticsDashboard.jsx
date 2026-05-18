@@ -159,6 +159,23 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     const supplierTotal = Object.values(supplierStats).reduce((a, b) => a + b, 0);
     const sortedSuppliers = Object.entries(supplierStats).sort((a, b) => b[1] - a[1]);
 
+    // 결품 차트 데이터
+    const shortageChartData = useMemo(() => {
+        const byItem = {};
+        const byVendor = {};
+        shortageData.forEach(r => {
+            if (r.item_code) byItem[r.item_code] = (byItem[r.item_code] || 0) + (Number(r.shortage_qty) || 0);
+            if (r.vendor)    byVendor[r.vendor]   = (byVendor[r.vendor]   || 0) + (Number(r.shortage_qty) || 0);
+        });
+        const itemEntries   = Object.entries(byItem).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const vendorEntries = Object.entries(byVendor).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const itemTotal     = itemEntries.reduce((s, [, v]) => s + v, 0);
+        const vendorTotal   = vendorEntries.reduce((s, [, v]) => s + v, 0);
+        return { itemEntries, vendorEntries, itemTotal, vendorTotal };
+    }, [shortageData]);
+
+    const SHORTAGE_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a78bfa','#c4b5fd'];
+
     return (
         <div className="p-6 space-y-6 slide-up">
 
@@ -217,22 +234,22 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                     : 'bg-gray-50/60 border-gray-100 hover:border-gray-200 hover:bg-gray-100'
                                     }`}
                             >
-                                <div style={{ width: '36%' }} className={`px-4 py-2.5 font-bold tracking-tight whitespace-nowrap truncate ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
+                                <div style={{ width: '28%' }} className={`px-4 py-2.5 font-bold tracking-tight whitespace-nowrap truncate ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
                                     {brand}
                                 </div>
-                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
+                                <div style={{ width: '18%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치대기</span>
                                     <span className="text-red-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치대기', startDate, endDate }); }}>{stats.pending}</span>
                                 </div>
-                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
+                                <div style={{ width: '18%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">처리 중</span>
                                     <span className="text-yellow-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '처리 중', startDate, endDate }); }}>{stats.processing}</span>
                                 </div>
-                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
+                                <div style={{ width: '18%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치완료</span>
                                     <span className="text-green-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치완료', startDate, endDate }); }}>{stats.completed}</span>
                                 </div>
-                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
+                                <div style={{ width: '18%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">D-2 결품</span>
                                     <span className="text-gray-700 font-bold text-sm">{(brandShortageQty[brand] || 0).toLocaleString()}</span>
                                 </div>
@@ -242,91 +259,127 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col hover:shadow-md transition-shadow">
-                    <div className="mb-6">
-                        <h3 className="text-lg font-bold text-gray-900 font-sans">특이사항 유형</h3>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center gap-8 xl:gap-14 w-full h-[220px] mt-2">
-                        <div className="relative w-56 h-56 flex items-center justify-center">
-                            {PieChart ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={pieData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={65}
-                                            outerRadius={95}
-                                            paddingAngle={totalIssues === 0 ? 0 : 4}
-                                            cornerRadius={totalIssues === 0 ? 0 : 8}
-                                            dataKey="value"
-                                            stroke="none"
-                                        >
-                                            {pieData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.isEmpty ? '#e5e7eb' : (CATEGORY_COLORS[entry.name] || '#aaaaaa')} />
-                                            ))}
-                                        </Pie>
-                                        {totalIssues > 0 && (
-                                            <Tooltip
-                                                contentStyle={{ borderRadius: '8px', border: '1px solid #f3f4f6', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', fontSize: '13px' }}
-                                                itemStyle={{ color: '#1f2937', fontWeight: 'bold' }}
-                                            />
-                                        )}
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="text-[11px] font-bold text-red-500 bg-red-50 rounded-full w-40 h-40 flex items-center justify-center shadow-inner border border-red-200 text-center leading-relaxed">
-                                    Chart Module<br />Loading Failed
-                                </div>
-                            )}
+            <div className="grid grid-cols-2 gap-4">
 
+                {/* 특이사항 유형 도넛 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
+                    <h3 className="text-sm font-bold text-gray-900 mb-3">특이사항 유형</h3>
+                    <div className="flex items-center justify-center gap-6 w-full h-[170px]">
+                        <div className="relative w-40 h-40 shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={48} outerRadius={72}
+                                        paddingAngle={totalIssues === 0 ? 0 : 4} cornerRadius={totalIssues === 0 ? 0 : 6}
+                                        dataKey="value" stroke="none">
+                                        {pieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.isEmpty ? '#e5e7eb' : (CATEGORY_COLORS[entry.name] || '#aaaaaa')} />
+                                        ))}
+                                    </Pie>
+                                    {totalIssues > 0 && <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} />}
+                                </PieChart>
+                            </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className={`text-[28px] font-black leading-tight ${totalIssues === 0 ? 'text-gray-300' : 'text-gray-900'}`}>{totalIssues}</span>
-                                <span className="text-xs font-semibold text-gray-500">총 발생건</span>
+                                <span className={`text-xl font-black ${totalIssues === 0 ? 'text-gray-300' : 'text-gray-900'}`}>{totalIssues}</span>
+                                <span className="text-[10px] font-semibold text-gray-400">총 발생건</span>
                             </div>
                         </div>
-
-                        <div className="space-y-3">
-                            {totalIssues === 0 ? (
-                                <div className="text-sm text-gray-400 font-bold ml-4">해당 기간 데이터가 없습니다.</div>
-                            ) : (
+                        <div className="space-y-2 min-w-0">
+                            {totalIssues === 0 ? <p className="text-xs text-gray-400 font-bold">데이터 없음</p> :
                                 Object.entries(chartStats).map(([k, v]) => (
-                                    <div key={k} className="flex justify-between items-center w-48 text-sm">
+                                    <div key={k} className="flex justify-between items-center gap-3 text-xs">
                                         <div className="flex items-center text-gray-600 font-medium whitespace-nowrap">
-                                            <span className="w-2.5 h-2.5 rounded-full mr-3" style={{ backgroundColor: CATEGORY_COLORS[k] || '#d1d5db' }}></span>{k}
+                                            <span className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ backgroundColor: CATEGORY_COLORS[k] || '#d1d5db' }}></span>{k}
                                         </div>
-                                        <div className="font-bold text-gray-900">{v}<span className="text-xs text-gray-400 font-normal ml-0.5">건</span></div>
+                                        <span className="font-bold text-gray-900">{v}<span className="text-gray-400 font-normal ml-0.5">건</span></span>
                                     </div>
                                 ))
-                            )}
+                            }
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col hover:shadow-md transition-shadow">
-                    <div className="mb-6">
-                        <h3 className="text-lg font-bold text-gray-900 font-sans">공급업체별 이슈 비율 (Top 5)</h3>
+                {/* D-2 결품 품목코드별 도넛 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
+                    <h3 className="text-sm font-bold text-gray-900 mb-3">D-2 결품 품목코드별 비율 (Top 5)</h3>
+                    <div className="flex items-center justify-center gap-6 w-full h-[170px]">
+                        <div className="relative w-40 h-40 shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={shortageChartData.itemTotal === 0 ? [{ name: '데이터 없음', value: 1, isEmpty: true }] : shortageChartData.itemEntries.map(([k, v]) => ({ name: k, value: v }))}
+                                        cx="50%" cy="50%" innerRadius={48} outerRadius={72}
+                                        paddingAngle={shortageChartData.itemTotal === 0 ? 0 : 4} cornerRadius={shortageChartData.itemTotal === 0 ? 0 : 6}
+                                        dataKey="value" stroke="none">
+                                        {(shortageChartData.itemTotal === 0 ? [{ isEmpty: true }] : shortageChartData.itemEntries).map((entry, index) => (
+                                            <Cell key={`sc-${index}`} fill={entry.isEmpty ? '#e5e7eb' : SHORTAGE_COLORS[index % SHORTAGE_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    {shortageChartData.itemTotal > 0 && <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} />}
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span className={`text-xl font-black ${shortageChartData.itemTotal === 0 ? 'text-gray-300' : 'text-gray-900'}`}>{shortageChartData.itemTotal.toLocaleString()}</span>
+                                <span className="text-[10px] font-semibold text-gray-400">총 결품수량</span>
+                            </div>
+                        </div>
+                        <div className="space-y-2 min-w-0">
+                            {shortageChartData.itemTotal === 0 ? <p className="text-xs text-gray-400 font-bold">데이터 없음</p> :
+                                shortageChartData.itemEntries.map(([k, v], idx) => (
+                                    <div key={k} className="flex justify-between items-center gap-3 text-xs">
+                                        <div className="flex items-center text-gray-600 font-medium truncate max-w-[120px]">
+                                            <span className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ backgroundColor: SHORTAGE_COLORS[idx % SHORTAGE_COLORS.length] }}></span>
+                                            <span className="truncate">{k}</span>
+                                        </div>
+                                        <span className="font-bold text-gray-900 shrink-0">{v.toLocaleString()}</span>
+                                    </div>
+                                ))
+                            }
+                        </div>
                     </div>
-                    <div className="flex-1 flex flex-col justify-center space-y-6 px-4">
-                        {supplierTotal === 0 ? (
-                            <div className="text-center text-sm text-gray-400 font-bold py-10">해당 기간 등록된 이슈가 없습니다.</div>
-                        ) : (
+                </div>
+
+                {/* 공급업체별 이슈 비율 바차트 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
+                    <h3 className="text-sm font-bold text-gray-900 mb-3">공급업체별 이슈 비율 (Top 5)</h3>
+                    <div className="flex flex-col justify-center space-y-3 px-2 flex-1">
+                        {supplierTotal === 0 ? <p className="text-center text-xs text-gray-400 font-bold py-6">데이터 없음</p> :
                             sortedSuppliers.slice(0, 5).map(([vendor, count], idx) => {
                                 const percent = ((count / supplierTotal) * 100).toFixed(1);
                                 return (
-                                    <div key={vendor} className="flex items-center text-sm group" title={`${vendor}: ${count}건 (${percent}%)`}>
-                                        <span className="w-24 text-gray-600 font-semibold truncate text-right mr-4">{vendor}</span>
-                                        <div className="flex-1 h-5 rounded overflow-hidden bg-gray-100 relative cursor-pointer">
-                                            <div className="h-full rounded-r transition-all duration-1000 ease-out" style={{ width: `${percent}%`, backgroundColor: BRAND_COLORS[idx % BRAND_COLORS.length] }}></div>
+                                    <div key={vendor} className="flex items-center text-xs gap-2">
+                                        <span className="w-20 text-gray-600 font-semibold truncate text-right shrink-0">{vendor}</span>
+                                        <div className="flex-1 h-4 rounded overflow-hidden bg-gray-100">
+                                            <div className="h-full rounded-r transition-all duration-700" style={{ width: `${percent}%`, backgroundColor: BRAND_COLORS[idx % BRAND_COLORS.length] }}></div>
                                         </div>
-                                        <span className="w-12 text-right text-xs font-bold text-gray-500 ml-3">{percent}%</span>
+                                        <span className="w-10 text-right font-bold text-gray-500 shrink-0">{percent}%</span>
                                     </div>
                                 );
                             })
-                        )}
+                        }
                     </div>
                 </div>
+
+                {/* 공급업체별 결품 수량 바차트 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
+                    <h3 className="text-sm font-bold text-gray-900 mb-3">D-2 공급업체별 결품 수량 (Top 5)</h3>
+                    <div className="flex flex-col justify-center space-y-3 px-2 flex-1">
+                        {shortageChartData.vendorTotal === 0 ? <p className="text-center text-xs text-gray-400 font-bold py-6">데이터 없음</p> :
+                            shortageChartData.vendorEntries.map(([vendor, qty], idx) => {
+                                const percent = ((qty / shortageChartData.vendorTotal) * 100).toFixed(1);
+                                return (
+                                    <div key={vendor} className="flex items-center text-xs gap-2">
+                                        <span className="w-20 text-gray-600 font-semibold truncate text-right shrink-0">{vendor}</span>
+                                        <div className="flex-1 h-4 rounded overflow-hidden bg-gray-100">
+                                            <div className="h-full rounded-r transition-all duration-700" style={{ width: `${percent}%`, backgroundColor: SHORTAGE_COLORS[idx % SHORTAGE_COLORS.length] }}></div>
+                                        </div>
+                                        <span className="w-10 text-right font-bold text-gray-500 shrink-0">{qty.toLocaleString()}</span>
+                                    </div>
+                                );
+                            })
+                        }
+                    </div>
+                </div>
+
             </div>
 
         </div>
