@@ -243,6 +243,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     }, [targetShortageData]);
 
     const SHORTAGE_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a78bfa','#c4b5fd'];
+    const ISSUE_COLORS    = ['#f97316','#fb923c','#fdba74','#fbbf24','#f59e0b'];
 
     // 공급업체별 통합 데이터 (이슈 + 결품)
     const combinedVendorData = useMemo(() => {
@@ -371,7 +372,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                         paddingAngle={totalIssues === 0 ? 0 : 4} cornerRadius={totalIssues === 0 ? 0 : 6}
                                         dataKey="value" stroke="none">
                                         {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.isEmpty ? '#e5e7eb' : (CATEGORY_COLORS[entry.name] || '#aaaaaa')} />
+                                            <Cell key={`cell-${index}`} fill={entry.isEmpty ? '#e5e7eb' : ISSUE_COLORS[index % ISSUE_COLORS.length]} />
                                         ))}
                                     </Pie>
                                     {totalIssues > 0 && <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: true }} />}
@@ -384,10 +385,10 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                         </div>
                         <div className="space-y-2 min-w-0">
                             {totalIssues === 0 ? <p className="text-xs text-gray-400 font-bold">데이터 없음</p> :
-                                Object.entries(chartStats).map(([k, v]) => (
+                                Object.entries(chartStats).map(([k, v], idx) => (
                                     <div key={k} className="flex justify-between items-center gap-3 text-xs">
                                         <div className="flex items-center text-gray-600 font-medium whitespace-nowrap">
-                                            <span className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ backgroundColor: CATEGORY_COLORS[k] || '#d1d5db' }}></span>{k}
+                                            <span className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ backgroundColor: ISSUE_COLORS[idx % ISSUE_COLORS.length] }}></span>{k}
                                         </div>
                                         <span className="font-bold text-gray-900">{v}<span className="text-gray-400 font-normal ml-0.5">건</span></span>
                                     </div>
@@ -467,7 +468,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                             <div className="flex items-center gap-1">
                                                 <div className="flex-1 h-3.5 rounded overflow-hidden bg-gray-100">
                                                     <div className="h-full rounded-r transition-all duration-700"
-                                                        style={{ width: `${(d.issueCount / cvIssueTotal * 100).toFixed(1)}%`, backgroundColor: '#3b82f6' }}></div>
+                                                        style={{ width: `${(d.issueCount / cvIssueTotal * 100).toFixed(1)}%`, backgroundColor: ISSUE_COLORS[idx % ISSUE_COLORS.length] }}></div>
                                                 </div>
                                                 <span className="w-10 text-right font-bold text-gray-500 shrink-0">{(d.issueCount / cvIssueTotal * 100).toFixed(1)}%</span>
                                             </div>
@@ -476,7 +477,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                             <div className="flex items-center gap-1">
                                                 <div className="flex-1 h-3.5 rounded overflow-hidden bg-gray-100">
                                                     <div className="h-full rounded-r transition-all duration-700"
-                                                        style={{ width: `${(d.shortageQty / cvShortageTotal * 100).toFixed(1)}%`, backgroundColor: '#f97316' }}></div>
+                                                        style={{ width: `${(d.shortageQty / cvShortageTotal * 100).toFixed(1)}%`, backgroundColor: SHORTAGE_COLORS[idx % SHORTAGE_COLORS.length] }}></div>
                                                 </div>
                                                 <span className="w-10 text-right font-bold text-gray-500 shrink-0">{d.shortageQty.toLocaleString()}</span>
                                             </div>
