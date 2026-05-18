@@ -237,11 +237,16 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
             if (!map[r.vendor]) map[r.vendor] = { issueCount: 0, shortageQty: 0 };
             map[r.vendor].shortageQty += Number(r.shortage_qty) || 0;
         });
+        const score = (d) => {
+            if (barToggles.issue && barToggles.shortage) return d.issueCount + d.shortageQty;
+            if (barToggles.issue) return d.issueCount;
+            return d.shortageQty;
+        };
         return Object.entries(map)
             .map(([vendor, d]) => ({ vendor, ...d }))
-            .sort((a, b) => (b.issueCount + b.shortageQty) - (a.issueCount + a.shortageQty))
+            .sort((a, b) => score(b) - score(a))
             .slice(0, 5);
-    }, [targetIssues, targetShortageData]);
+    }, [targetIssues, targetShortageData, barToggles]);
 
     const cvIssueTotal    = combinedVendorData.reduce((s, d) => s + d.issueCount, 0);
     const cvShortageTotal = combinedVendorData.reduce((s, d) => s + d.shortageQty, 0);
