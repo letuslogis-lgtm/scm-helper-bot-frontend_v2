@@ -39,9 +39,52 @@ function weekAgo() {
 }
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 
-const BRANDS = ['전체', '퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
+const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
 
-const initFilter = () => ({ startDate: weekAgo(), endDate: todayStr(), brand: '전체', searchType: 'item_code', searchValue: '' });
+const initFilter = () => ({ startDate: weekAgo(), endDate: todayStr(), brands: '전체', searchType: 'item_code', searchValue: '' });
+
+const MultiSelect = ({ label, options, selected, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const toggleOption = (opt) => {
+        if (opt === '전체') {
+            onChange('전체');
+        } else {
+            const currentArr = Array.isArray(selected) ? selected : (selected === '전체' ? [] : [selected]);
+            const next = currentArr.includes(opt) ? currentArr.filter(s => s !== opt) : [...currentArr, opt];
+            onChange(next.length === 0 ? '전체' : next);
+        }
+    };
+    const currentArr = Array.isArray(selected) ? selected : (selected === '전체' ? [] : [selected]);
+    return (
+        <div className="flex items-center shrink-0">
+            <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">{label}</label>
+            <div className="relative">
+                <div onClick={() => setIsOpen(!isOpen)} className="border border-gray-200 rounded-[3px] bg-white px-2.5 h-[30px] w-32 flex items-center justify-between cursor-pointer hover:border-letusBlue transition-all text-xs">
+                    <span className="truncate text-gray-700 font-medium">
+                        {currentArr.length === 0 ? '전체' : `${currentArr[0]}${currentArr.length > 1 ? ` 외 ${currentArr.length - 1}` : ''}`}
+                    </span>
+                    <svg className={`w-3 h-3 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </div>
+                {isOpen && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+                        <div className="absolute top-[105%] left-0 w-40 bg-white border border-gray-200 rounded shadow-xl z-50 py-1.5 max-h-60 overflow-y-auto">
+                            <div onClick={() => { toggleOption('전체'); setIsOpen(false); }} className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-gray-50 flex items-center gap-2 ${currentArr.length === 0 ? 'text-letusBlue font-bold' : 'text-gray-600'}`}>
+                                <input type="checkbox" readOnly checked={currentArr.length === 0} className="w-3.5 h-3.5 accent-letusBlue" /> 전체
+                            </div>
+                            <div className="h-px bg-gray-100 my-1"></div>
+                            {options.map(opt => (
+                                <div key={opt} onClick={() => toggleOption(opt)} className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-gray-50 flex items-center gap-2 ${currentArr.includes(opt) ? 'text-letusBlue font-bold bg-blue-50/30' : 'text-gray-600'}`}>
+                                    <input type="checkbox" readOnly checked={currentArr.includes(opt)} className="w-3.5 h-3.5 accent-letusBlue" /> {opt}
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
 
 function excelDateToStr(val) {
     if (!val) return '';
@@ -87,7 +130,10 @@ export const WmsShortageList = ({ userProfile }) => {
             let q = supabase.from('wms_shortage_list').select('*').order('wms_registered_at', { ascending: false });
             if (filter.startDate) q = q.gte('upload_date', filter.startDate);
             if (filter.endDate)   q = q.lte('upload_date', filter.endDate);
-            if (filter.brand && filter.brand !== '전체') q = q.eq('brand', filter.brand);
+            if (filter.brands && filter.brands !== '전체') {
+                const arr = Array.isArray(filter.brands) ? filter.brands : [filter.brands];
+                q = q.in('brand', arr);
+            }
             if (filter.searchValue) {
                 q = q.ilike(filter.searchType, `%${filter.searchValue}%`);
             }
@@ -310,13 +356,7 @@ export const WmsShortageList = ({ userProfile }) => {
                         </div>
                     </div>
 
-                    <div className="flex items-center shrink-0">
-                        <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">브랜드</label>
-                        <select value={draft.brand} onChange={e => setD('brand', e.target.value)}
-                            className="border border-gray-200 rounded-[3px] text-xs px-2 h-[30px] text-gray-700 bg-white focus:outline-none focus:border-letusOrange cursor-pointer">
-                            {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
-                        </select>
-                    </div>
+                    <MultiSelect label="브랜드" options={BRANDS} selected={draft.brands} onChange={v => setD('brands', v)} />
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">검색어</label>
