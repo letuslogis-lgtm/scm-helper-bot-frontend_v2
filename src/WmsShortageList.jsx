@@ -283,7 +283,6 @@ export const WmsShortageList = () => {
                                         onChange={handleSelectAll}
                                         className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                 </th>
-                                <th className="px-3 py-3 text-center w-10 text-gray-400">No.</th>
                                 {COLS.map(c => (
                                     <th key={c.key} style={{ width: c.w, minWidth: c.w }}
                                         className="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
@@ -327,7 +326,6 @@ export const WmsShortageList = () => {
                                                     onChange={(e) => handleSelectOne(e, row._rowId, i)}
                                                     className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                             </td>
-                                            <td className="px-3 py-2.5 text-center text-gray-400 text-xs">{i + 1}</td>
                                             {COLS.map(c => (
                                                 <td key={c.key} className="px-3 py-2.5 text-center" style={{ width: c.w }}>
                                                     {c.key === 'CUT수량'
