@@ -109,7 +109,7 @@ function excelValToDb(excelKey, val) {
 }
 
 export const WmsShortageList = ({ userProfile }) => {
-    const isAdmin = userProfile?.role === 'admin';
+    const isAdmin = userProfile?.role === '관리자';
 
     const [rows, setRows]                   = useState([]);
     const [isLoading, setIsLoading]         = useState(false);
