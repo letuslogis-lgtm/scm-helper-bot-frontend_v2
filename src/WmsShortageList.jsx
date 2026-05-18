@@ -39,7 +39,9 @@ function weekAgo() {
 }
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 
-const initFilter = () => ({ startDate: weekAgo(), endDate: todayStr(), searchType: 'item_code', searchValue: '' });
+const BRANDS = ['전체', '퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
+
+const initFilter = () => ({ startDate: weekAgo(), endDate: todayStr(), brand: '전체', searchType: 'item_code', searchValue: '' });
 
 function excelDateToStr(val) {
     if (!val) return '';
@@ -85,6 +87,7 @@ export const WmsShortageList = ({ userProfile }) => {
             let q = supabase.from('wms_shortage_list').select('*').order('wms_registered_at', { ascending: false });
             if (filter.startDate) q = q.gte('upload_date', filter.startDate);
             if (filter.endDate)   q = q.lte('upload_date', filter.endDate);
+            if (filter.brand && filter.brand !== '전체') q = q.eq('brand', filter.brand);
             if (filter.searchValue) {
                 q = q.ilike(filter.searchType, `%${filter.searchValue}%`);
             }
@@ -305,6 +308,14 @@ export const WmsShortageList = ({ userProfile }) => {
                             <input type="date" value={draft.endDate} onChange={e => setD('endDate', e.target.value)}
                                 className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
                         </div>
+                    </div>
+
+                    <div className="flex items-center shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">브랜드</label>
+                        <select value={draft.brand} onChange={e => setD('brand', e.target.value)}
+                            className="border border-gray-200 rounded-[3px] text-xs px-2 h-[30px] text-gray-700 bg-white focus:outline-none focus:border-letusOrange cursor-pointer">
+                            {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
                     </div>
 
                     <div className="flex items-center shrink-0">
