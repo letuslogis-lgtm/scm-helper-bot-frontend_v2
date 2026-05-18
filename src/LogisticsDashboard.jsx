@@ -138,6 +138,10 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
         ? dashboardIssues.filter(issue => selectedBrands.includes(issue.brand))
         : dashboardIssues;
 
+    const targetShortageData = selectedBrands.length > 0
+        ? shortageData.filter(r => selectedBrands.includes(r.brand))
+        : shortageData;
+
     // 파이 차트 (특이사항 유형)
     const chartStats = {};
     targetIssues.forEach(issue => {
@@ -164,7 +168,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     const shortageChartData = useMemo(() => {
         const byItem = {};
         const byVendor = {};
-        shortageData.forEach(r => {
+        targetShortageData.forEach(r => {
             if (r.item_code) byItem[r.item_code] = (byItem[r.item_code] || 0) + (Number(r.shortage_qty) || 0);
             if (r.vendor)    byVendor[r.vendor]   = (byVendor[r.vendor]   || 0) + (Number(r.shortage_qty) || 0);
         });
@@ -173,7 +177,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
         const itemTotal     = itemEntries.reduce((s, [, v]) => s + v, 0);
         const vendorTotal   = vendorEntries.reduce((s, [, v]) => s + v, 0);
         return { itemEntries, vendorEntries, itemTotal, vendorTotal };
-    }, [shortageData]);
+    }, [targetShortageData]);
 
     const SHORTAGE_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a78bfa','#c4b5fd'];
 
@@ -185,7 +189,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
             if (!map[v]) map[v] = { issueCount: 0, shortageQty: 0 };
             map[v].issueCount += 1;
         });
-        shortageData.forEach(r => {
+        targetShortageData.forEach(r => {
             if (!r.vendor) return;
             if (!map[r.vendor]) map[r.vendor] = { issueCount: 0, shortageQty: 0 };
             map[r.vendor].shortageQty += Number(r.shortage_qty) || 0;
@@ -194,7 +198,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
             .map(([vendor, d]) => ({ vendor, ...d }))
             .sort((a, b) => (b.issueCount + b.shortageQty) - (a.issueCount + a.shortageQty))
             .slice(0, 5);
-    }, [targetIssues, shortageData]);
+    }, [targetIssues, targetShortageData]);
 
     const cvIssueTotal    = combinedVendorData.reduce((s, d) => s + d.issueCount, 0);
     const cvShortageTotal = combinedVendorData.reduce((s, d) => s + d.shortageQty, 0);
@@ -365,15 +369,17 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-bold text-gray-900">공급업체별 현황 (Top 5)</h3>
-                        <div className="flex gap-1">
-                            <button
-                                onClick={() => setBarToggles(p => ({ ...p, issue: !p.issue }))}
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors ${barToggles.issue ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-400 border-gray-300'}`}
-                            >특이사항</button>
-                            <button
-                                onClick={() => setBarToggles(p => ({ ...p, shortage: !p.shortage }))}
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors ${barToggles.shortage ? 'bg-orange-400 text-white border-orange-400' : 'bg-white text-gray-400 border-gray-300'}`}
-                            >결품</button>
+                        <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
+                            {[
+                                { id: 'issue', name: '특이사항' },
+                                { id: 'shortage', name: '결품' },
+                            ].map(btn => (
+                                <button
+                                    key={btn.id}
+                                    onClick={() => setBarToggles(p => ({ ...p, [btn.id]: !p[btn.id] }))}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${barToggles[btn.id] ? 'bg-white text-letusBlue shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800'}`}
+                                >{btn.name}</button>
+                            ))}
                         </div>
                     </div>
                     <div className="flex flex-col gap-3 flex-1 justify-center px-2">
