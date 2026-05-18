@@ -51,11 +51,29 @@ const clean = (val) => val ? String(val).trim() : '';
 // (item_code, item_color) UNIQUE 제약이 있어야 onConflict 기반 UPSERT 가능.
 const CHUNK_SIZE = 2000;
 
+async function loadAliases() {
+    const { data, error } = await supabase.from('vendor_aliases').select('raw_name, canonical_name');
+    if (error) { console.warn('vendor_aliases 로드 실패, 정규화 없이 진행:', error.message); return new Map(); }
+    return new Map((data || []).map(r => [r.raw_name, r.canonical_name]));
+}
+
+function resolveDisplayVendor(vendor, productionLine, aliasMap) {
+    // 외작: vendor 있으면 vendor 우선, 없으면 production_line 사용
+    const raw = (vendor || productionLine || '').trim();
+    if (!raw) return null;
+    if (aliasMap.has(raw)) return aliasMap.get(raw); // null이면 제외
+    return raw;
+}
+
 async function syncProducts() {
     const startedAt = Date.now();
     console.log(`[${new Date().toISOString()}] Starting MS-SQL to Supabase Sync...`);
     let pool;
     try {
+        console.log('Loading vendor_aliases from Supabase...');
+        const aliasMap = await loadAliases();
+        console.log(`Loaded ${aliasMap.size} alias entries.`);
+
         console.log('Connecting to MS-SQL (fgdw)...');
         pool = await sql.connect(mssqlConfig);
 
@@ -68,7 +86,8 @@ async function syncProducts() {
                 회사,
                 공급업체,
                 생산지창고,
-                출고창고
+                출고창고,
+                공장도가
             FROM [group].[DM_단품마스터+소속법인사별단품마스터]
         `);
 
@@ -81,14 +100,19 @@ async function syncProducts() {
             const itemCode = clean(row['단품코드']);
             const itemColor = clean(row['단품색상']);
             if (!itemCode) return; // item_code 없는 row 는 무시
+            const priceRaw = row['공장도가'];
+            const vendorVal = clean(row['공급업체']);
+            const prodLine  = clean(row['생산지창고']);
             uniqueMap.set(`${itemCode}_${itemColor}`, {
                 item_code: itemCode,
                 item_color: itemColor,
                 brand_category: clean(row['브랜드']),
                 company_division: clean(row['회사']),
-                vendor: clean(row['공급업체']),
-                production_line: clean(row['생산지창고']),
+                vendor: vendorVal,
+                production_line: prodLine,
                 outbound_warehouse: clean(row['출고창고']),
+                factory_price: priceRaw != null && priceRaw !== '' ? Number(priceRaw) : null,
+                display_vendor: resolveDisplayVendor(vendorVal, prodLine, aliasMap),
             });
         });
         const uniqueData = Array.from(uniqueMap.values());

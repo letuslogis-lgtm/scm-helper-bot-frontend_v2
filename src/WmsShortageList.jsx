@@ -211,10 +211,10 @@ export const WmsShortageList = ({ userProfile }) => {
                 console.log('[DEBUG] products 쿼리 codes 샘플:', codes.slice(0, 5));
                 const { data: products } = await supabase
                     .from('products')
-                    .select('item_code, item_color, vendor, production_line')
+                    .select('item_code, item_color, display_vendor')
                     .in('item_code', codes);
                 (products || []).forEach(p => {
-                    const resolved = (p.vendor || '').trim() || (p.production_line || '').trim();
+                    const resolved = (p.display_vendor || '').trim();
                     if (resolved) vendorMap.set(`${p.item_code}||${(p.item_color || '').trim()}`, resolved);
                 });
             }
