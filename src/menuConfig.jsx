@@ -33,9 +33,8 @@ export const ALL_MENUS = [
         id: 'closing_management', label: '물류 마감 관리',
         icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
         children: [
+            { id: 'logistics_closing', label: '물류 마감 자동화' },
             { id: 'attendance', label: '근무자 근태 관리' },
-            { id: 'productivity', label: '생산성 관리 (예정)' },
-            { id: 'profitability', label: '채산 관리 (예정)' }
         ]
     },
     {
@@ -43,7 +42,8 @@ export const ALL_MENUS = [
         icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
         children: [
             { id: 'dashboard', label: '대시보드' },
-            { id: 'list', label: '특이사항 LIST' }
+            { id: 'list', label: '특이사항 LIST' },
+            { id: 'wms_shortage', label: 'D-2 결품 리스트' }
         ]
     },
     {

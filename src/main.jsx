@@ -24,6 +24,8 @@ import { RpaManagement } from './RpaManagement.jsx';
 import { LoadingMap } from './LoadingMap.jsx';
 import { AiInsightLab } from './AiInsightLab.jsx';
 import { ReturnsManagement } from './ReturnsManagement.jsx';
+import { WmsShortageList } from './WmsShortageList.jsx';
+import { LogisticsClosing } from './LogisticsClosing.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
 import { MobileReturnsRegister } from './MobileReturnsRegister.jsx';
 import { MobilePreDeliveryManage } from './MobilePreDeliveryManage.jsx';
@@ -125,6 +127,8 @@ const AppContent = () => {
                 <Route path="/loading_map" element={<LoadingMap />} />
                 <Route path="/ai_lab" element={<AiInsightLab />} />
                 <Route path="/returns_management" element={<ReturnsManagement userProfile={logic.userProfile} />} />
+                <Route path="/logistics_closing" element={<LogisticsClosing />} />
+                <Route path="/wms_shortage" element={<WmsShortageList />} />
                 <Route path="*" element={<div className="p-8 text-center text-gray-500 font-bold">페이지를 찾을 수 없습니다 (404)</div>} />
             </Routes>
 
