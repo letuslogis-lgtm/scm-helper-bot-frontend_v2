@@ -3,7 +3,6 @@ import { loadXLSX } from './utils.js';
 
 const COLS = [
     { key: '_일자',      label: '일자',    w: '100px', sortKey: '최초 등록 일시' },
-    { key: '오더건명',   label: '오더건명', w: '240px' },
     { key: 'OWNER',      label: '브랜드',  w: '90px'  },
     { key: '품목ID',     label: '품목코드', w: '160px' },
     { key: '공급업체명', label: '공급업체', w: '130px' },
