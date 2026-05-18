@@ -167,7 +167,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-3 gap-3">
                     <div>
                         <h3 className="text-base font-bold text-gray-900 font-sans flex items-center gap-2">
-                            브랜드별 특이사항 처리 현황
+                            브랜드별 현황
                             <span className="bg-blue-50 text-letusBlue text-[10px] px-2 py-0.5 rounded border border-blue-100 font-black">{label}</span>
                         </h3>
                         <p className="text-xs text-gray-400 font-medium mt-1.5">조회 기간: {startDate} ~ {endDate}</p>
@@ -217,22 +217,22 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                     : 'bg-gray-50/60 border-gray-100 hover:border-gray-200 hover:bg-gray-100'
                                     }`}
                             >
-                                <div style={{ width: '20%' }} className={`px-4 py-2.5 font-bold tracking-tight whitespace-nowrap truncate ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
+                                <div style={{ width: '36%' }} className={`px-4 py-2.5 font-bold tracking-tight whitespace-nowrap truncate ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
                                     {brand}
                                 </div>
-                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치대기</span>
                                     <span className="text-red-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치대기', startDate, endDate }); }}>{stats.pending}</span>
                                 </div>
-                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">처리 중</span>
                                     <span className="text-yellow-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '처리 중', startDate, endDate }); }}>{stats.processing}</span>
                                 </div>
-                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치완료</span>
                                     <span className="text-green-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치완료', startDate, endDate }); }}>{stats.completed}</span>
                                 </div>
-                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                <div style={{ width: '16%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">D-2 결품</span>
                                     <span className="text-gray-700 font-bold text-sm">{(brandShortageQty[brand] || 0).toLocaleString()}</span>
                                 </div>
