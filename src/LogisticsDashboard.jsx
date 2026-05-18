@@ -112,6 +112,14 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     });
 
     const displayBrands = ['퍼시스', '일룸', '시디즈', '슬로우베드', '알로소', '데스커'];
+    const brandShortageQty = useMemo(() => {
+        const map = {};
+        shortageData.forEach(r => {
+            if (r.brand) map[r.brand] = (map[r.brand] || 0) + (Number(r.shortage_qty) || 0);
+        });
+        return map;
+    }, [shortageData]);
+
     const brandStatsDetails = displayBrands.reduce((acc, brand) => {
         acc[brand] = { pending: 0, processing: 0, completed: 0 };
         return acc;
