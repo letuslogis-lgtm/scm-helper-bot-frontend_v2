@@ -11,6 +11,7 @@ import { TableSkeleton, CATEGORY_COLORS, BRAND_COLORS, StatusBadge, CategoryBadg
 const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = false, onReload }) => {
     const [selectedBrands, setSelectedBrands] = useState([]);
     const [shortageData, setShortageData] = useState([]);
+    const [barToggles, setBarToggles] = useState({ issue: true, shortage: true });
 
     // 🔥 1. 날짜 필터 상태 (기본값: 'W' 주간)
     const [filterType, setFilterType] = useState('W'); // 'D', 'W', 'M', 'CUSTOM'
@@ -176,6 +177,28 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
     const SHORTAGE_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a78bfa','#c4b5fd'];
 
+    // 공급업체별 통합 데이터 (이슈 + 결품)
+    const combinedVendorData = useMemo(() => {
+        const map = {};
+        targetIssues.forEach(issue => {
+            const v = issue.vendor || issue.brand || '미상';
+            if (!map[v]) map[v] = { issueCount: 0, shortageQty: 0 };
+            map[v].issueCount += 1;
+        });
+        shortageData.forEach(r => {
+            if (!r.vendor) return;
+            if (!map[r.vendor]) map[r.vendor] = { issueCount: 0, shortageQty: 0 };
+            map[r.vendor].shortageQty += Number(r.shortage_qty) || 0;
+        });
+        return Object.entries(map)
+            .map(([vendor, d]) => ({ vendor, ...d }))
+            .sort((a, b) => (b.issueCount + b.shortageQty) - (a.issueCount + a.shortageQty))
+            .slice(0, 5);
+    }, [targetIssues, shortageData]);
+
+    const cvIssueTotal    = combinedVendorData.reduce((s, d) => s + d.issueCount, 0);
+    const cvShortageTotal = combinedVendorData.reduce((s, d) => s + d.shortageQty, 0);
+
     return (
         <div className="p-6 space-y-6 slide-up">
 
@@ -338,55 +361,50 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                     </div>
                 </div>
 
-                {/* 공급업체별 이슈 비율 + 결품 수량 통합 바차트 */}
+                {/* 공급업체별 현황 통합 바차트 (토글) */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4">공급업체별 현황 (Top 5)</h3>
-                    <div className="flex flex-col gap-5 flex-1 justify-center px-2">
-
-                        {/* 이슈 비율 */}
-                        <div>
-                            <p className="text-[11px] font-bold text-gray-400 mb-2">특이사항 이슈 비율</p>
-                            <div className="space-y-2">
-                                {supplierTotal === 0 ? <p className="text-xs text-gray-300 font-bold">데이터 없음</p> :
-                                    sortedSuppliers.slice(0, 5).map(([vendor, count], idx) => {
-                                        const percent = ((count / supplierTotal) * 100).toFixed(1);
-                                        return (
-                                            <div key={vendor} className="flex items-center text-xs gap-2">
-                                                <span className="w-20 text-gray-600 font-semibold truncate text-right shrink-0">{vendor}</span>
-                                                <div className="flex-1 h-3.5 rounded overflow-hidden bg-gray-100">
-                                                    <div className="h-full rounded-r transition-all duration-700" style={{ width: `${percent}%`, backgroundColor: BRAND_COLORS[idx % BRAND_COLORS.length] }}></div>
-                                                </div>
-                                                <span className="w-10 text-right font-bold text-gray-500 shrink-0">{percent}%</span>
-                                            </div>
-                                        );
-                                    })
-                                }
-                            </div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-gray-900">공급업체별 현황 (Top 5)</h3>
+                        <div className="flex gap-1">
+                            <button
+                                onClick={() => setBarToggles(p => ({ ...p, issue: !p.issue }))}
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors ${barToggles.issue ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-400 border-gray-300'}`}
+                            >특이사항</button>
+                            <button
+                                onClick={() => setBarToggles(p => ({ ...p, shortage: !p.shortage }))}
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors ${barToggles.shortage ? 'bg-orange-400 text-white border-orange-400' : 'bg-white text-gray-400 border-gray-300'}`}
+                            >결품</button>
                         </div>
-
-                        <div className="h-px bg-gray-100"></div>
-
-                        {/* 결품 수량 */}
-                        <div>
-                            <p className="text-[11px] font-bold text-gray-400 mb-2">D-2 결품 수량</p>
-                            <div className="space-y-2">
-                                {shortageChartData.vendorTotal === 0 ? <p className="text-xs text-gray-300 font-bold">데이터 없음</p> :
-                                    shortageChartData.vendorEntries.map(([vendor, qty], idx) => {
-                                        const percent = ((qty / shortageChartData.vendorTotal) * 100).toFixed(1);
-                                        return (
-                                            <div key={vendor} className="flex items-center text-xs gap-2">
-                                                <span className="w-20 text-gray-600 font-semibold truncate text-right shrink-0">{vendor}</span>
+                    </div>
+                    <div className="flex flex-col gap-3 flex-1 justify-center px-2">
+                        {combinedVendorData.length === 0
+                            ? <p className="text-xs text-gray-300 font-bold">데이터 없음</p>
+                            : combinedVendorData.map((d, idx) => (
+                                <div key={d.vendor} className="flex items-start gap-2 text-xs">
+                                    <span className="w-20 text-gray-600 font-semibold truncate text-right shrink-0 pt-0.5">{d.vendor}</span>
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        {barToggles.issue && cvIssueTotal > 0 && (
+                                            <div className="flex items-center gap-1">
                                                 <div className="flex-1 h-3.5 rounded overflow-hidden bg-gray-100">
-                                                    <div className="h-full rounded-r transition-all duration-700" style={{ width: `${percent}%`, backgroundColor: SHORTAGE_COLORS[idx % SHORTAGE_COLORS.length] }}></div>
+                                                    <div className="h-full rounded-r transition-all duration-700"
+                                                        style={{ width: `${(d.issueCount / cvIssueTotal * 100).toFixed(1)}%`, backgroundColor: BRAND_COLORS[idx % BRAND_COLORS.length] }}></div>
                                                 </div>
-                                                <span className="w-10 text-right font-bold text-gray-500 shrink-0">{qty.toLocaleString()}</span>
+                                                <span className="w-10 text-right font-bold text-gray-500 shrink-0">{(d.issueCount / cvIssueTotal * 100).toFixed(1)}%</span>
                                             </div>
-                                        );
-                                    })
-                                }
-                            </div>
-                        </div>
-
+                                        )}
+                                        {barToggles.shortage && cvShortageTotal > 0 && (
+                                            <div className="flex items-center gap-1">
+                                                <div className="flex-1 h-3.5 rounded overflow-hidden bg-gray-100">
+                                                    <div className="h-full rounded-r transition-all duration-700"
+                                                        style={{ width: `${(d.shortageQty / cvShortageTotal * 100).toFixed(1)}%`, backgroundColor: SHORTAGE_COLORS[idx % SHORTAGE_COLORS.length] }}></div>
+                                                </div>
+                                                <span className="w-10 text-right font-bold text-gray-500 shrink-0">{d.shortageQty.toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        }
                     </div>
                 </div>
 
