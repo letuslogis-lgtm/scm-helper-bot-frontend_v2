@@ -188,6 +188,41 @@ export const WmsShortageList = ({ userProfile }) => {
                 return rec;
             });
 
+            // products 테이블에서 vendor 매칭
+            // WMS item_code = "품목코드-색상" → 마지막 '-' 기준으로 분리
+            const splitItemCode = (raw) => {
+                if (!raw) return { code: '', color: '' };
+                const idx = raw.lastIndexOf('-');
+                if (idx === -1) return { code: raw, color: '' };
+                return { code: raw.slice(0, idx), color: raw.slice(idx + 1) };
+            };
+
+            const uniquePairs = [...new Set(records.map(r => {
+                const { code, color } = splitItemCode(r.item_code);
+                return `${code}||${color}`;
+            }))];
+
+            const vendorMap = new Map();
+            const PCHUNK = 200;
+            for (let i = 0; i < uniquePairs.length; i += PCHUNK) {
+                const chunk = uniquePairs.slice(i, i + PCHUNK);
+                const codes = [...new Set(chunk.map(p => p.split('||')[0]).filter(Boolean))];
+                if (codes.length === 0) continue;
+                const { data: products } = await supabase
+                    .from('products')
+                    .select('item_code, item_color, vendor')
+                    .in('item_code', codes);
+                (products || []).forEach(p => {
+                    vendorMap.set(`${p.item_code}||${p.item_color || ''}`, p.vendor);
+                });
+            }
+
+            records.forEach(r => {
+                const { code, color } = splitItemCode(r.item_code);
+                const matched = vendorMap.get(`${code}||${color}`);
+                if (matched) r.vendor = matched;
+            });
+
             const CHUNK = 500;
             for (let i = 0; i < records.length; i += CHUNK) {
                 const { error } = await supabase.from('wms_shortage_list').insert(records.slice(i, i + CHUNK));
