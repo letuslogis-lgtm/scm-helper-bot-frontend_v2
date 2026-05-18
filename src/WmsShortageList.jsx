@@ -1,13 +1,37 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { loadXLSX } from './utils.js';
+import { supabase } from './supabaseClient.js';
 
 const COLS = [
-    { key: '_일자',      label: '일자',    w: '100px', sortKey: '최초 등록 일시' },
-    { key: 'OWNER',      label: '브랜드',  w: '90px'  },
-    { key: '품목ID',     label: '품목코드', w: '160px' },
-    { key: '공급업체명', label: '공급업체', w: '130px' },
-    { key: 'CUT수량',    label: '결품수량', w: '90px'  },
+    { key: 'wms_registered_at', label: '일자',    w: '100px' },
+    { key: 'brand',             label: '브랜드',  w: '90px'  },
+    { key: 'item_code',         label: '품목코드', w: '160px' },
+    { key: 'vendor',            label: '공급업체', w: '130px' },
+    { key: 'shortage_qty',      label: '결품수량', w: '90px'  },
 ];
+
+const EXCEL_TO_DB = {
+    'WAVE명':      'wave_name',
+    'WAVE 타입':   'wave_type',
+    '오더번호':    'order_no',
+    '오더건명':    'order_name',
+    'OWNER':       'brand',
+    '유통채널':    'channel',
+    '품목ID':      'item_code',
+    '제품구분':    'item_category',
+    '공급업체명':  'vendor',
+    'CUT수량':     'shortage_qty',
+    '구분':        'category',
+    '피킹여부':    'is_picked',
+    '미출여부':    'is_unshipped',
+    '조치사항':    'action_note',
+    '매출여부':    'is_sales',
+    '취소대상여부':'is_cancel',
+    '최초 등록자': 'wms_registered_by',
+    '최초 등록 일시': 'wms_registered_at',
+    '최종 변경자': 'wms_updated_by',
+    '최종 변경 일시': 'wms_updated_at',
+};
 
 function weekAgo() {
     const d = new Date(); d.setDate(d.getDate() - 7);
@@ -15,8 +39,7 @@ function weekAgo() {
 }
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 
-const initDraft   = () => ({ startDate: weekAgo(), endDate: todayStr(), searchType: '품목ID', searchValue: '' });
-const initApplied = () => ({ startDate: weekAgo(), endDate: todayStr(), searchType: '품목ID', searchValue: '' });
+const initFilter = () => ({ startDate: weekAgo(), endDate: todayStr(), searchType: 'item_code', searchValue: '' });
 
 function excelDateToStr(val) {
     if (!val) return '';
@@ -28,27 +51,72 @@ function excelDateToStr(val) {
     return '';
 }
 
-export const WmsShortageList = () => {
-    const [rows, setRows] = useState([]);
-    const [fileName, setFileName] = useState('');
-    const [uploadedAt, setUploadedAt] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [draft, setDraft] = useState(initDraft());
-    const [applied, setApplied] = useState(initApplied());
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
-    const [selectedIds, setSelectedIds] = useState(new Set());
+function excelValToDb(excelKey, val) {
+    if (excelKey === 'CUT수량') return val ? parseInt(val, 10) || null : null;
+    if (excelKey === '최초 등록 일시' || excelKey === '최종 변경 일시') {
+        if (!val) return null;
+        if (typeof val === 'number') {
+            return new Date(Math.round((val - 25569) * 86400 * 1000)).toISOString();
+        }
+        return val;
+    }
+    return val ? String(val) : null;
+}
+
+export const WmsShortageList = ({ userProfile }) => {
+    const isAdmin = userProfile?.role === 'admin';
+
+    const [rows, setRows]                   = useState([]);
+    const [isLoading, setIsLoading]         = useState(false);
+    const [isUploading, setIsUploading]     = useState(false);
+    const [draft, setDraft]                 = useState(initFilter());
+    const [applied, setApplied]             = useState(initFilter());
+    const [sortConfig, setSortConfig]       = useState({ key: null, direction: 'none' });
+    const [selectedIds, setSelectedIds]     = useState(new Set());
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const fileInputRef = useRef(null);
 
     const setD = (k, v) => setDraft(p => ({ ...p, [k]: v }));
 
-    const parseFile = async (file) => {
-        if (!file) return;
+    const fetchData = useCallback(async (filter) => {
         setIsLoading(true);
         try {
+            let q = supabase.from('wms_shortage_list').select('*').order('wms_registered_at', { ascending: false });
+            if (filter.startDate) q = q.gte('upload_date', filter.startDate);
+            if (filter.endDate)   q = q.lte('upload_date', filter.endDate);
+            if (filter.searchValue) {
+                q = q.ilike(filter.searchType, `%${filter.searchValue}%`);
+            }
+            const { data, error } = await q;
+            if (error) throw error;
+            setRows((data || []).map((r, i) => ({ ...r, _rowId: r.id })));
+        } catch (e) { console.error(e); alert('데이터 조회 중 오류가 발생했습니다.'); }
+        finally { setIsLoading(false); }
+    }, []);
+
+    useEffect(() => { fetchData(applied); }, []);
+
+    const handleSearch = () => {
+        const next = { ...draft };
+        setApplied(next);
+        setSelectedIds(new Set());
+        fetchData(next);
+    };
+    const handleReset = () => {
+        const next = initFilter();
+        setDraft(next);
+        setApplied(next);
+        setSelectedIds(new Set());
+        fetchData(next);
+    };
+
+    const parseFile = async (file) => {
+        if (!file) return;
+        setIsUploading(true);
+        try {
             const XLSX = await loadXLSX();
-            const data = await new Promise((resolve) => {
+            const jsonData = await new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const wb = XLSX.read(e.target.result, { type: 'binary' });
@@ -56,34 +124,44 @@ export const WmsShortageList = () => {
                 };
                 reader.readAsBinaryString(file);
             });
-            const enriched = data.map((r, i) => ({ ...r, _rowId: i, _일자: excelDateToStr(r['최초 등록 일시']) }));
-            setRows(enriched);
-            setFileName(file.name);
-            setUploadedAt(new Date().toLocaleString('ko-KR'));
-            setDraft(initDraft());
-            setApplied(initApplied());
-            setSortConfig({ key: null, direction: 'none' });
+
+            if (jsonData.length === 0) return alert('데이터가 없습니다.');
+
+            const upload_id = crypto.randomUUID();
+            const upload_date = todayStr();
+            const uploaded_by = userProfile?.name || '';
+
+            const records = jsonData.map(row => {
+                const rec = { upload_id, upload_date, uploaded_by, upload_file: file.name };
+                for (const [excelKey, dbKey] of Object.entries(EXCEL_TO_DB)) {
+                    rec[dbKey] = excelValToDb(excelKey, row[excelKey]);
+                }
+                return rec;
+            });
+
+            const CHUNK = 500;
+            for (let i = 0; i < records.length; i += CHUNK) {
+                const { error } = await supabase.from('wms_shortage_list').insert(records.slice(i, i + CHUNK));
+                if (error) throw error;
+            }
+
+            alert(`${records.length}건이 업로드되었습니다.`);
+            const next = initFilter();
+            setDraft(next);
+            setApplied(next);
             setSelectedIds(new Set());
+            setSortConfig({ key: null, direction: 'none' });
+            fetchData(next);
+        } catch (e) {
+            console.error(e);
+            alert('업로드 중 오류가 발생했습니다: ' + (e.message || ''));
         } finally {
-            setIsLoading(false);
+            setIsUploading(false);
         }
     };
 
     const handleFile = (e) => { parseFile(e.target.files[0]); e.target.value = ''; };
     const handleDrop = (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) parseFile(f); };
-
-    const handleSearch = () => { setApplied({ ...draft }); setSelectedIds(new Set()); };
-    const handleReset  = () => { setDraft(initDraft()); setApplied(initApplied()); setSelectedIds(new Set()); };
-
-    const filtered = useMemo(() => rows.filter(r => {
-        if (applied.startDate && r._일자 < applied.startDate) return false;
-        if (applied.endDate   && r._일자 > applied.endDate)   return false;
-        if (applied.searchValue) {
-            const q = applied.searchValue.toLowerCase();
-            if (!String(r[applied.searchType] || '').toLowerCase().includes(q)) return false;
-        }
-        return true;
-    }), [rows, applied]);
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -96,15 +174,15 @@ export const WmsShortageList = () => {
     };
 
     const sorted = useMemo(() => {
-        if (!sortConfig.key) return filtered;
-        return [...filtered].sort((a, b) => {
+        if (!sortConfig.key) return rows;
+        return [...rows].sort((a, b) => {
             const av = a[sortConfig.key] ?? '';
             const bv = b[sortConfig.key] ?? '';
             if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1;
             if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [filtered, sortConfig]);
+    }, [rows, sortConfig]);
 
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
@@ -113,9 +191,8 @@ export const WmsShortageList = () => {
             : <span className="ml-1 text-letusBlue font-black">↓</span>;
     };
 
-    const totalCut = useMemo(() => sorted.reduce((s, r) => s + (Number(r['CUT수량']) || 0), 0), [sorted]);
+    const totalCut = useMemo(() => sorted.reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0), [sorted]);
 
-    // 체크박스
     const handleSelectAll = (e) => {
         setSelectedIds(e.target.checked ? new Set(sorted.map(r => r._rowId)) : new Set());
         setLastSelectedId(null);
@@ -140,32 +217,47 @@ export const WmsShortageList = () => {
         }
     };
 
-    // 선택실행: 엑셀 추출
     const handleExportExcel = async () => {
         if (selectedIds.size === 0) return alert('항목을 체크해 주세요.');
         const XLSX = await loadXLSX();
         const target = sorted.filter(r => selectedIds.has(r._rowId));
         const excelData = target.map(r => ({
-            '일자': r._일자,
-            '오더건명': r['오더건명'] || '',
-            '브랜드': r['OWNER'] || '',
-            '품목코드': r['품목ID'] || '',
-            '공급업체': r['공급업체명'] || '',
-            '결품수량': r['CUT수량'] ?? '',
+            '일자':    r.wms_registered_at ? String(r.wms_registered_at).slice(0, 10) : '',
+            '브랜드':  r.brand || '',
+            '품목코드': r.item_code || '',
+            '공급업체': r.vendor || '',
+            '결품수량': r.shortage_qty ?? '',
         }));
         const ws = XLSX.utils.json_to_sheet(excelData);
-        ws['!cols'] = [{ wch: 12 }, { wch: 40 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 10 }];
+        ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 18 }, { wch: 10 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'D-2결품리스트');
         XLSX.writeFile(wb, `D-2결품리스트_${todayStr()}.xlsx`);
     };
 
-    // 선택실행: 삭제
-    const handleDeleteSelected = () => {
+    const handleDeleteSelected = async () => {
+        if (!isAdmin) return alert('삭제 권한이 없습니다. 관리자에게 문의하세요.');
         if (selectedIds.size === 0) return alert('항목을 체크해 주세요.');
-        if (!window.confirm(`선택한 ${selectedIds.size}건을 삭제하시겠습니까?`)) return;
-        setRows(prev => prev.filter(r => !selectedIds.has(r._rowId)));
-        setSelectedIds(new Set());
+        if (!window.confirm(`선택한 ${selectedIds.size}건을 삭제하시겠습니까?\n이 작업은 복구할 수 없습니다.`)) return;
+        try {
+            const ids = Array.from(selectedIds);
+            const CHUNK = 200;
+            for (let i = 0; i < ids.length; i += CHUNK) {
+                const { error } = await supabase.from('wms_shortage_list').delete().in('id', ids.slice(i, i + CHUNK));
+                if (error) throw error;
+            }
+            alert(`${ids.length}건이 삭제되었습니다.`);
+            setSelectedIds(new Set());
+            fetchData(applied);
+        } catch (e) {
+            console.error(e);
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    };
+
+    const formatDate = (val) => {
+        if (!val) return '-';
+        return String(val).slice(0, 10);
     };
 
     return (
@@ -194,8 +286,8 @@ export const WmsShortageList = () => {
                         <div className="flex gap-0 h-[30px]">
                             <select value={draft.searchType} onChange={e => setD('searchType', e.target.value)}
                                 className="border border-gray-200 border-r-0 rounded-l-[3px] text-xs px-2 text-gray-700 bg-gray-50 focus:outline-none cursor-pointer h-full">
-                                <option value="품목ID">품목코드</option>
-                                <option value="공급업체명">공급업체</option>
+                                <option value="item_code">품목코드</option>
+                                <option value="vendor">공급업체</option>
                             </select>
                             <input type="text" value={draft.searchValue} onChange={e => setD('searchValue', e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -223,17 +315,17 @@ export const WmsShortageList = () => {
             {/* ── 액션 바 ── */}
             <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0 gap-3">
 
-                {/* 업로드 버튼 (AccidentList 스타일) */}
-                <button onClick={() => fileInputRef.current?.click()}
-                    className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px]">
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px] disabled:opacity-50 disabled:cursor-not-allowed">
                     <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
                     </svg>
-                    WMS 파일 업로드 (Excel)
+                    {isUploading ? '업로드 중...' : 'WMS 파일 업로드 (Excel)'}
                 </button>
                 <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
 
-                {/* 선택실행 드롭다운 */}
                 <div className="relative z-50">
                     <button onClick={() => setIsActionMenuOpen(v => !v)}
                         className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
@@ -259,10 +351,10 @@ export const WmsShortageList = () => {
                                 <div className="h-px bg-gray-100 my-1"></div>
                                 <button
                                     onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
-                                    className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.size > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                    className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.size > 0 && isAdmin ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
                                 >
                                     삭제
-                                    {selectedIds.size > 0 && <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
+                                    {selectedIds.size > 0 && isAdmin && <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
                                 </button>
                             </div>
                         </>
@@ -285,9 +377,9 @@ export const WmsShortageList = () => {
                                 {COLS.map(c => (
                                     <th key={c.key} style={{ width: c.w, minWidth: c.w }}
                                         className="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                        onClick={() => requestSort(c.sortKey || c.key)}>
+                                        onClick={() => requestSort(c.key)}>
                                         <div className="flex items-center justify-center">
-                                            {c.label}{getSortIcon(c.sortKey || c.key)}
+                                            {c.label}{getSortIcon(c.key)}
                                         </div>
                                     </th>
                                 ))}
@@ -295,25 +387,21 @@ export const WmsShortageList = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-gray-700">
                             {isLoading ? (
-                                <tr><td colSpan={COLS.length + 2} className="py-32 text-center">
+                                <tr><td colSpan={COLS.length + 1} className="py-32 text-center">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div>
-                                        <p className="text-gray-500 font-bold text-[13px]">파일 분석 중...</p>
+                                        <p className="text-gray-500 font-bold text-[13px]">데이터 조회 중...</p>
                                     </div>
                                 </td></tr>
                             ) : rows.length === 0 ? (
-                                <tr><td colSpan={COLS.length + 2} className="py-32 text-center">
+                                <tr><td colSpan={COLS.length + 1} className="py-32 text-center">
                                     <div className="flex flex-col items-center gap-3 text-gray-400">
                                         <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
-                                        <p className="font-bold text-gray-400">WMS 결품 파일을 업로드해 주세요</p>
-                                        <p className="text-xs">우측 상단 <span className="text-green-600 font-bold">WMS 파일 업로드</span> 버튼 또는 여기에 파일을 드래그하세요</p>
+                                        <p className="font-bold text-gray-400">데이터가 없습니다</p>
+                                        <p className="text-xs">우측 상단 <span className="text-green-600 font-bold">WMS 파일 업로드</span> 버튼으로 파일을 업로드하세요</p>
                                     </div>
-                                </td></tr>
-                            ) : sorted.length === 0 ? (
-                                <tr><td colSpan={COLS.length + 2} className="py-20 text-center text-gray-400 text-sm">
-                                    조건에 맞는 데이터가 없습니다.
                                 </td></tr>
                             ) : (
                                 sorted.map((row, i) => {
@@ -327,8 +415,10 @@ export const WmsShortageList = () => {
                                             </td>
                                             {COLS.map(c => (
                                                 <td key={c.key} className="px-3 py-2.5 text-center" style={{ width: c.w }}>
-                                                    {c.key === 'CUT수량'
+                                                    {c.key === 'shortage_qty'
                                                         ? <span className="font-bold text-letusOrange">{row[c.key] ?? '-'}</span>
+                                                        : c.key === 'wms_registered_at'
+                                                        ? <span>{formatDate(row[c.key])}</span>
                                                         : <span>{row[c.key] ?? '-'}</span>
                                                     }
                                                 </td>
@@ -340,6 +430,14 @@ export const WmsShortageList = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* 하단 요약 */}
+                {!isLoading && rows.length > 0 && (
+                    <div className="border-t border-gray-100 px-6 py-2 flex items-center gap-4 text-xs text-gray-500 shrink-0">
+                        <span>총 <b className="text-gray-700">{sorted.length.toLocaleString()}</b>건</span>
+                        <span>결품합계 <b className="text-letusOrange">{totalCut.toLocaleString()}</b></span>
+                    </div>
+                )}
             </div>
         </div>
     );
