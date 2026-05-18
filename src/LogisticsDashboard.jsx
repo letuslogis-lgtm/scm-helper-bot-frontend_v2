@@ -302,7 +302,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                             <Cell key={`cell-${index}`} fill={entry.isEmpty ? '#e5e7eb' : (CATEGORY_COLORS[entry.name] || '#aaaaaa')} />
                                         ))}
                                     </Pie>
-                                    {totalIssues > 0 && <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} />}
+                                    {totalIssues > 0 && <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: true }} />}
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -341,7 +341,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                             <Cell key={`sc-${index}`} fill={entry.isEmpty ? '#e5e7eb' : SHORTAGE_COLORS[index % SHORTAGE_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    {shortageChartData.itemTotal > 0 && <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} />}
+                                    {shortageChartData.itemTotal > 0 && <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} position={{ y: 0 }} allowEscapeViewBox={{ x: false, y: true }} />}
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
