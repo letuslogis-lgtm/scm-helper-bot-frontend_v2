@@ -168,30 +168,36 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
         ? shortageData.filter(r => selectedBrands.includes(r.brand))
         : shortageData;
 
+    const TREND_BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
+    const TREND_COLORS = { '퍼시스': '#22c55e', '일룸': '#14b8a6', '슬로우베드': '#3b82f6', '데스커': '#8b5cf6', '시디즈': '#f97316', '알로소': '#ef4444' };
+
     const trendData = useMemo(() => {
         const pad = n => n.toString().padStart(2, '0');
         const [eYear, eMonth] = endDate.split('-').map(Number);
-        const fi = selectedBrands.length > 0 ? trendIssues.filter(i => selectedBrands.includes(i.brand)) : trendIssues;
-        const fs = selectedBrands.length > 0 ? trendShortages.filter(r => selectedBrands.includes(r.brand)) : trendShortages;
+        const activeBrands = selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS;
+        const fi = trendIssues.filter(i => activeBrands.includes(i.brand));
+        const fs = trendShortages.filter(r => activeBrands.includes(r.brand));
+
+        const buildRow = (dateLabel, prefix) => {
+            const row = { date: dateLabel };
+            activeBrands.forEach(b => {
+                row[`issue_${b}`] = fi.filter(i => i.created_at?.startsWith(prefix) && i.brand === b).length;
+                row[`shortage_${b}`] = fs.filter(r => String(r.upload_date).startsWith(prefix) && r.brand === b)
+                    .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
+            });
+            return row;
+        };
 
         if (trendType === 'monthly') {
             return Array.from({ length: 12 }, (_, i) => {
                 const m = i + 1;
-                const prefix = `${eYear}-${pad(m)}`;
-                const issues = fi.filter(i => i.created_at?.startsWith(prefix)).length;
-                const shortage = fs.filter(r => String(r.upload_date).startsWith(prefix))
-                    .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
-                return { date: `${m}월`, issues, shortage };
+                return buildRow(`${m}월`, `${eYear}-${pad(m)}`);
             });
         } else {
             const lastDay = new Date(eYear, eMonth, 0).getDate();
             return Array.from({ length: lastDay }, (_, i) => {
                 const d = i + 1;
-                const dateStr = `${eYear}-${pad(eMonth)}-${pad(d)}`;
-                const issues = fi.filter(i => i.created_at?.startsWith(dateStr)).length;
-                const shortage = fs.filter(r => String(r.upload_date).startsWith(dateStr))
-                    .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
-                return { date: `${d}일`, issues, shortage };
+                return buildRow(`${d}일`, `${eYear}-${pad(eMonth)}-${pad(d)}`);
             });
         }
     }, [trendIssues, trendShortages, selectedBrands, trendType, endDate]);
@@ -491,17 +497,27 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                         ))}
                     </div>
                 </div>
-                <div className="h-[220px]">
+                <div className="h-[260px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={trendData} margin={{ top: 10, right: 50, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4f8" />
                             <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                             <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} axisLine={false} tickLine={false} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} />
-                            <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '8px' }} iconType="circle" />
-                            <Bar yAxisId="left" dataKey="issues" name="특이사항(건)" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                            <Line yAxisId="right" type="monotone" dataKey="shortage" name="결품수량" stroke="#f97316" strokeWidth={2} dot={{ r: 3, fill: '#f97316' }} activeDot={{ r: 5 }} />
+                            <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '8px' }} iconType="circle" />
+                            {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map((b, idx, arr) => (
+                                <Bar key={`bar_${b}`} yAxisId="left" dataKey={`issue_${b}`} name={`[특이사항] ${b}`}
+                                    stackId="issues" fill={TREND_COLORS[b]}
+                                    radius={idx === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                                    maxBarSize={40} />
+                            ))}
+                            {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map(b => (
+                                <Line key={`line_${b}`} yAxisId="right" type="monotone" dataKey={`shortage_${b}`}
+                                    name={`[결품] ${b}`} stroke={TREND_COLORS[b]} strokeWidth={2}
+                                    dot={{ r: 2, fill: TREND_COLORS[b] }} activeDot={{ r: 4 }}
+                                    strokeDasharray="4 2" />
+                            ))}
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
