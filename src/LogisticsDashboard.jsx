@@ -528,7 +528,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                     <Line key={`line_${b}`} yAxisId="right" type="monotone" dataKey={`shortage_${b}`}
                                         name={`[결품] ${b}`} stroke={TREND_COLORS[b]} strokeWidth={3}
                                         dot={{ r: 4, strokeWidth: 1 }} activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
-                                        strokeDasharray="5 3" animationDuration={1000} />
+                                        animationDuration={1000} />
                                 ))}
                             </ComposedChart>
                         </ResponsiveContainer>
