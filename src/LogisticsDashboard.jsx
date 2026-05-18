@@ -215,7 +215,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-1.5">
                     {displayBrands.map(brand => {
                         const stats = brandStatsDetails[brand];
                         const isSelected = selectedBrands.includes(brand);
@@ -342,69 +342,6 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <div className="flex items-center">
-                        <svg className="w-5 h-5 text-gray-700 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        <h3 className="text-lg font-bold text-gray-900">해당 기간 특이사항 리스트</h3>
-                    </div>
-                    <button onClick={onNavigateToList} className="text-sm font-semibold text-letusBlue hover:text-blue-700 transition-colors flex items-center">
-                        전체보기 <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left whitespace-nowrap">
-                        <thead className="bg-white border-b border-gray-200 text-xs font-bold text-gray-500">
-                            <tr>
-                                <th className="p-4 pl-6">입고번호</th>
-                                <th className="p-4">발생시간</th>
-                                <th className="p-4">공급사</th>
-                                <th className="p-4">품목정보</th>
-                                <th className="p-4">특이유형</th>
-                                <th className="p-4 text-center">처리상태</th>
-                                <th className="p-4 text-center">관리</th>
-                            </tr>
-                        </thead>
-                        {isLoading ? (
-                            <TableSkeleton rowCount={5} colCount={7} />
-                        ) : (
-                            <tbody className="divide-y divide-gray-100 text-sm">
-                                {dashboardIssues.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="7" className="p-8 text-center text-gray-400 font-bold text-xs">
-                                            해당 기간에 발생한 특이사항이 없습니다.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    [...dashboardIssues]
-                                        .sort((a, b) => {
-                                            if (a.status === '조치대기' && b.status !== '조치대기') return -1;
-                                            if (a.status !== '조치대기' && b.status === '조치대기') return 1;
-                                            return 0;
-                                        })
-                                        .slice(0, 6)
-                                        .map((row, idx) => (
-                                            <tr key={row.reception_no || idx} className="hover:bg-gray-50 transition-colors">
-                                                <td className="p-4 pl-6 text-gray-800 font-semibold">{row.reception_no}</td>
-                                                <td className="p-4 text-gray-500 font-mono">{row.created_at ? new Date(row.created_at).toLocaleDateString() : '-'}</td>
-                                                <td className="p-4 font-semibold text-gray-700">{row.vendor || '-'}</td>
-                                                <td className="p-4 text-gray-600 truncate max-w-xs">{row.product_code}</td>
-                                                <td className="p-4"><CategoryBadge category={row.issue_type} /></td>
-                                                <td className="p-4 text-center"><StatusBadge status={row.status} category={row.issue_type} /></td>
-                                                <td className="p-4 text-center">
-                                                    <button onClick={() => onDrillDown({ brand: row.brand, status: '전체', startDate, endDate })} className="border border-gray-300 text-gray-600 bg-white px-3 py-1 rounded text-xs font-semibold hover:bg-gray-50 hover:border-gray-400 transition-colors shadow-sm">
-                                                        상세보기
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                )}
-                            </tbody>
-                        )}
-                    </table>
-                </div>
-            </div>
         </div>
     );
 }
