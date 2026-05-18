@@ -258,9 +258,10 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
             map[r.vendor].shortageQty += Number(r.shortage_qty) || 0;
         });
         const score = (d) => {
-            if (barToggles.issue && barToggles.shortage) return d.issueCount + d.shortageQty;
-            if (barToggles.issue) return d.issueCount;
-            return d.shortageQty;
+            let s = 0;
+            if (barToggles.issue) s += d.issueCount;
+            if (barToggles.shortage) s += d.shortageQty;
+            return s;
         };
         return Object.entries(map)
             .map(([vendor, d]) => ({ vendor, ...d }))
