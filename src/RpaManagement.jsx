@@ -48,7 +48,19 @@ export const RpaManagement = () => {
     const [savedFilters, setSavedFilters] = useState(initialFilters);
     const [draftFilters, setDraftFilters] = useState(initialFilters);
 
-    useEffect(() => { fetchRpaJobs(); }, []);
+    useEffect(() => {
+        fetchRpaJobs();
+
+        // rpa_jobs 상태 변경 실시간 반영
+        const channel = supabase
+            .channel('rpa_jobs_changes')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rpa_jobs' }, (payload) => {
+                setJobs(prev => prev.map(j => j.id === payload.new.id ? { ...j, ...payload.new } : j));
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, []);
     const handleSearch = () => { setSavedFilters({ ...draftFilters }); };
 
     // ============================================================
@@ -287,8 +299,9 @@ export const RpaManagement = () => {
                     created_at: new Date().toISOString(),
                 }]);
             if (error) throw error;
+            // 낙관적 업데이트: Worker가 잡기 전에도 즉시 버튼 비활성화
+            setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'running' } : j));
             alert('✅ 실행 요청이 큐에 등록되었습니다. 결과는 [실행 이력] 에서 확인하세요.');
-            fetchRpaJobs();
         } catch (err) {
             alert('실행 요청 실패: ' + err.message);
         }
