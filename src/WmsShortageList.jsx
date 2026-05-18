@@ -3,11 +3,11 @@ import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
 
 const COLS = [
-    { key: 'wms_registered_at', label: '일자',    w: '100px' },
-    { key: 'brand',             label: '브랜드',  w: '90px'  },
-    { key: 'item_code',         label: '품목코드', w: '160px' },
-    { key: 'vendor',            label: '공급업체', w: '130px' },
-    { key: 'shortage_qty',      label: '결품수량', w: '90px'  },
+    { key: 'upload_date',  label: '일자',    w: '100px' },
+    { key: 'brand',        label: '브랜드',  w: '90px'  },
+    { key: 'item_code',    label: '품목코드', w: '160px' },
+    { key: 'vendor',       label: '공급업체', w: '130px' },
+    { key: 'shortage_qty', label: '결품수량', w: '90px'  },
 ];
 
 const EXCEL_TO_DB = {
@@ -173,16 +173,39 @@ export const WmsShortageList = ({ userProfile }) => {
         setSelectedIds(new Set());
     };
 
+    // 품목코드 + 업로드 날짜 기준 집계: shortage_qty 합산
+    const aggregated = useMemo(() => {
+        const map = new Map();
+        for (const row of rows) {
+            const key = `${row.item_code || '(미등록)'}|${row.upload_date || ''}`;
+            if (!map.has(key)) {
+                map.set(key, {
+                    _rowId: key,
+                    _ids: [],
+                    item_code: row.item_code,
+                    brand: row.brand,
+                    vendor: row.vendor,
+                    upload_date: row.upload_date,
+                    shortage_qty: 0,
+                });
+            }
+            const agg = map.get(key);
+            agg._ids.push(row.id);
+            agg.shortage_qty += Number(row.shortage_qty) || 0;
+        }
+        return Array.from(map.values());
+    }, [rows]);
+
     const sorted = useMemo(() => {
-        if (!sortConfig.key) return rows;
-        return [...rows].sort((a, b) => {
+        if (!sortConfig.key) return aggregated;
+        return [...aggregated].sort((a, b) => {
             const av = a[sortConfig.key] ?? '';
             const bv = b[sortConfig.key] ?? '';
             if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1;
             if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [rows, sortConfig]);
+    }, [aggregated, sortConfig]);
 
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
@@ -222,7 +245,7 @@ export const WmsShortageList = ({ userProfile }) => {
         const XLSX = await loadXLSX();
         const target = sorted.filter(r => selectedIds.has(r._rowId));
         const excelData = target.map(r => ({
-            '일자':    r.wms_registered_at ? String(r.wms_registered_at).slice(0, 10) : '',
+            '일자':    r.upload_date || '',
             '브랜드':  r.brand || '',
             '품목코드': r.item_code || '',
             '공급업체': r.vendor || '',
@@ -238,15 +261,18 @@ export const WmsShortageList = ({ userProfile }) => {
     const handleDeleteSelected = async () => {
         if (!isAdmin) return alert('삭제 권한이 없습니다. 관리자에게 문의하세요.');
         if (selectedIds.size === 0) return alert('항목을 체크해 주세요.');
-        if (!window.confirm(`선택한 ${selectedIds.size}건을 삭제하시겠습니까?\n이 작업은 복구할 수 없습니다.`)) return;
+        // 선택된 집계 행들의 실제 DB id 수집
+        const dbIds = sorted
+            .filter(r => selectedIds.has(r._rowId))
+            .flatMap(r => r._ids);
+        if (!window.confirm(`선택한 ${selectedIds.size}개 품목(총 ${dbIds.length}건)을 삭제하시겠습니까?\n이 작업은 복구할 수 없습니다.`)) return;
         try {
-            const ids = Array.from(selectedIds);
             const CHUNK = 200;
-            for (let i = 0; i < ids.length; i += CHUNK) {
-                const { error } = await supabase.from('wms_shortage_list').delete().in('id', ids.slice(i, i + CHUNK));
+            for (let i = 0; i < dbIds.length; i += CHUNK) {
+                const { error } = await supabase.from('wms_shortage_list').delete().in('id', dbIds.slice(i, i + CHUNK));
                 if (error) throw error;
             }
-            alert(`${ids.length}건이 삭제되었습니다.`);
+            alert(`${selectedIds.size}개 품목(${dbIds.length}건)이 삭제되었습니다.`);
             setSelectedIds(new Set());
             fetchData(applied);
         } catch (e) {
@@ -434,7 +460,7 @@ export const WmsShortageList = ({ userProfile }) => {
                 {/* 하단 요약 */}
                 {!isLoading && rows.length > 0 && (
                     <div className="border-t border-gray-100 px-6 py-2 flex items-center gap-4 text-xs text-gray-500 shrink-0">
-                        <span>총 <b className="text-gray-700">{sorted.length.toLocaleString()}</b>건</span>
+                        <span>품목 <b className="text-gray-700">{sorted.length.toLocaleString()}</b>종</span>
                         <span>결품합계 <b className="text-letusOrange">{totalCut.toLocaleString()}</b></span>
                     </div>
                 )}
