@@ -15,6 +15,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     const [trendType, setTrendType] = useState('daily');
     const [trendIssues, setTrendIssues] = useState([]);
     const [trendShortages, setTrendShortages] = useState([]);
+    const [isTrendLoading, setIsTrendLoading] = useState(false);
 
     // 🔥 1. 날짜 필터 상태 (기본값: 'W' 주간)
     const [filterType, setFilterType] = useState('W'); // 'D', 'W', 'M', 'CUSTOM'
@@ -77,6 +78,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
     useEffect(() => {
         const fetchTrend = async () => {
+            setIsTrendLoading(true);
             const [eYear, eMonth] = endDate.split('-').map(Number);
             const pad = n => n.toString().padStart(2, '0');
             let tStart, tEnd;
@@ -94,6 +96,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
             ]);
             setTrendIssues(issues || []);
             setTrendShortages(shortages || []);
+            setIsTrendLoading(false);
         };
         fetchTrend();
     }, [trendType, endDate]);
@@ -487,40 +490,53 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
             </div>
 
             {/* 특이사항 · 결품 추이 */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-gray-900">특이사항 · 결품 추이</h3>
+            <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col shrink-0 min-h-[350px]">
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex flex-col">
+                        <h3 className="font-bold text-gray-800 text-sm md:text-base flex items-center gap-2">
+                            특이사항 · 결품 추이
+                            <span className="bg-blue-50 text-letusBlue text-[10px] px-2 py-0.5 rounded border border-blue-100 font-black">{trendType === 'daily' ? '일간 현황' : '월간 현황'}</span>
+                        </h3>
+                        <p className="text-[11px] text-gray-400 font-medium mt-1">상단 조회 기준의 <span className="font-bold text-gray-500">{trendType === 'daily' ? '해당 월' : '해당 연도'}</span> 데이터를 표시합니다.</p>
+                    </div>
                     <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
-                        {[{ id: 'daily', name: '일간' }, { id: 'monthly', name: '월간' }].map(btn => (
-                            <button key={btn.id} onClick={() => setTrendType(btn.id)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${trendType === btn.id ? 'bg-white text-letusBlue shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800'}`}
-                            >{btn.name}</button>
-                        ))}
+                        <button onClick={() => setTrendType('daily')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${trendType === 'daily' ? 'bg-white text-letusBlue shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800'}`}>일간</button>
+                        <button onClick={() => setTrendType('monthly')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${trendType === 'monthly' ? 'bg-white text-letusBlue shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800'}`}>월간</button>
                     </div>
                 </div>
-                <div className="h-[260px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={trendData} margin={{ top: 10, right: 50, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4f8" />
-                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} />
-                            <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '8px' }} iconType="circle" />
-                            {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map((b, idx, arr) => (
-                                <Bar key={`bar_${b}`} yAxisId="left" dataKey={`issue_${b}`} name={`[특이사항] ${b}`}
-                                    stackId="issues" fill={TREND_COLORS[b]}
-                                    radius={idx === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                                    maxBarSize={40} />
-                            ))}
-                            {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map(b => (
-                                <Line key={`line_${b}`} yAxisId="right" type="monotone" dataKey={`shortage_${b}`}
-                                    name={`[결품] ${b}`} stroke={TREND_COLORS[b]} strokeWidth={2}
-                                    dot={{ r: 2, fill: TREND_COLORS[b] }} activeDot={{ r: 4 }}
-                                    strokeDasharray="4 2" />
-                            ))}
-                        </ComposedChart>
-                    </ResponsiveContainer>
+                <div style={{ height: '300px', width: '100%', position: 'relative' }}>
+                    {isTrendLoading ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+                            <div className="w-8 h-8 border-4 border-slate-200 border-t-letusBlue rounded-full animate-spin"></div>
+                        </div>
+                    ) : trendData.length > 0 ? (
+                        <ResponsiveContainer width="99%" height="100%">
+                            <ComposedChart data={trendData} margin={{ top: 20, right: 50, left: 0, bottom: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '13px' }} cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }} />
+                                <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', paddingTop: '15px' }} iconType="circle" />
+                                {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map((b, idx, arr) => (
+                                    <Bar key={`bar_${b}`} yAxisId="left" dataKey={`issue_${b}`} name={`[특이사항] ${b}`}
+                                        stackId="issues" fill={TREND_COLORS[b]}
+                                        radius={idx === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                                        maxBarSize={40} animationDuration={1000} />
+                                ))}
+                                {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map(b => (
+                                    <Line key={`line_${b}`} yAxisId="right" type="monotone" dataKey={`shortage_${b}`}
+                                        name={`[결품] ${b}`} stroke={TREND_COLORS[b]} strokeWidth={3}
+                                        dot={{ r: 4, strokeWidth: 1 }} activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
+                                        strokeDasharray="5 3" animationDuration={1000} />
+                                ))}
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-slate-400 font-bold text-sm bg-slate-50/50 rounded-xl">
+                            해당 기간({trendType === 'daily' ? '일간' : '월간'})에 해당하는 데이터가 없습니다.
+                        </div>
+                    )}
                 </div>
             </div>
 
