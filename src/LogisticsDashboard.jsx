@@ -12,6 +12,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     const [selectedBrands, setSelectedBrands] = useState([]);
     const [shortageData, setShortageData] = useState([]);
     const [barToggles, setBarToggles] = useState({ issue: true, shortage: true });
+    const [trendType, setTrendType] = useState('daily');
 
     // 🔥 1. 날짜 필터 상태 (기본값: 'W' 주간)
     const [filterType, setFilterType] = useState('W'); // 'D', 'W', 'M', 'CUSTOM'
@@ -64,7 +65,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
         const fetchShortage = async () => {
             const { data } = await supabase
                 .from('wms_shortage_list')
-                .select('item_code, brand, vendor, shortage_qty')
+                .select('item_code, brand, vendor, shortage_qty, upload_date')
                 .gte('upload_date', startDate)
                 .lte('upload_date', endDate);
             setShortageData(data || []);
@@ -144,21 +145,45 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
     const trendData = useMemo(() => {
         const pad = n => n.toString().padStart(2, '0');
-        const dates = [];
-        const cur = new Date(startDate + 'T00:00:00');
-        const end = new Date(endDate + 'T00:00:00');
-        while (cur <= end) {
-            dates.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`);
-            cur.setDate(cur.getDate() + 1);
+        if (trendType === 'monthly') {
+            // 조회 기간 내 월별 집계
+            const monthMap = new Map();
+            const cur = new Date(startDate + 'T00:00:00');
+            const end = new Date(endDate + 'T00:00:00');
+            while (cur <= end) {
+                const key = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}`;
+                if (!monthMap.has(key)) monthMap.set(key, { issues: 0, shortage: 0 });
+                cur.setDate(cur.getDate() + 1);
+            }
+            targetIssues.forEach(i => {
+                if (!i.created_at) return;
+                const key = i.created_at.slice(0, 7);
+                if (monthMap.has(key)) monthMap.get(key).issues += 1;
+            });
+            targetShortageData.forEach(r => {
+                if (!r.upload_date) return;
+                const key = String(r.upload_date).slice(0, 7);
+                if (monthMap.has(key)) monthMap.get(key).shortage += (Number(r.shortage_qty) || 0);
+            });
+            return Array.from(monthMap.entries()).map(([k, v]) => ({ date: k.slice(5) + '월', ...v }));
+        } else {
+            // 일간
+            const dates = [];
+            const cur = new Date(startDate + 'T00:00:00');
+            const end = new Date(endDate + 'T00:00:00');
+            while (cur <= end) {
+                dates.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`);
+                cur.setDate(cur.getDate() + 1);
+            }
+            return dates.map(date => {
+                const issues = targetIssues.filter(i => i.created_at?.startsWith(date)).length;
+                const shortage = targetShortageData
+                    .filter(r => String(r.upload_date).startsWith(date))
+                    .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
+                return { date: date.slice(5), issues, shortage };
+            });
         }
-        return dates.map(date => {
-            const issues = targetIssues.filter(i => i.created_at?.startsWith(date)).length;
-            const shortage = targetShortageData
-                .filter(r => r.upload_date === date)
-                .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
-            return { date: date.slice(5), issues, shortage };
-        });
-    }, [targetIssues, targetShortageData, startDate, endDate]);
+    }, [targetIssues, targetShortageData, startDate, endDate, trendType]);
 
     // 파이 차트 (특이사항 유형)
     const chartStats = {};
@@ -436,7 +461,16 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
 
             {/* 특이사항 · 결품 추이 */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">특이사항 · 결품 추이</h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-gray-900">특이사항 · 결품 추이</h3>
+                    <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
+                        {[{ id: 'daily', name: '일간' }, { id: 'monthly', name: '월간' }].map(btn => (
+                            <button key={btn.id} onClick={() => setTrendType(btn.id)}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${trendType === btn.id ? 'bg-white text-letusBlue shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800'}`}
+                            >{btn.name}</button>
+                        ))}
+                    </div>
+                </div>
                 <div className="h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={trendData} margin={{ top: 10, right: 50, left: 0, bottom: 0 }}>
