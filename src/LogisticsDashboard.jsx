@@ -154,25 +154,6 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     return (
         <div className="p-6 space-y-6 slide-up">
 
-            {/* ── D-2 결품 KPI 카드 ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                    { label: '결품 품목 수', value: shortageKpi.itemCount.toLocaleString(), unit: '종', color: 'text-letusBlue' },
-                    { label: '결품 총수량',  value: shortageKpi.totalQty.toLocaleString(),  unit: '개', color: 'text-letusOrange' },
-                    { label: 'Top 브랜드',   value: shortageKpi.topBrand,  sub: shortageKpi.topBrandQty > 0 ? `${shortageKpi.topBrandQty.toLocaleString()}개` : null, color: 'text-gray-800' },
-                    { label: 'Top 공급업체', value: shortageKpi.topVendor, sub: shortageKpi.topVendorQty > 0 ? `${shortageKpi.topVendorQty.toLocaleString()}개` : null, color: 'text-gray-800' },
-                ].map(card => (
-                    <div key={card.label} className="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 hover:shadow-md transition-shadow">
-                        <p className="text-[11px] font-bold text-gray-400 mb-1.5">D-2 결품 · {card.label}</p>
-                        <div className="flex items-end gap-1.5">
-                            <span className={`text-2xl font-black leading-none ${card.color}`}>{card.value || '-'}</span>
-                            {card.unit && <span className="text-xs text-gray-400 font-semibold mb-0.5">{card.unit}</span>}
-                            {card.sub && <span className="text-xs text-gray-400 font-semibold mb-0.5 ml-1">({card.sub})</span>}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 px-5 hover:shadow-md transition-shadow shrink-0">
                 {/* 🔥 마스터 날짜 필터 컨트롤러 영역 */}
                 <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-3 gap-3">
@@ -223,31 +204,29 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                             <div
                                 key={brand}
                                 onClick={() => toggleBrand(brand)}
-                                className={`rounded-xl px-4 py-2.5 flex items-center border text-sm cursor-pointer transition-all ${isSelected
+                                className={`rounded-xl flex items-center border text-sm cursor-pointer transition-all ${isSelected
                                     ? 'bg-orange-50 border-orange-400 shadow-sm ring-1 ring-orange-400/50'
                                     : 'bg-gray-50/60 border-gray-100 hover:border-gray-200 hover:bg-gray-100'
                                     }`}
                             >
-                                <div style={{ width: '31%' }} className={`font-bold tracking-tight whitespace-nowrap truncate pr-2 ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
+                                <div style={{ width: '20%' }} className={`px-4 py-2.5 font-bold tracking-tight whitespace-nowrap truncate ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
                                     {brand}
                                 </div>
-
-                                <div className="flex items-center flex-1">
-                                    {/* 날짜 데이터까지 같이 넘겨주는 드릴다운 이벤트 */}
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center pr-3 sm:pr-4 border-r border-gray-200">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">조치대기</span>
-                                        <span className="text-red-500 font-bold text-sm sm:text-base cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치대기', startDate, endDate }); }}>{stats.pending}</span>
-                                    </div>
-
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 sm:px-4 border-r border-gray-200">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">처리 중</span>
-                                        <span className="text-yellow-500 font-bold text-sm sm:text-base cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '처리 중', startDate, endDate }); }}>{stats.processing}</span>
-                                    </div>
-
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center pl-3 sm:pl-4">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치완료</span>
-                                        <span className="text-green-500 font-bold text-sm sm:text-base cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치완료', startDate, endDate }); }}>{stats.completed}</span>
-                                    </div>
+                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                    <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치대기</span>
+                                    <span className="text-red-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치대기', startDate, endDate }); }}>{stats.pending}</span>
+                                </div>
+                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                    <span className="text-gray-400 font-medium whitespace-nowrap text-xs">처리 중</span>
+                                    <span className="text-yellow-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '처리 중', startDate, endDate }); }}>{stats.processing}</span>
+                                </div>
+                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                    <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치완료</span>
+                                    <span className="text-green-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치완료', startDate, endDate }); }}>{stats.completed}</span>
+                                </div>
+                                <div style={{ width: '20%' }} className="flex justify-between items-center px-3 py-2.5 border-l border-gray-200">
+                                    <span className="text-gray-400 font-medium whitespace-nowrap text-xs">D-2 결품</span>
+                                    <span className="text-gray-700 font-bold text-sm">{(brandShortageQty[brand] || 0).toLocaleString()}</span>
                                 </div>
                             </div>
                         );
