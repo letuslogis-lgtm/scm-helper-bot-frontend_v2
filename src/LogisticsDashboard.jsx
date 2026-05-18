@@ -560,13 +560,13 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                     );
                                     return (
                                         <div style={{ paddingTop: 15, display: 'flex', justifyContent: 'center', gap: 32 }}>
-                                            <div>
-                                                <p style={{ fontSize: 11, fontWeight: 'bold', color: '#9ca3af', marginBottom: 6 }}>특이사항</p>
-                                                <div>{issues.map(p => <Item key={p.value} p={p} />)}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <span style={{ fontSize: 11, fontWeight: 'bold', color: '#9ca3af', marginRight: 8, flexShrink: 0 }}>특이사항</span>
+                                                {issues.map(p => <Item key={p.value} p={p} />)}
                                             </div>
-                                            <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 32 }}>
-                                                <p style={{ fontSize: 11, fontWeight: 'bold', color: '#9ca3af', marginBottom: 6 }}>결품</p>
-                                                <div>{shortages.map(p => <Item key={p.value} p={p} />)}</div>
+                                            <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 32, display: 'flex', alignItems: 'center' }}>
+                                                <span style={{ fontSize: 11, fontWeight: 'bold', color: '#9ca3af', marginRight: 8, flexShrink: 0 }}>결품</span>
+                                                {shortages.map(p => <Item key={p.value} p={p} />)}
                                             </div>
                                         </div>
                                     );
