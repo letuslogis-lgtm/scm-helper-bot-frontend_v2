@@ -1,46 +1,27 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { loadXLSX } from './utils.js';
 
+// 표시할 컬럼 (key = 엑셀 원본 컬럼명, label = 화면 표시명)
 const COLS = [
-    { key: 'WAVE명',     label: 'WAVE명',    w: '180px' },
-    { key: 'WAVE 타입',  label: 'WAVE 타입', w: '110px' },
-    { key: '오더번호',   label: '오더번호',  w: '160px' },
-    { key: '오더건명',   label: '오더건명',  w: '220px' },
-    { key: 'OWNER',      label: 'OWNER',     w: '80px'  },
-    { key: '유통채널',   label: '유통채널',  w: '130px' },
-    { key: '품목ID',     label: '품목ID',    w: '150px' },
-    { key: '제품구분',   label: '제품구분',  w: '100px' },
-    { key: '공급업체명', label: '공급업체명',w: '120px' },
-    { key: 'CUT수량',    label: 'CUT수량',   w: '80px'  },
-    { key: '피킹여부',   label: '피킹여부',  w: '80px'  },
-    { key: '미출여부',   label: '미출여부',  w: '80px'  },
-    { key: '조치사항',   label: '조치사항',  w: '180px' },
-    { key: '매출여부',   label: '매출여부',  w: '80px'  },
-    { key: '취소대상여부', label: '취소대상', w: '80px' },
+    { key: '_일자',      label: '일자',    w: '100px', sortKey: '최초 등록 일시' },
+    { key: '오더건명',   label: '오더건명', w: '240px' },
+    { key: 'OWNER',      label: '브랜드',  w: '90px'  },
+    { key: '품목ID',     label: '품목코드', w: '160px' },
+    { key: '공급업체명', label: '공급업체', w: '130px' },
+    { key: 'CUT수량',    label: '결품수량', w: '90px'  },
 ];
 
-const FLAG_COLS = new Set(['피킹여부', '미출여부', '매출여부', '취소대상여부']);
-
-const today = () => new Date().toISOString().split('T')[0];
-const INIT_DRAFT = { startDate: '', endDate: '', searchType: '공급업체명', searchValue: '' };
+const INIT_DRAFT   = { startDate: '', endDate: '', searchType: '공급업체명', searchValue: '' };
 const INIT_APPLIED = { startDate: '', endDate: '', searchType: '공급업체명', searchValue: '' };
 
-function FlagBadge({ value }) {
-    const v = String(value || '').toUpperCase();
-    if (v === 'Y') return <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700">Y</span>;
-    if (v === 'N') return <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-600">N</span>;
-    return <span className="text-gray-400 text-xs">-</span>;
-}
-
-// 엑셀 날짜 직렬번호 → YYYY-MM-DD 변환
 function excelDateToStr(val) {
     if (!val) return '';
-    if (typeof val === 'string' && val.includes('-')) return val.split('T')[0];
+    if (typeof val === 'string') return val.split('T')[0].slice(0, 10);
     if (typeof val === 'number') {
         const d = new Date(Math.round((val - 25569) * 86400 * 1000));
         return d.toISOString().split('T')[0];
     }
-    return String(val).split('T')[0];
+    return '';
 }
 
 export const WmsShortageList = () => {
@@ -51,6 +32,8 @@ export const WmsShortageList = () => {
     const [draft, setDraft] = useState({ ...INIT_DRAFT });
     const [applied, setApplied] = useState({ ...INIT_APPLIED });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
+    const [selectedIdxs, setSelectedIdxs] = useState([]);
+    const [lastSelectedIdx, setLastSelectedIdx] = useState(null);
     const fileInputRef = useRef(null);
 
     const setD = (k, v) => setDraft(p => ({ ...p, [k]: v }));
@@ -68,37 +51,32 @@ export const WmsShortageList = () => {
                 };
                 reader.readAsBinaryString(file);
             });
-            setRows(data);
+            // 일자 파생 컬럼 미리 계산
+            const enriched = data.map(r => ({ ...r, _일자: excelDateToStr(r['최초 등록 일시']) }));
+            setRows(enriched);
             setFileName(file.name);
             setUploadedAt(new Date().toLocaleString('ko-KR'));
             setDraft({ ...INIT_DRAFT });
             setApplied({ ...INIT_APPLIED });
             setSortConfig({ key: null, direction: 'none' });
+            setSelectedIdxs([]);
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleFile = (e) => { parseFile(e.target.files[0]); e.target.value = ''; };
-    const handleDrop = (e) => {
-        e.preventDefault();
-        const file = e.dataTransfer.files[0];
-        if (file) parseFile(file);
-    };
+    const handleDrop = (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) parseFile(f); };
 
-    const handleSearch = () => setApplied({ ...draft });
-    const handleReset = () => { setDraft({ ...INIT_DRAFT }); setApplied({ ...INIT_APPLIED }); };
+    const handleSearch = () => { setApplied({ ...draft }); setSelectedIdxs([]); };
+    const handleReset = () => { setDraft({ ...INIT_DRAFT }); setApplied({ ...INIT_APPLIED }); setSelectedIdxs([]); };
 
     const filtered = useMemo(() => rows.filter(r => {
-        if (applied.startDate || applied.endDate) {
-            const rowDate = excelDateToStr(r['최초 등록 일시']);
-            if (applied.startDate && rowDate < applied.startDate) return false;
-            if (applied.endDate && rowDate > applied.endDate) return false;
-        }
+        if (applied.startDate && r._일자 < applied.startDate) return false;
+        if (applied.endDate   && r._일자 > applied.endDate)   return false;
         if (applied.searchValue) {
             const q = applied.searchValue.toLowerCase();
-            const target = String(r[applied.searchType] || '').toLowerCase();
-            if (!target.includes(q)) return false;
+            if (!String(r[applied.searchType] || '').toLowerCase().includes(q)) return false;
         }
         return true;
     }), [rows, applied]);
@@ -110,6 +88,7 @@ export const WmsShortageList = () => {
             else if (sortConfig.direction === 'desc') direction = 'none';
         }
         setSortConfig({ key: direction === 'none' ? null : key, direction });
+        setSelectedIdxs([]);
     };
 
     const sorted = useMemo(() => {
@@ -125,12 +104,33 @@ export const WmsShortageList = () => {
 
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
-        if (sortConfig.direction === 'asc') return <span className="ml-1 text-letusBlue font-black">↑</span>;
-        if (sortConfig.direction === 'desc') return <span className="ml-1 text-letusBlue font-black">↓</span>;
-        return null;
+        return sortConfig.direction === 'asc'
+            ? <span className="ml-1 text-letusBlue font-black">↑</span>
+            : <span className="ml-1 text-letusBlue font-black">↓</span>;
     };
 
     const totalCut = useMemo(() => sorted.reduce((s, r) => s + (Number(r['CUT수량']) || 0), 0), [sorted]);
+    const selectedCut = useMemo(() => selectedIdxs.reduce((s, i) => s + (Number(sorted[i]?.['CUT수량']) || 0), 0), [selectedIdxs, sorted]);
+
+    // 체크박스 핸들러
+    const handleSelectAll = (e) => {
+        setSelectedIdxs(e.target.checked ? sorted.map((_, i) => i) : []);
+        setLastSelectedIdx(null);
+    };
+    const handleSelectOne = (e, idx) => {
+        if (e.nativeEvent.shiftKey && lastSelectedIdx !== null) {
+            const min = Math.min(lastSelectedIdx, idx);
+            const max = Math.max(lastSelectedIdx, idx);
+            setSelectedIdxs(prev => {
+                const s = new Set(prev);
+                for (let i = min; i <= max; i++) s.add(i);
+                return Array.from(s);
+            });
+        } else {
+            setSelectedIdxs(prev => prev.includes(idx) ? prev.filter(x => x !== idx) : [...prev, idx]);
+            setLastSelectedIdx(idx);
+        }
+    };
 
     return (
         <div
@@ -207,15 +207,16 @@ export const WmsShortageList = () => {
 
             {/* ── 액션 바 ── */}
             <div className="flex items-center justify-between w-full shrink-0">
-                {/* 파일 정보 */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {fileName ? (
                         <>
-                            <span className="text-xs text-gray-500">📄 {fileName}</span>
-                            <span className="text-xs text-gray-400">· {uploadedAt} 업로드</span>
-                            {rows.length > 0 && (
-                                <span className="ml-2 text-xs font-bold text-letusBlue">
-                                    {sorted.length.toLocaleString()}건 / CUT {totalCut.toLocaleString()} EA
+                            <span className="text-xs text-gray-500">📄 {fileName} · {uploadedAt}</span>
+                            <span className="text-xs font-bold text-letusBlue">
+                                {sorted.length.toLocaleString()}건 / 결품 {totalCut.toLocaleString()} EA
+                            </span>
+                            {selectedIdxs.length > 0 && (
+                                <span className="text-xs font-bold text-letusOrange">
+                                    · 선택 {selectedIdxs.length}건 / {selectedCut.toLocaleString()} EA
                                 </span>
                             )}
                         </>
@@ -223,8 +224,6 @@ export const WmsShortageList = () => {
                         <span className="text-xs text-gray-400">WMS 결품 파일을 업로드하면 데이터가 표시됩니다.</span>
                     )}
                 </div>
-
-                {/* 업로드 버튼 */}
                 <button
                     onClick={() => fileInputRef.current?.click()}
                     className="flex items-center gap-1.5 bg-letusBlue text-white text-xs font-bold px-4 h-[32px] rounded-[3px] hover:bg-blue-600 transition-colors shadow-sm"
@@ -240,19 +239,27 @@ export const WmsShortageList = () => {
             {/* ── 테이블 ── */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="overflow-auto flex-1">
-                    <table className="w-full text-left whitespace-nowrap" style={{ minWidth: '1800px' }}>
+                    <table className="w-full text-left whitespace-nowrap">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-4 py-3 text-center w-10 text-gray-400">No.</th>
+                                <th className="p-4 pl-6 w-10 text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={sorted.length > 0 && selectedIdxs.length === sorted.length}
+                                        onChange={handleSelectAll}
+                                        className="w-4 h-4 accent-letusBlue cursor-pointer"
+                                    />
+                                </th>
+                                <th className="px-3 py-3 text-center w-10 text-gray-400">No.</th>
                                 {COLS.map(c => (
                                     <th
                                         key={c.key}
                                         style={{ width: c.w, minWidth: c.w }}
                                         className="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                        onClick={() => requestSort(c.key)}
+                                        onClick={() => requestSort(c.sortKey || c.key)}
                                     >
                                         <div className="flex items-center justify-center">
-                                            {c.label}{getSortIcon(c.key)}
+                                            {c.label}{getSortIcon(c.sortKey || c.key)}
                                         </div>
                                     </th>
                                 ))}
@@ -261,7 +268,7 @@ export const WmsShortageList = () => {
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={COLS.length + 1} className="py-32 text-center">
+                                    <td colSpan={COLS.length + 2} className="py-32 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div>
                                             <p className="text-gray-500 font-bold text-[13px]">파일 분석 중...</p>
@@ -270,7 +277,7 @@ export const WmsShortageList = () => {
                                 </tr>
                             ) : rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={COLS.length + 1} className="py-32 text-center">
+                                    <td colSpan={COLS.length + 2} className="py-32 text-center">
                                         <div className="flex flex-col items-center gap-3 text-gray-400">
                                             <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -282,29 +289,40 @@ export const WmsShortageList = () => {
                                 </tr>
                             ) : sorted.length === 0 ? (
                                 <tr>
-                                    <td colSpan={COLS.length + 1} className="py-20 text-center text-gray-400 text-sm">
+                                    <td colSpan={COLS.length + 2} className="py-20 text-center text-gray-400 text-sm">
                                         조건에 맞는 데이터가 없습니다.
                                     </td>
                                 </tr>
                             ) : (
-                                sorted.map((row, i) => (
-                                    <tr key={i} className="hover:bg-blue-50/40 transition-colors">
-                                        <td className="px-4 py-2.5 text-center text-gray-400 text-xs">{i + 1}</td>
-                                        {COLS.map(c => (
-                                            <td key={c.key} className="px-3 py-2.5 text-center" style={{ width: c.w }}>
-                                                {FLAG_COLS.has(c.key) ? (
-                                                    <FlagBadge value={row[c.key]} />
-                                                ) : c.key === 'CUT수량' ? (
-                                                    <span className="font-bold text-letusOrange">{row[c.key] ?? '-'}</span>
-                                                ) : c.key === '조치사항' ? (
-                                                    <span className="text-left block text-gray-600 whitespace-normal">{row[c.key] || '-'}</span>
-                                                ) : (
-                                                    <span>{row[c.key] ?? '-'}</span>
-                                                )}
+                                sorted.map((row, i) => {
+                                    const checked = selectedIdxs.includes(i);
+                                    return (
+                                        <tr
+                                            key={i}
+                                            className={`transition-colors cursor-pointer ${checked ? 'bg-blue-50' : 'hover:bg-blue-50/40'}`}
+                                            onClick={(e) => handleSelectOne(e, i)}
+                                        >
+                                            <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => handleSelectOne(e, i)}
+                                                    className="w-4 h-4 accent-letusBlue cursor-pointer"
+                                                />
                                             </td>
-                                        ))}
-                                    </tr>
-                                ))
+                                            <td className="px-3 py-2.5 text-center text-gray-400 text-xs">{i + 1}</td>
+                                            {COLS.map(c => (
+                                                <td key={c.key} className="px-3 py-2.5 text-center" style={{ width: c.w }}>
+                                                    {c.key === 'CUT수량' ? (
+                                                        <span className="font-bold text-letusOrange">{row[c.key] ?? '-'}</span>
+                                                    ) : (
+                                                        <span>{row[c.key] ?? '-'}</span>
+                                                    )}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
