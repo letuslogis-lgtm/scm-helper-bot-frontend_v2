@@ -516,7 +516,38 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
                                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '13px' }} cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }} />
+                                <Tooltip cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }} content={({ active, payload, label }) => {
+                                    if (!active || !payload?.length) return null;
+                                    const issues = payload.filter(p => p.name?.startsWith('[특이사항]'));
+                                    const shortages = payload.filter(p => p.name?.startsWith('[결품]'));
+                                    return (
+                                        <div style={{ background: '#fff', borderRadius: 8, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', padding: '10px 14px', fontSize: 12 }}>
+                                            <p style={{ fontWeight: 'bold', color: '#374151', marginBottom: 8 }}>{label}</p>
+                                            <div style={{ display: 'flex', gap: 20 }}>
+                                                <div>
+                                                    <p style={{ fontWeight: 'bold', color: '#6b7280', marginBottom: 4, fontSize: 11 }}>특이사항 (건)</p>
+                                                    {issues.map(p => (
+                                                        <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                                                            <span style={{ color: '#374151' }}>{p.name.replace('[특이사항] ', '')}</span>
+                                                            <span style={{ fontWeight: 'bold', marginLeft: 'auto', paddingLeft: 8 }}>{p.value}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 20 }}>
+                                                    <p style={{ fontWeight: 'bold', color: '#6b7280', marginBottom: 4, fontSize: 11 }}>결품 (수량)</p>
+                                                    {shortages.map(p => (
+                                                        <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                                                            <span style={{ color: '#374151' }}>{p.name.replace('[결품] ', '')}</span>
+                                                            <span style={{ fontWeight: 'bold', marginLeft: 'auto', paddingLeft: 8 }}>{p.value?.toLocaleString()}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }} />
                                 <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', paddingTop: '15px' }} iconType="circle" />
                                 {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map((b, idx, arr) => (
                                     <Bar key={`bar_${b}`} yAxisId="left" dataKey={`issue_${b}`} name={`[특이사항] ${b}`}
