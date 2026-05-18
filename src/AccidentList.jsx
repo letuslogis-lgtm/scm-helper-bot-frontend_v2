@@ -778,7 +778,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
                                 {/* 🚩 2. 사용자 관리와 토씨 하나 안 틀린 동일한 클래스 적용 + 절대 너비 60px 고정! */}
-                                <th className="p-4 pl-6 text-center" style={{ width: '60px' }}>
+                                <th className="p-4 pl-6 w-10 text-center">
                                     <input
                                         type="checkbox"
                                         checked={sortedItems.length > 0 && selectedIds.length === sortedItems.length}

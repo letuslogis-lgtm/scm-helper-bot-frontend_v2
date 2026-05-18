@@ -655,7 +655,7 @@ const AttendanceManagement = () => {
                       <table className="w-full text-left whitespace-nowrap">
                         <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold sticky top-0 z-10">
                           <tr>
-                            <th className="p-3 w-12 text-center border-r border-slate-100">
+                            <th className="p-4 pl-6 w-10 text-center border-r border-slate-100">
                               <input type="checkbox" checked={selectedIds.length === sortedDetailData.length && sortedDetailData.length > 0} onChange={handleSelectAll} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                             </th>
                             {[

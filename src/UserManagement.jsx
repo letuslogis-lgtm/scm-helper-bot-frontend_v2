@@ -242,7 +242,7 @@ const UserManagement = () => {
                         {/* 🚩 문제 2 해결: <thead>에 bg-slate-50 을 줘서 글자 겹침 방지 (투명도 /70 제거) */}
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="p-4 pl-6 w-12 text-center">
+                                <th className="p-4 pl-6 w-10 text-center">
                                     <input type="checkbox" checked={isAllSelected} onChange={toggleAll} className="w-4 h-4 accent-letusBlue cursor-pointer" title="전체 선택" />
                                 </th>
                                 <th className="p-4 w-12 text-center">No</th>

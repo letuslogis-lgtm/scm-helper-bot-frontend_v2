@@ -742,7 +742,7 @@ const ReturnsManagement = ({ userProfile }) => {
     const filterSel = 'border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700 bg-white';
 
     const COLS = [
-        { isCheckbox: true,  key: null,              w: '44px'  },
+        { isCheckbox: true,  key: null,              w: '40px'  },
         { label: '유형',      key: 'type',             w: '70px'  },
         { label: '발생일',    key: 'incident_date',   w: '90px'  },
         { label: '발생센터',  key: 'incident_center', w: '110px' },
