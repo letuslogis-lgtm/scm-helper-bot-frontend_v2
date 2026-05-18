@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { TableSkeleton, CATEGORY_COLORS, BRAND_COLORS, StatusBadge, CategoryBadge } from './SharedUI.jsx';
 
 
@@ -141,6 +141,24 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     const targetShortageData = selectedBrands.length > 0
         ? shortageData.filter(r => selectedBrands.includes(r.brand))
         : shortageData;
+
+    const trendData = useMemo(() => {
+        const pad = n => n.toString().padStart(2, '0');
+        const dates = [];
+        const cur = new Date(startDate + 'T00:00:00');
+        const end = new Date(endDate + 'T00:00:00');
+        while (cur <= end) {
+            dates.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`);
+            cur.setDate(cur.getDate() + 1);
+        }
+        return dates.map(date => {
+            const issues = targetIssues.filter(i => i.created_at?.startsWith(date)).length;
+            const shortage = targetShortageData
+                .filter(r => r.upload_date === date)
+                .reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
+            return { date: date.slice(5), issues, shortage };
+        });
+    }, [targetIssues, targetShortageData, startDate, endDate]);
 
     // 파이 차트 (특이사항 유형)
     const chartStats = {};
@@ -291,11 +309,11 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 {/* 특이사항 유형 도넛 */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
                     <h3 className="text-sm font-bold text-gray-900 mb-3">특이사항 유형</h3>
-                    <div className="flex items-center justify-center gap-6 w-full h-[170px]">
-                        <div className="relative w-40 h-40 shrink-0">
+                    <div className="flex items-center justify-center gap-6 w-full h-[220px]">
+                        <div className="relative w-48 h-48 shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={48} outerRadius={72}
+                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={58} outerRadius={86}
                                         paddingAngle={totalIssues === 0 ? 0 : 4} cornerRadius={totalIssues === 0 ? 0 : 6}
                                         dataKey="value" stroke="none">
                                         {pieData.map((entry, index) => (
@@ -328,13 +346,13 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 {/* D-2 결품 품목코드별 도넛 */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
                     <h3 className="text-sm font-bold text-gray-900 mb-3">D-2 결품 품목코드별 비율 (Top 5)</h3>
-                    <div className="flex items-center justify-center gap-6 w-full h-[170px]">
-                        <div className="relative w-40 h-40 shrink-0">
+                    <div className="flex items-center justify-center gap-6 w-full h-[220px]">
+                        <div className="relative w-48 h-48 shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={shortageChartData.itemTotal === 0 ? [{ name: '데이터 없음', value: 1, isEmpty: true }] : shortageChartData.itemEntries.map(([k, v]) => ({ name: k, value: v }))}
-                                        cx="50%" cy="50%" innerRadius={48} outerRadius={72}
+                                        cx="50%" cy="50%" innerRadius={58} outerRadius={86}
                                         paddingAngle={shortageChartData.itemTotal === 0 ? 0 : 4} cornerRadius={shortageChartData.itemTotal === 0 ? 0 : 6}
                                         dataKey="value" stroke="none">
                                         {(shortageChartData.itemTotal === 0 ? [{ isEmpty: true }] : shortageChartData.itemEntries).map((entry, index) => (
@@ -414,6 +432,25 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                     </div>
                 </div>
 
+            </div>
+
+            {/* 특이사항 · 결품 추이 */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+                <h3 className="text-sm font-bold text-gray-900 mb-3">특이사항 · 결품 추이</h3>
+                <div className="h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={trendData} margin={{ top: 10, right: 50, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4f8" />
+                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontWeight: 'bold' }} />
+                            <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '8px' }} iconType="circle" />
+                            <Bar yAxisId="left" dataKey="issues" name="특이사항(건)" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                            <Line yAxisId="right" type="monotone" dataKey="shortage" name="결품수량" stroke="#f97316" strokeWidth={2} dot={{ r: 3, fill: '#f97316' }} activeDot={{ r: 5 }} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
 
         </div>
