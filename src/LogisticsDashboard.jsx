@@ -310,10 +310,10 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
                     <h3 className="text-sm font-bold text-gray-900 mb-3">특이사항 유형</h3>
                     <div className="flex items-center justify-center gap-6 w-full h-[220px]">
-                        <div className="relative w-48 h-48 shrink-0">
+                        <div className="relative w-40 h-40 shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={58} outerRadius={86}
+                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={48} outerRadius={72}
                                         paddingAngle={totalIssues === 0 ? 0 : 4} cornerRadius={totalIssues === 0 ? 0 : 6}
                                         dataKey="value" stroke="none">
                                         {pieData.map((entry, index) => (
@@ -347,12 +347,12 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col hover:shadow-md transition-shadow">
                     <h3 className="text-sm font-bold text-gray-900 mb-3">D-2 결품 품목코드별 비율 (Top 5)</h3>
                     <div className="flex items-center justify-center gap-6 w-full h-[220px]">
-                        <div className="relative w-48 h-48 shrink-0">
+                        <div className="relative w-40 h-40 shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={shortageChartData.itemTotal === 0 ? [{ name: '데이터 없음', value: 1, isEmpty: true }] : shortageChartData.itemEntries.map(([k, v]) => ({ name: k, value: v }))}
-                                        cx="50%" cy="50%" innerRadius={58} outerRadius={86}
+                                        cx="50%" cy="50%" innerRadius={48} outerRadius={72}
                                         paddingAngle={shortageChartData.itemTotal === 0 ? 0 : 4} cornerRadius={shortageChartData.itemTotal === 0 ? 0 : 6}
                                         dataKey="value" stroke="none">
                                         {(shortageChartData.itemTotal === 0 ? [{ isEmpty: true }] : shortageChartData.itemEntries).map((entry, index) => (
