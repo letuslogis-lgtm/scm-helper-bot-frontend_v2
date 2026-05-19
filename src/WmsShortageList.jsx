@@ -17,6 +17,14 @@ const COLS = [
 
 const ACTION_TYPES = ['', '정상 출고', '납기 연기', '당일 출고', '현장 직출', '센터 직출'];
 
+function getWaveCategory(wt, wn) {
+    if (!wt) return '';
+    if (wt.includes('지방')) return (wn || '').includes('제주') ? '제주' : '지방';
+    if (wt.includes('현장')) return '현장';
+    if (wt.includes('경인')) return '경인';
+    return '';
+}
+
 const EXCEL_TO_DB = {
     'WAVE명':      'wave_name',
     'WAVE 타입':   'wave_type',
@@ -122,6 +130,8 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
             id: r.id,
             order_no: r.order_no,
             order_name: r.order_name,
+            wave_type: r.wave_type || '',
+            wave_name: r.wave_name || '',
             shortage_qty: r.shortage_qty,
             action_type: r.action_type || '',
             action_detail: r.action_detail || '',
@@ -133,6 +143,30 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
     const [bulkType, setBulkType] = useState('');
     const [bulkDetail, setBulkDetail] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [modalSort, setModalSort] = useState({ key: null, direction: 'none' });
+
+    const requestModalSort = (key) => {
+        setModalSort(prev => {
+            if (prev.key !== key) return { key, direction: 'asc' };
+            if (prev.direction === 'asc') return { key, direction: 'desc' };
+            return { key: null, direction: 'none' };
+        });
+    };
+
+    const displayRows = useMemo(() => {
+        if (!modalSort.key) return localRows;
+        return [...localRows].sort((a, b) => {
+            let av = modalSort.key === 'wave_category'
+                ? getWaveCategory(a.wave_type, a.wave_name)
+                : (a[modalSort.key] ?? '');
+            let bv = modalSort.key === 'wave_category'
+                ? getWaveCategory(b.wave_type, b.wave_name)
+                : (b[modalSort.key] ?? '');
+            if (av < bv) return modalSort.direction === 'asc' ? -1 : 1;
+            if (av > bv) return modalSort.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [localRows, modalSort]);
 
     const handleSelectAll = (e) => {
         setSelectedIds(e.target.checked ? new Set(localRows.map(r => r.id)) : new Set());
@@ -236,49 +270,79 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                         onChange={handleSelectAll}
                                         className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                                 </th>
-                                <th className="p-3 w-36">오더번호</th>
-                                <th className="p-3">오더건명</th>
-                                <th className="p-3 w-20 text-right pr-4">결품수량</th>
-                                <th className="p-3 w-32">조치유형</th>
-                                <th className="p-3">조치내용</th>
-                                <th className="p-3 w-44 text-center">최종수정</th>
+                                {[
+                                    { key: 'order_no',       label: '수주번호', cls: 'w-36' },
+                                    { key: 'order_name',     label: '수주건명', cls: '' },
+                                    { key: 'wave_category',  label: 'WAVE', cls: 'w-20 text-center' },
+                                    { key: 'shortage_qty',   label: '결품수량', cls: 'w-20 text-right pr-4' },
+                                    { key: 'action_type',    label: '조치유형', cls: 'w-32' },
+                                    { key: 'action_detail',  label: '조치내용', cls: '' },
+                                    { key: 'action_updated_by', label: '최종수정', cls: 'w-44 text-center' },
+                                ].map(col => (
+                                    <th key={col.key}
+                                        className={`p-3 cursor-pointer hover:bg-gray-100 select-none transition-colors ${col.cls}`}
+                                        onClick={() => requestModalSort(col.key)}>
+                                        <span className="flex items-center gap-1 justify-inherit">
+                                            {col.label}
+                                            {modalSort.key === col.key && (
+                                                <span className="text-letusBlue font-black">
+                                                    {modalSort.direction === 'asc' ? '↑' : '↓'}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-gray-700">
-                            {localRows.map(row => (
-                                <tr key={row.id} className={`transition-colors ${selectedIds.has(row.id) ? 'bg-blue-50' : 'hover:bg-gray-50/50'}`}>
-                                    <td className="p-3 pl-4 text-center">
-                                        <input type="checkbox"
-                                            checked={selectedIds.has(row.id)}
-                                            onChange={() => handleSelectOne(row.id)}
-                                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
-                                    </td>
-                                    <td className="p-3 font-mono text-[11px] text-gray-600">{row.order_no || '-'}</td>
-                                    <td className="p-3 text-[11px] text-gray-700 max-w-[200px] truncate" title={row.order_name || ''}>{row.order_name || '-'}</td>
-                                    <td className="p-3 text-right pr-4 font-bold text-letusOrange">{row.shortage_qty ?? '-'}</td>
-                                    <td className="p-3">
-                                        <select value={row.action_type}
-                                            onChange={e => updateRow(row.id, 'action_type', e.target.value)}
-                                            className="border border-gray-200 rounded text-[11px] px-1.5 h-6 w-full bg-white text-gray-700 focus:outline-none focus:border-letusBlue cursor-pointer">
-                                            {ACTION_TYPES.map(t => <option key={t} value={t}>{t || '(미처리)'}</option>)}
-                                        </select>
-                                    </td>
-                                    <td className="p-3">
-                                        <input value={row.action_detail}
-                                            onChange={e => updateRow(row.id, 'action_detail', e.target.value)}
-                                            className="border border-gray-200 rounded text-[11px] px-2 h-6 w-full focus:outline-none focus:border-letusBlue"
-                                            placeholder="내용 입력" />
-                                    </td>
-                                    <td className="p-3 text-center">
-                                        {row.action_updated_by ? (
-                                            <div className="text-[10px]">
-                                                <div className="font-bold text-gray-600">{row.action_updated_by}</div>
-                                                <div className="text-gray-400">{row.action_updated_at ? String(row.action_updated_at).slice(0, 16).replace('T', ' ') : ''}</div>
-                                            </div>
-                                        ) : <span className="text-gray-300 text-[10px]">-</span>}
-                                    </td>
-                                </tr>
-                            ))}
+                            {displayRows.map(row => {
+                                const waveLabel = getWaveCategory(row.wave_type, row.wave_name);
+                                const waveColor = {
+                                    '제주': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+                                    '지방': 'bg-purple-50 text-purple-700 border-purple-200',
+                                    '현장': 'bg-orange-50 text-orange-700 border-orange-200',
+                                    '경인': 'bg-blue-50 text-blue-700 border-blue-200',
+                                }[waveLabel] || 'bg-gray-50 text-gray-400 border-gray-200';
+                                return (
+                                    <tr key={row.id} className={`transition-colors ${selectedIds.has(row.id) ? 'bg-blue-50' : 'hover:bg-gray-50/50'}`}>
+                                        <td className="p-3 pl-4 text-center">
+                                            <input type="checkbox"
+                                                checked={selectedIds.has(row.id)}
+                                                onChange={() => handleSelectOne(row.id)}
+                                                className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                                        </td>
+                                        <td className="p-3 font-mono text-[11px] text-gray-600">{row.order_no || '-'}</td>
+                                        <td className="p-3 text-[11px] text-gray-700 max-w-[200px] truncate" title={row.order_name || ''}>{row.order_name || '-'}</td>
+                                        <td className="p-3 text-center">
+                                            {waveLabel
+                                                ? <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold border ${waveColor}`}>{waveLabel}</span>
+                                                : <span className="text-gray-300 text-[10px]">-</span>}
+                                        </td>
+                                        <td className="p-3 text-right pr-4 font-bold text-letusOrange">{row.shortage_qty ?? '-'}</td>
+                                        <td className="p-3">
+                                            <select value={row.action_type}
+                                                onChange={e => updateRow(row.id, 'action_type', e.target.value)}
+                                                className="border border-gray-200 rounded text-[11px] px-1.5 h-6 w-full bg-white text-gray-700 focus:outline-none focus:border-letusBlue cursor-pointer">
+                                                {ACTION_TYPES.map(t => <option key={t} value={t}>{t || '(미처리)'}</option>)}
+                                            </select>
+                                        </td>
+                                        <td className="p-3">
+                                            <input value={row.action_detail}
+                                                onChange={e => updateRow(row.id, 'action_detail', e.target.value)}
+                                                className="border border-gray-200 rounded text-[11px] px-2 h-6 w-full focus:outline-none focus:border-letusBlue"
+                                                placeholder="내용 입력" />
+                                        </td>
+                                        <td className="p-3 text-center">
+                                            {row.action_updated_by ? (
+                                                <div className="text-[10px]">
+                                                    <div className="font-bold text-gray-600">{row.action_updated_by}</div>
+                                                    <div className="text-gray-400">{row.action_updated_at ? String(row.action_updated_at).slice(0, 16).replace('T', ' ') : ''}</div>
+                                                </div>
+                                            ) : <span className="text-gray-300 text-[10px]">-</span>}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
