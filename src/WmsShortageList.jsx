@@ -684,6 +684,14 @@ export const WmsShortageList = ({ userProfile }) => {
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [actionModal, setActionModal]     = useState(null); // aggRow
     const [constructionTeams, setConstructionTeams] = useState(new Set());
+    const [excludeQc, setExcludeQc]         = useState(false);
+
+    const QC_KEYWORDS = ['qcc', '양지재고', '양지 재고'];
+    const isQcRow = (detail) => {
+        if (!detail) return false;
+        const lower = detail.toLowerCase();
+        return QC_KEYWORDS.some(kw => lower.includes(kw));
+    };
 
     const setD = (k, v) => setDraft(p => ({ ...p, [k]: v }));
 
@@ -855,7 +863,8 @@ export const WmsShortageList = ({ userProfile }) => {
     // 집계: 품목코드 + 업로드 날짜 기준, 제주/지방/현장/경인 qty 합산
     const aggregated = useMemo(() => {
         const map = new Map();
-        for (const row of rows) {
+        const sourceRows = excludeQc ? rows.filter(r => !isQcRow(r.action_detail)) : rows;
+        for (const row of sourceRows) {
             const key = `${row.item_code || '(미등록)'}|${row.upload_date || ''}`;
             if (!map.has(key)) {
                 map.set(key, {
@@ -898,14 +907,14 @@ export const WmsShortageList = ({ userProfile }) => {
                 else if (cat === '경인') agg.gyeongin += qty;
             }
         }
-        const result = Array.from(map.values());
+        const result = Array.from(map.values()).filter(agg => agg.shortage_qty > 0);
         result.forEach(agg => {
             if (agg.action_total > 0 && agg.action_done === agg.action_total) agg.action_status = 'done';
             else if (agg.action_done > 0)                                      agg.action_status = 'partial';
             else                                                                agg.action_status = 'none';
         });
         return result;
-    }, [rows, isCenterMove]);
+    }, [rows, isCenterMove, excludeQc]);
 
     const sorted = useMemo(() => {
         if (!sortConfig.key) return aggregated;
@@ -1070,6 +1079,12 @@ export const WmsShortageList = ({ userProfile }) => {
                                 className="border border-gray-200 rounded-r-[3px] text-xs px-2.5 w-40 focus:outline-none focus:border-letusOrange h-full" />
                         </div>
                     </div>
+
+                    <label className="flex items-center gap-1.5 cursor-pointer shrink-0 select-none">
+                        <input type="checkbox" checked={excludeQc} onChange={e => setExcludeQc(e.target.checked)}
+                            className="w-3.5 h-3.5 accent-letusOrange cursor-pointer" />
+                        <span className="text-[11px] font-bold text-gray-600">QC·양지재고 제외</span>
+                    </label>
 
                     <div className="ml-auto flex items-center gap-2 shrink-0">
                         <button onClick={handleReset}
