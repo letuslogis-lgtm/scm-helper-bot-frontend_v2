@@ -144,6 +144,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
     const [bulkDetail, setBulkDetail] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [modalSort, setModalSort] = useState({ key: null, direction: 'none' });
+    const [logPopover, setLogPopover] = useState(null); // row.id
 
     const requestModalSort = (key) => {
         setModalSort(prev => {
@@ -332,11 +333,38 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                                 className="border border-gray-200 rounded text-[11px] px-2 h-6 w-full focus:outline-none focus:border-letusBlue"
                                                 placeholder="내용 입력" />
                                         </td>
-                                        <td className="p-3 text-center">
+                                        <td className="p-3 text-center relative">
                                             {row.action_updated_by ? (
-                                                <div className="text-[10px]">
-                                                    <div className="font-bold text-gray-600">{row.action_updated_by}</div>
-                                                    <div className="text-gray-400">{row.action_updated_at ? String(row.action_updated_at).slice(0, 16).replace('T', ' ') : ''}</div>
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <span className="text-[11px] font-bold text-gray-700">{row.action_updated_by}</span>
+                                                    <button
+                                                        onClick={() => setLogPopover(logPopover === row.id ? null : row.id)}
+                                                        className="text-gray-400 hover:text-letusBlue transition-colors"
+                                                        title="수정 이력">
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </button>
+                                                    {logPopover === row.id && (
+                                                        <>
+                                                            <div className="fixed inset-0 z-10" onClick={() => setLogPopover(null)} />
+                                                            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-lg shadow-xl p-3 w-52 text-left">
+                                                                <div className="text-[10px] font-bold text-gray-500 mb-2 pb-1.5 border-b">수정 이력</div>
+                                                                <div className="flex items-start gap-2">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-letusBlue mt-1.5 shrink-0"></div>
+                                                                    <div>
+                                                                        <div className="text-[11px] font-bold text-gray-700">{row.action_updated_by}</div>
+                                                                        <div className="text-[10px] text-gray-400 mt-0.5">
+                                                                            {row.action_updated_at ? String(row.action_updated_at).slice(0, 16).replace('T', ' ') : '-'}
+                                                                        </div>
+                                                                        <div className="text-[10px] text-gray-500 mt-1">
+                                                                            {row.action_type && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">{row.action_type}</span>}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             ) : <span className="text-gray-300 text-[10px]">-</span>}
                                         </td>
