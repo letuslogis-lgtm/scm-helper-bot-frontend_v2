@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts';
 import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
 
@@ -264,19 +264,19 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                             {vendorData.length === 0
                                 ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
                                 : <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={vendorData} margin={{ top: 5, right: 10, left: 0, bottom: 60 }}>
+                                    <BarChart data={vendorData} margin={{ top: 20, right: 10, left: 0, bottom: 60 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                         <XAxis dataKey="vendor" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }}
                                             axisLine={false} tickLine={false} interval={0}
                                             angle={-35} textAnchor="end" />
                                         <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                        <Tooltip
-                                            contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                                            formatter={(value) => [value.toLocaleString() + '개', '결품수량']} />
                                         <Bar dataKey="qty" radius={[4, 4, 0, 0]}>
                                             {vendorData.map((_, i) => (
                                                 <Cell key={i} fill={VENDOR_BAR_COLORS[i % VENDOR_BAR_COLORS.length]} />
                                             ))}
+                                            <LabelList dataKey="qty" position="top"
+                                                formatter={v => v.toLocaleString()}
+                                                style={{ fontSize: 10, fill: '#374151', fontWeight: 'bold' }} />
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -297,12 +297,15 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                             <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                                             <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                                             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                                             {activeBrands.map(brand => (
                                                 <Line key={brand} type="monotone" dataKey={brand}
                                                     stroke={REPORT_BRAND_COLORS[brand]} strokeWidth={2}
-                                                    dot={{ r: 3 }} activeDot={{ r: 5 }} name={brand} />
+                                                    dot={{ r: 3 }} name={brand}>
+                                                    <LabelList dataKey={brand} position="top"
+                                                        style={{ fontSize: 9, fill: REPORT_BRAND_COLORS[brand], fontWeight: 'bold' }}
+                                                        formatter={v => v > 0 ? v : ''} />
+                                                </Line>
                                             ))}
                                         </ComposedChart>
                                     </ResponsiveContainer>
@@ -322,6 +325,7 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                                 <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
                                     <tr>
                                         <th className="px-3 py-2.5 text-center w-24">일자</th>
+                                        <th className="px-3 py-2.5 text-center w-20">브랜드</th>
                                         <th className="px-3 py-2.5 text-center w-32">공급업체</th>
                                         <th className="px-3 py-2.5 text-center w-32">품목코드</th>
                                         <th className="px-3 py-2.5">단품명칭</th>
@@ -329,15 +333,23 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {selectedRows.map(row => (
-                                        <tr key={row._rowId} className="hover:bg-gray-50">
-                                            <td className="px-3 py-2 text-center text-gray-500">{row.upload_date || '-'}</td>
-                                            <td className="px-3 py-2 text-center font-semibold text-gray-700">{row.vendor || '-'}</td>
-                                            <td className="px-3 py-2 text-center font-mono text-gray-600 text-[11px]">{row.item_code || '-'}</td>
-                                            <td className="px-3 py-2 text-gray-700">{getItemName(row.item_code)}</td>
-                                            <td className="px-3 py-2 text-center font-bold text-letusOrange">{(Number(row.shortage_qty) || 0).toLocaleString()}</td>
-                                        </tr>
-                                    ))}
+                                    {[...selectedRows]
+                                        .sort((a, b) => {
+                                            const dateDiff = (a.upload_date || '').localeCompare(b.upload_date || '');
+                                            if (dateDiff !== 0) return dateDiff;
+                                            return (Number(b.shortage_qty) || 0) - (Number(a.shortage_qty) || 0);
+                                        })
+                                        .map(row => (
+                                            <tr key={row._rowId} className="hover:bg-gray-50">
+                                                <td className="px-3 py-2 text-center text-gray-500">{row.upload_date || '-'}</td>
+                                                <td className="px-3 py-2 text-center text-gray-600">{row.brand || '-'}</td>
+                                                <td className="px-3 py-2 text-center font-semibold text-gray-700">{row.vendor || '-'}</td>
+                                                <td className="px-3 py-2 text-center font-mono text-gray-600 text-[11px]">{row.item_code || '-'}</td>
+                                                <td className="px-3 py-2 text-gray-700">{getItemName(row.item_code)}</td>
+                                                <td className="px-3 py-2 text-center font-bold text-letusOrange">{(Number(row.shortage_qty) || 0).toLocaleString()}</td>
+                                            </tr>
+                                        ))
+                                    }
                                 </tbody>
                             </table>
                         </div>
