@@ -25,6 +25,9 @@ import os
 import sys
 import time
 import tempfile
+import urllib.request
+import urllib.parse
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -38,10 +41,11 @@ from supabase import create_client
 # ---------------------------------------------------------------------------
 load_dotenv(Path(__file__).parent.parent / '.env')
 
-SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
-SUPABASE_KEY = os.getenv('VITE_SUPABASE_SERVICE_ROLE_KEY')
-WMS_USER     = os.getenv('WMS_USER')
-WMS_PASSWORD = os.getenv('WMS_PASSWORD')
+SUPABASE_URL    = os.getenv('VITE_SUPABASE_URL')
+SUPABASE_KEY    = os.getenv('VITE_SUPABASE_SERVICE_ROLE_KEY')
+WMS_USER        = os.getenv('WMS_USER')
+WMS_PASSWORD    = os.getenv('WMS_PASSWORD')
+HOLIDAY_API_KEY = os.getenv('HOLIDAY_API_KEY')
 
 WMS_URL = 'https://wms.letus4u.com/'
 
@@ -52,29 +56,77 @@ if not all([SUPABASE_URL, SUPABASE_KEY, WMS_USER, WMS_PASSWORD]):
 # ---------------------------------------------------------------------------
 # 1. 인수 파싱
 # ---------------------------------------------------------------------------
+_holiday_cache: dict = {}   # {(year, month): set of day numbers}
+
+def fetch_holidays(year: int, month: int) -> set:
+    """공공데이터포털 특일 정보 API로 해당 월 공휴일 일(day) 집합 반환"""
+    cache_key = (year, month)
+    if cache_key in _holiday_cache:
+        return _holiday_cache[cache_key]
+
+    if not HOLIDAY_API_KEY:
+        return set()
+
+    try:
+        params = urllib.parse.urlencode({
+            'serviceKey': HOLIDAY_API_KEY,
+            'solYear':    year,
+            'solMonth':   f'{month:02d}',
+            'numOfRows':  30,
+            '_type':      'xml',
+        })
+        url = f'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo?{params}'
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            root = ET.fromstring(resp.read())
+        days = {
+            int(item.findtext('locdate', '0')[-2:])
+            for item in root.iter('item')
+            if item.findtext('isHoliday') == 'Y'
+        }
+    except Exception as e:
+        print(f'    [WARN] 공휴일 API 오류: {e} → 공휴일 체크 생략')
+        days = set()
+
+    _holiday_cache[cache_key] = days
+    return days
+
+
+def is_off_day(d: datetime) -> bool:
+    """토/일/공휴일 여부"""
+    if d.weekday() >= 5:   # 토=5, 일=6
+        return True
+    holidays = fetch_holidays(d.year, d.month)
+    return d.day in holidays
+
+
+def next_work_day(d: datetime) -> datetime:
+    """d 이후 첫 번째 영업일 반환"""
+    d = d + timedelta(days=1)
+    while is_off_day(d):
+        d += timedelta(days=1)
+    return d
+
+
 def calc_default_dates():
     """
-    실행 요일에 따라 추출할 납기일자 범위 자동 계산
-    - 월~목: 내일 하루
-    - 금요일: 토요일 ~ 월요일 (주말+월요일 커버)
-    - 토/일: 월요일
-    공휴일은 자동 처리 불가 → --start / --end 로 수동 지정
+    실행일 기준 추출 납기일자 범위 계산
+    - 평일: 다음 영업일 하루
+    - 마지막 영업일 (다음 영업일까지 쉬는 날이 있는 경우): 쉬는 날 건너뛰고 다음 영업일까지
+      예) 금요일 → 토~월(공휴일 포함) 스킵 → 화요일이 첫 영업일이면 토~화 범위
     """
-    today   = datetime.now()
-    weekday = today.weekday()   # 0=월 1=화 2=수 3=목 4=금 5=토 6=일
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    start = next_work_day(today)
 
-    if weekday == 4:            # 금요일
-        start = today + timedelta(days=1)   # 토요일
-        end   = today + timedelta(days=3)   # 월요일
-    elif weekday == 5:          # 토요일
-        start = today + timedelta(days=2)   # 월요일
-        end   = start
-    elif weekday == 6:          # 일요일
-        start = today + timedelta(days=1)   # 월요일
-        end   = start
-    else:                       # 월~목
-        start = today + timedelta(days=1)   # 내일
-        end   = start
+    # start 바로 다음 날도 영업일인지 확인 → 아니면 그 다음 영업일까지 end 확장
+    # (금요일처럼 주말+공휴일이 연속되는 경우 마지막 날까지 end)
+    end = start
+    candidate = start + timedelta(days=1)
+    while is_off_day(candidate):
+        candidate += timedelta(days=1)
+    # candidate = start 이후 첫 영업일
+    # start~candidate 사이에 쉬는 날이 있으면 end = candidate
+    if (candidate - start).days > 1:
+        end = candidate
 
     return start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
 
