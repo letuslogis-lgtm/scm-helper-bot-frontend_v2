@@ -479,12 +479,15 @@ export const WmsShortageList = ({ userProfile }) => {
 
             const wt = row.wave_type || '';
             const wn = row.wave_name || '';
-            if (wt === '지방(권역)') {
+            if (wt.includes('지방')) {
+                // 지방(권역), 지방(센터), 지방(현장), AS(지방) 모두 포함
                 if (wn.includes('제주')) agg.jeju += qty;
                 else                     agg.jibang += qty;
-            } else if (wt === '경인(현장)') {
+            } else if (wt.includes('현장')) {
+                // 지방(현장)은 위에서 처리됐으므로 여기서는 경인(현장)만 해당
                 agg.hyunjang += qty;
-            } else if (wt === '경인(소액)') {
+            } else if (wt.includes('경인')) {
+                // 경인(소액), 경인(센터), 경인(권역), AS(경인)
                 agg.gyeongin += qty;
             }
         }
