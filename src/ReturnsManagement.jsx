@@ -628,13 +628,14 @@ const ReturnsManagement = ({ userProfile }) => {
     const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', returnCenter: '전체', completed: '전체', type: '전체' };
     const [draftFilters, setDraftFilters]     = useState(initialFilters);
     const [appliedFilters, setAppliedFilters] = useState(initialFilters);
+    const [searchTrigger, setSearchTrigger]   = useState(0);
 
     const isAdmin = userProfile?.role === '관리자';
 
     useEffect(() => { fetchWorkplaces(); }, []);
-    useEffect(() => { fetchData(); }, [appliedFilters]);
+    useEffect(() => { fetchData(); }, [appliedFilters, searchTrigger]);
 
-    const handleSearchClick = () => { setAppliedFilters({ ...draftFilters }); setSelectedIds(new Set()); };
+    const handleSearchClick = () => { setAppliedFilters({ ...draftFilters }); setSearchTrigger(t => t + 1); setSelectedIds(new Set()); };
 
     const fetchWorkplaces = async () => {
         const { data } = await supabase.from('workers').select('workplace').not('workplace', 'is', null);

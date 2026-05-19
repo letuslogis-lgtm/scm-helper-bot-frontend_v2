@@ -45,6 +45,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
     const [draftFilters, setDraftFilters] = useState(initialFiltersMap);
     const [appliedFilters, setAppliedFilters] = useState(initialFiltersMap);
+    const [searchTrigger, setSearchTrigger] = useState(0);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
 
     useEffect(() => {
@@ -110,14 +111,15 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         } catch (err) { console.error(err); } finally { setIsLoading(false); }
     };
 
-    useEffect(() => { fetchAccidents(); }, [appliedFilters]);
+    useEffect(() => { fetchAccidents(); }, [appliedFilters, searchTrigger]);
 
     const handleSearchClick = () => {
-        window.getSelection()?.removeAllRanges(); // 🔥 브라우저 텍스트 선택(드래그) 강제 해제!
+        window.getSelection()?.removeAllRanges();
         setAppliedFilters({ ...draftFilters });
+        setSearchTrigger(t => t + 1);
         setSelectedIds([]);
     };
-    const handleResetClick = () => { setDraftFilters(initialFiltersMap); setAppliedFilters(initialFiltersMap); setSelectedIds([]); };
+    const handleResetClick = () => { setDraftFilters(initialFiltersMap); setAppliedFilters(initialFiltersMap); setSearchTrigger(t => t + 1); setSelectedIds([]); };
 
     const sortedItems = useMemo(() => {
         let sortableItems = [...items];
