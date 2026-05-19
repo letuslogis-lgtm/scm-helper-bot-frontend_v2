@@ -6,8 +6,9 @@ const COLS = [
     { key: 'upload_date',  label: '일자',    w: '100px' },
     { key: 'brand',        label: '브랜드',  w: '90px'  },
     { key: 'vendor',       label: '공급업체', w: '120px' },
-    { key: 'item_code',    label: '품목코드', w: '160px' },
-    { key: 'shortage_qty', label: '결품수량', w: '90px'  },
+    { key: 'item_code',     label: '품목코드',  w: '160px' },
+    { key: 'action_status', label: '조치 확인', w: '80px'  },
+    { key: 'shortage_qty',  label: '결품수량',  w: '90px'  },
     { key: 'jeju',         label: '제주',    w: '60px'  },
     { key: 'jibang',       label: '지방',    w: '60px'  },
     { key: 'hyunjang',     label: '현장',    w: '60px'  },
@@ -459,23 +460,28 @@ export const WmsShortageList = ({ userProfile }) => {
             const key = `${row.item_code || '(미등록)'}|${row.upload_date || ''}`;
             if (!map.has(key)) {
                 map.set(key, {
-                    _rowId:      key,
-                    _ids:        [],
-                    item_code:   row.item_code,
-                    brand:       row.brand,
-                    vendor:      row.vendor,
-                    upload_date: row.upload_date,
-                    shortage_qty: 0,
-                    jeju:        0,
-                    jibang:      0,
-                    hyunjang:    0,
-                    gyeongin:    0,
+                    _rowId:        key,
+                    _ids:          [],
+                    item_code:     row.item_code,
+                    brand:         row.brand,
+                    vendor:        row.vendor,
+                    upload_date:   row.upload_date,
+                    shortage_qty:  0,
+                    action_total:  0,
+                    action_done:   0,
+                    action_status: 'none',
+                    jeju:          0,
+                    jibang:        0,
+                    hyunjang:      0,
+                    gyeongin:      0,
                 });
             }
             const agg = map.get(key);
             agg._ids.push(row.id);
             const qty = Number(row.shortage_qty) || 0;
             agg.shortage_qty += qty;
+            agg.action_total += 1;
+            if (row.action_type) agg.action_done += 1;
 
             const wt = row.wave_type || '';
             const wn = row.wave_name || '';
@@ -491,7 +497,13 @@ export const WmsShortageList = ({ userProfile }) => {
                 agg.gyeongin += qty;
             }
         }
-        return Array.from(map.values());
+        const result = Array.from(map.values());
+        result.forEach(agg => {
+            if (agg.action_total > 0 && agg.action_done === agg.action_total) agg.action_status = 'done';
+            else if (agg.action_done > 0)                                      agg.action_status = 'partial';
+            else                                                                agg.action_status = 'none';
+        });
+        return result;
     }, [rows]);
 
     const sorted = useMemo(() => {
@@ -597,6 +609,23 @@ export const WmsShortageList = ({ userProfile }) => {
     }, [actionModal, rows]);
 
     const renderCell = (col, row) => {
+        if (col.key === 'action_status') {
+            if (row.action_status === 'done') {
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-300">
+                        ✓ 완료
+                    </span>
+                );
+            }
+            if (row.action_status === 'partial') {
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-300">
+                        {row.action_done}/{row.action_total}
+                    </span>
+                );
+            }
+            return <span className="text-gray-300 text-[11px]">-</span>;
+        }
         if (col.key === 'shortage_qty') {
             return <span className="font-bold text-letusOrange">{row[col.key] ?? '-'}</span>;
         }
