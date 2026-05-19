@@ -101,7 +101,8 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                         isImportant: ev.is_important, description: ev.description,
                         collabTeams: ev.collab_teams,
                         collaborators: ev.collaborators,
-                        location: ev.location
+                        location: ev.location,
+                        is_vacation: ev.is_vacation === true || ev.is_vacation === 'true'
                     }));
                     setCalendarEvents(formattedEvents);
                 }
@@ -252,7 +253,8 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                 start_time: savedEvent.startTime, end_time: savedEvent.endTime, is_important: savedEvent.isImportant,
                 description: savedEvent.description, collab_teams: savedEvent.collabTeams,
                 collaborators: savedEvent.collaborators,
-                location: savedEvent.location
+                location: savedEvent.location,
+                is_vacation: savedEvent.is_vacation ?? false
             };
 
             if (editingEvent) {
