@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
 
@@ -113,6 +114,250 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
                         </div>
                     </>
                 )}
+            </div>
+        </div>
+    );
+};
+
+// ── 보고서 모달 ───────────────────────────────────────────────
+const REPORT_BRAND_COLORS = {
+    '퍼시스': '#22c55e', '일룸': '#14b8a6', '슬로우베드': '#3b82f6',
+    '데스커': '#8b5cf6', '시디즈': '#f97316', '알로소': '#ef4444',
+};
+const REPORT_BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
+const VENDOR_BAR_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a855f7','#ec4899','#ef4444','#f97316','#eab308','#22c55e','#14b8a6'];
+
+const WmsReportModal = ({ selectedRows, applied, onClose }) => {
+    const [itemNames, setItemNames] = useState({});
+    const [trendRows, setTrendRows] = useState([]);
+    const [isTrendLoading, setIsTrendLoading] = useState(true);
+
+    // 선택 품목의 브랜드만 추려서 추이 차트에 사용
+    const activeBrands = useMemo(() => {
+        const s = new Set(selectedRows.map(r => r.brand).filter(Boolean));
+        return REPORT_BRANDS.filter(b => s.has(b));
+    }, [selectedRows]);
+
+    // 단품명칭 조회
+    useEffect(() => {
+        const fetchNames = async () => {
+            const codes = [...new Set(selectedRows.map(r => {
+                const c = r.item_code || '';
+                const idx = c.lastIndexOf('-');
+                return idx === -1 ? c : c.slice(0, idx);
+            }).filter(Boolean))];
+            if (codes.length === 0) return;
+            const nameMap = {};
+            const CHUNK = 200;
+            for (let i = 0; i < codes.length; i += CHUNK) {
+                const { data } = await supabase
+                    .from('products')
+                    .select('item_code, item_color, item_name')
+                    .in('item_code', codes.slice(i, i + CHUNK));
+                (data || []).forEach(p => {
+                    nameMap[`${p.item_code}-${p.item_color}`] = p.item_name || '';
+                    if (!nameMap[p.item_code]) nameMap[p.item_code] = p.item_name || '';
+                });
+            }
+            setItemNames(nameMap);
+        };
+        fetchNames();
+    }, [selectedRows]);
+
+    // 결품 추이 조회
+    useEffect(() => {
+        const fetchTrend = async () => {
+            setIsTrendLoading(true);
+            const { data } = await supabase
+                .from('wms_shortage_list')
+                .select('upload_date, brand, shortage_qty')
+                .gte('upload_date', applied.startDate)
+                .lte('upload_date', applied.endDate);
+            setTrendRows(data || []);
+            setIsTrendLoading(false);
+        };
+        fetchTrend();
+    }, [applied]);
+
+    // 공급업체 Top 10
+    const vendorData = useMemo(() => {
+        const map = {};
+        selectedRows.forEach(r => {
+            if (r.vendor) map[r.vendor] = (map[r.vendor] || 0) + (Number(r.shortage_qty) || 0);
+        });
+        const total = Object.values(map).reduce((s, v) => s + v, 0);
+        return Object.entries(map)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([vendor, qty]) => ({ vendor, qty, pct: total > 0 ? qty / total * 100 : 0 }));
+    }, [selectedRows]);
+
+    // 결품 추이 데이터 (일별 × 브랜드)
+    const trendData = useMemo(() => {
+        const dateMap = {};
+        trendRows
+            .filter(r => activeBrands.includes(r.brand))
+            .forEach(r => {
+                const d = String(r.upload_date).slice(0, 10);
+                if (!dateMap[d]) { dateMap[d] = {}; activeBrands.forEach(b => { dateMap[d][b] = 0; }); }
+                if (r.brand) dateMap[d][r.brand] = (dateMap[d][r.brand] || 0) + (Number(r.shortage_qty) || 0);
+            });
+        return Object.entries(dateMap)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, brands]) => ({ date: date.slice(5), ...brands }));
+    }, [trendRows, activeBrands]);
+
+    const getItemName = (itemCode) => {
+        if (!itemCode) return '-';
+        if (itemNames[itemCode]) return itemNames[itemCode];
+        const idx = itemCode.lastIndexOf('-');
+        const base = idx === -1 ? itemCode : itemCode.slice(0, idx);
+        return itemNames[base] || '-';
+    };
+
+    // 인쇄 스타일 주입
+    useEffect(() => {
+        const style = document.createElement('style');
+        style.id = 'wms-report-print-style';
+        style.innerHTML = `@media print {
+            body > * { visibility: hidden !important; }
+            #wms-report-print, #wms-report-print * { visibility: visible !important; }
+            #wms-report-print { position: fixed; top: 0; left: 0; width: 100%; height: auto; overflow: visible; box-shadow: none; border-radius: 0; z-index: 9999; }
+        }`;
+        document.head.appendChild(style);
+        return () => document.getElementById('wms-report-print-style')?.remove();
+    }, []);
+
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div id="wms-report-print"
+                className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 slide-up">
+
+                {/* 헤더 */}
+                <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full" />
+                        <h3 className="font-bold text-sm text-gray-800">D-2 결품 현황 보고</h3>
+                        <span className="text-xs text-gray-400">{applied.startDate} ~ {applied.endDate}</span>
+                    </div>
+                    <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* 본문 */}
+                <div className="overflow-auto flex-1 p-6 space-y-6 custom-scrollbar">
+
+                    {/* 특이사항 */}
+                    <section>
+                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+                            <span className="w-1 h-3.5 bg-letusBlue rounded-full" />
+                            특이사항
+                        </h4>
+
+                        {/* 공급업체별 결품 Top 10 */}
+                        <div className="bg-gray-50 rounded-lg border border-gray-100 p-4 mb-4">
+                            <p className="text-xs font-bold text-gray-600 mb-3">공급업체별 결품 현황 (Top 10)</p>
+                            {vendorData.length === 0
+                                ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
+                                : <ResponsiveContainer width="100%" height={220}>
+                                    <BarChart data={vendorData} margin={{ top: 5, right: 10, left: 0, bottom: 60 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="vendor" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }}
+                                            axisLine={false} tickLine={false} interval={0}
+                                            angle={-35} textAnchor="end" />
+                                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                        <Tooltip
+                                            contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                                            formatter={(value) => [value.toLocaleString() + '개', '결품수량']} />
+                                        <Bar dataKey="qty" radius={[4, 4, 0, 0]}>
+                                            {vendorData.map((_, i) => (
+                                                <Cell key={i} fill={VENDOR_BAR_COLORS[i % VENDOR_BAR_COLORS.length]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            }
+                        </div>
+
+                        {/* 결품 추이 */}
+                        <div className="bg-gray-50 rounded-lg border border-gray-100 p-4">
+                            <p className="text-xs font-bold text-gray-600 mb-3">결품 추이 (브랜드별)</p>
+                            {isTrendLoading
+                                ? <div className="flex justify-center py-10">
+                                    <div className="w-6 h-6 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin" />
+                                </div>
+                                : trendData.length === 0
+                                    ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
+                                    : <ResponsiveContainer width="100%" height={220}>
+                                        <ComposedChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                                            {activeBrands.map(brand => (
+                                                <Line key={brand} type="monotone" dataKey={brand}
+                                                    stroke={REPORT_BRAND_COLORS[brand]} strokeWidth={2}
+                                                    dot={{ r: 3 }} activeDot={{ r: 5 }} name={brand} />
+                                            ))}
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                            }
+                        </div>
+                    </section>
+
+                    {/* 결품 리스트 */}
+                    <section>
+                        <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" />
+                            결품 리스트
+                            <span className="text-xs text-gray-400 font-normal">{selectedRows.length}건</span>
+                        </h4>
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            <table className="w-full text-xs text-left">
+                                <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
+                                    <tr>
+                                        <th className="px-3 py-2.5 text-center w-24">일자</th>
+                                        <th className="px-3 py-2.5 text-center w-32">공급업체</th>
+                                        <th className="px-3 py-2.5 text-center w-32">품목코드</th>
+                                        <th className="px-3 py-2.5">단품명칭</th>
+                                        <th className="px-3 py-2.5 text-center w-20">결품수량</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {selectedRows.map(row => (
+                                        <tr key={row._rowId} className="hover:bg-gray-50">
+                                            <td className="px-3 py-2 text-center text-gray-500">{row.upload_date || '-'}</td>
+                                            <td className="px-3 py-2 text-center font-semibold text-gray-700">{row.vendor || '-'}</td>
+                                            <td className="px-3 py-2 text-center font-mono text-gray-600 text-[11px]">{row.item_code || '-'}</td>
+                                            <td className="px-3 py-2 text-gray-700">{getItemName(row.item_code)}</td>
+                                            <td className="px-3 py-2 text-center font-bold text-letusOrange">{(Number(row.shortage_qty) || 0).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                {/* 푸터 */}
+                <div className="p-3 border-t bg-gray-50 flex justify-end gap-2 shrink-0">
+                    <button onClick={onClose}
+                        className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm">
+                        닫기
+                    </button>
+                    <button onClick={() => window.print()}
+                        className="px-5 py-1.5 bg-letusBlue text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        인쇄 / PDF 저장
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -683,6 +928,7 @@ export const WmsShortageList = ({ userProfile }) => {
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [actionModal, setActionModal]     = useState(null); // aggRow
+    const [reportModal, setReportModal]     = useState(false);
     const [constructionTeams, setConstructionTeams] = useState(new Set());
     const [excludeQc, setExcludeQc]         = useState(false);
 
@@ -1132,6 +1378,16 @@ export const WmsShortageList = ({ userProfile }) => {
                                 <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)}></div>
                                 <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
                                     <button
+                                        onClick={() => { if (selectedIds.size > 0) { setIsActionMenuOpen(false); setReportModal(true); } }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.size > 0 ? 'text-letusBlue hover:bg-blue-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                    >
+                                        보고서 출력
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                    </button>
+                                    <div className="h-px bg-gray-100 my-1"></div>
+                                    <button
                                         onClick={() => { setIsActionMenuOpen(false); handleExportExcel(); }}
                                         className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.size > 0 ? 'text-green-600 hover:bg-green-50' : 'text-gray-300 cursor-not-allowed'}`}
                                     >
@@ -1242,6 +1498,15 @@ export const WmsShortageList = ({ userProfile }) => {
                     userProfile={userProfile}
                     onClose={() => setActionModal(null)}
                     onSaved={() => fetchData(applied)}
+                />
+            )}
+
+            {/* ── 보고서 모달 ── */}
+            {reportModal && (
+                <WmsReportModal
+                    selectedRows={sorted.filter(r => selectedIds.has(r._rowId))}
+                    applied={applied}
+                    onClose={() => setReportModal(false)}
                 />
             )}
 
