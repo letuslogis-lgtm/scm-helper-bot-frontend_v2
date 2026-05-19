@@ -52,14 +52,43 @@ if not all([SUPABASE_URL, SUPABASE_KEY, WMS_USER, WMS_PASSWORD]):
 # ---------------------------------------------------------------------------
 # 1. 인수 파싱
 # ---------------------------------------------------------------------------
+def calc_default_dates():
+    """
+    실행 요일에 따라 추출할 납기일자 범위 자동 계산
+    - 월~목: 내일 하루
+    - 금요일: 토요일 ~ 월요일 (주말+월요일 커버)
+    - 토/일: 월요일
+    공휴일은 자동 처리 불가 → --start / --end 로 수동 지정
+    """
+    today   = datetime.now()
+    weekday = today.weekday()   # 0=월 1=화 2=수 3=목 4=금 5=토 6=일
+
+    if weekday == 4:            # 금요일
+        start = today + timedelta(days=1)   # 토요일
+        end   = today + timedelta(days=3)   # 월요일
+    elif weekday == 5:          # 토요일
+        start = today + timedelta(days=2)   # 월요일
+        end   = start
+    elif weekday == 6:          # 일요일
+        start = today + timedelta(days=1)   # 월요일
+        end   = start
+    else:                       # 월~목
+        start = today + timedelta(days=1)   # 내일
+        end   = start
+
+    return start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
+
+
 def parse_args():
-    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    default_start, default_end = calc_default_dates()
     parser = argparse.ArgumentParser(description='WMS CUT리스트 추출')
     parser.add_argument('--center', required=True, help='WMS 센터명 (예: 양지1물류센터)')
-    parser.add_argument('--start',  default=yesterday, help='조회 시작일 YYYY-MM-DD (기본: 어제)')
-    parser.add_argument('--end',    default=None,      help='조회 종료일 YYYY-MM-DD (기본: start와 동일)')
+    parser.add_argument('--start',  default=default_start,
+                        help='조회 시작일 YYYY-MM-DD (기본: 다음 영업일)')
+    parser.add_argument('--end',    default=None,
+                        help='조회 종료일 YYYY-MM-DD (기본: start와 동일, 금요일은 월요일)')
     args = parser.parse_args()
-    end = args.end or args.start
+    end = args.end or (default_end if args.start == default_start else args.start)
     return args.center, args.start, end
 
 # ---------------------------------------------------------------------------
@@ -96,7 +125,7 @@ def download_cut_list(center: str, start_date: str, end_date: str, download_dir:
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
-            headless=False,
+            headless=True,
             args=['--disable-blink-features=AutomationControlled', '--no-sandbox', '--start-maximized'],
         )
         context = browser.new_context(
@@ -223,14 +252,36 @@ def parse_and_upload(file_path: Path, upload_date: str, center: str):
         print('    업로드할 데이터 없음 (0건 제외 후)')
         return 0
 
+    # 엑셀 내 중복 행 제거 (자연키 기준 마지막 행 유지)
+    seen = {}
+    for rec in records:
+        key = (rec.get('source_center'), rec.get('upload_date'),
+               rec.get('order_no'), rec.get('item_code'), rec.get('wave_name'))
+        seen[key] = rec
+    records = list(seen.values())
+    print(f'    중복 제거 후: {len(records)}건')
+
     print(f'    유효 데이터: {len(records)}건 → Supabase 업로드 중...')
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    # upsert: 자연키 충돌 시 WMS 원본 필드만 업데이트 (action_logs 연결 보존)
+    WMS_UPDATE_COLS = [
+        'wave_type', 'order_name', 'brand', 'channel', 'item_category',
+        'vendor', 'shortage_qty', 'category', 'is_picked', 'is_unshipped',
+        'action_note', 'is_sales', 'is_cancel',
+        'wms_registered_by', 'wms_registered_at', 'wms_updated_by', 'wms_updated_at',
+        'upload_date', 'uploaded_by',
+    ]
 
     CHUNK = 500
     uploaded = 0
     for i in range(0, len(records), CHUNK):
         chunk = records[i:i + CHUNK]
-        supabase.table('wms_shortage_list').insert(chunk).execute()
+        supabase.table('wms_shortage_list').upsert(
+            chunk,
+            on_conflict='source_center,upload_date,order_no,item_code,wave_name',
+            ignore_duplicates=False,
+        ).execute()
         uploaded += len(chunk)
         print(f'    진행: {uploaded}/{len(records)}')
 
