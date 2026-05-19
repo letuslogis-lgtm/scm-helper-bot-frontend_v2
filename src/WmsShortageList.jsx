@@ -723,20 +723,14 @@ export const WmsShortageList = ({ userProfile }) => {
         if (wt === '재고보충') return true;
         if (wt === '경인(센터)') return false;
         const name = wn || '';
-        // 공통: 어느 센터든 해당
+        // 공통 키워드 (wave_type 무관)
         if (name.includes('시안') || name.includes('양지센터이동')) return true;
-        // 센터별 판별
-        if (sc === '1센터') {
-            if (name.includes('A02앞') || name.includes('소파')) return true;
-        } else if (sc === '2센터') {
-            if (name.includes('소파') || name.includes('3센터') || name.includes('1센터')) return true;
-        } else if (sc === '3센터') {
-            if (name.includes('소파') || name.includes('2센터') || name.includes('1센터')) return true;
-        } else {
-            // source_center 없는 기존 데이터 — 키워드 기반 fallback
-            if (name.includes('소파') || name.includes('A02앞') ||
-                name.includes('1센터') || name.includes('2센터') || name.includes('3센터')) return true;
-        }
+        if (name.includes('소파')) return true;
+        // 1센터 전용
+        if (sc === '1센터' && name.includes('A02앞')) return true;
+        // 경인/AS/전시품오더 계열은 직접 배송 → 센터간이동 아님
+        if (wt.includes('경인') || wt.startsWith('AS') || wt === '전시품오더') return false;
+        // 나머지 wave_type에 한해 constructionTeams 체크
         for (const team of constructionTeams) {
             if (team && name.includes(team)) return true;
         }
