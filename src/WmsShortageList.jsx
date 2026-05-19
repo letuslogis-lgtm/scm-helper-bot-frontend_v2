@@ -3,16 +3,18 @@ import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
 
 const COLS = [
-    { key: 'upload_date',  label: '일자',    w: '100px' },
-    { key: 'brand',        label: '브랜드',  w: '90px'  },
-    { key: 'vendor',       label: '공급업체', w: '120px' },
-    { key: 'item_code',     label: '품목코드',  w: '160px' },
+    { key: 'upload_date',   label: '일자',     w: '80px'  },
+    { key: 'brand',         label: '브랜드',   w: '70px'  },
+    { key: 'vendor',        label: '공급업체',  w: '120px' },
+    { key: 'item_code',     label: '품목코드',  w: '120px' },
     { key: 'action_status', label: '조치 확인', w: '80px'  },
-    { key: 'shortage_qty',  label: '결품수량',  w: '90px'  },
-    { key: 'jeju',         label: '제주',    w: '60px'  },
-    { key: 'jibang',       label: '지방',    w: '60px'  },
-    { key: 'hyunjang',     label: '현장',    w: '60px'  },
-    { key: 'gyeongin',     label: '경인',    w: '60px'  },
+    { key: 'shortage_qty',  label: '결품수량',  w: '80px'  },
+    { key: 'jeju',          label: '제주',     w: '55px'  },
+    { key: 'jibang',        label: '지방',     w: '55px'  },
+    { key: 'taekbae',       label: '택배',     w: '55px'  },
+    { key: 'center_move',   label: '센터간이동', w: '80px'  },
+    { key: 'hyunjang',      label: '현장',     w: '55px'  },
+    { key: 'gyeongin',      label: '경인',     w: '55px'  },
 ];
 
 const ACTION_TYPES = ['', '정상 출고', '납기 연기', '당일 출고', '현장 직출', '센터 직출'];
@@ -521,6 +523,7 @@ export const WmsShortageList = ({ userProfile }) => {
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [actionModal, setActionModal]     = useState(null); // aggRow
+    const [constructionTeams, setConstructionTeams] = useState(new Set());
     const fileInputRef = useRef(null);
 
     const setD = (k, v) => setDraft(p => ({ ...p, [k]: v }));
@@ -546,6 +549,28 @@ export const WmsShortageList = ({ userProfile }) => {
     }, []);
 
     useEffect(() => { fetchData(applied); }, []);
+
+    useEffect(() => {
+        const fetchTeams = async () => {
+            try {
+                const { data } = await supabase.from('construction_teams').select('team_name');
+                if (data) setConstructionTeams(new Set(data.map(t => t.team_name).filter(Boolean)));
+            } catch (e) { console.error('시공팀 조회 실패:', e); }
+        };
+        fetchTeams();
+    }, []);
+
+    const isCenterMove = useCallback((wt, wn) => {
+        if (wt === '재고보충') return true;
+        if (wt === '경인(센터)') return false; // 대전센터 등 경인 권역 센터 배송 — 센터간이동 아님
+        const name = wn || '';
+        if (name.includes('소파') || name.includes('A02앞') || name.includes('양지센터이동') ||
+            name.includes('시안') || name.includes('1센터') || name.includes('2센터') || name.includes('3센터')) return true;
+        for (const team of constructionTeams) {
+            if (team && name.includes(team)) return true;
+        }
+        return false;
+    }, [constructionTeams]);
 
     const handleSearch = () => {
         const next = { ...draft };
@@ -677,6 +702,8 @@ export const WmsShortageList = ({ userProfile }) => {
                     action_status: 'none',
                     jeju:          0,
                     jibang:        0,
+                    taekbae:       0,
+                    center_move:   0,
                     hyunjang:      0,
                     gyeongin:      0,
                 });
@@ -688,11 +715,19 @@ export const WmsShortageList = ({ userProfile }) => {
             agg.action_total += 1;
             if (row.action_type) agg.action_done += 1;
 
-            const cat = getWaveCategory(row.wave_type || '', row.wave_name || '');
-            if      (cat === '제주') agg.jeju     += qty;
-            else if (cat === '지방') agg.jibang   += qty;
-            else if (cat === '현장') agg.hyunjang += qty;
-            else if (cat === '경인') agg.gyeongin += qty;
+            const wt = row.wave_type || '';
+            const wn = row.wave_name  || '';
+            if (wt === '택배') {
+                agg.taekbae += qty;
+            } else if (isCenterMove(wt, wn)) {
+                agg.center_move += qty;
+            } else {
+                const cat = getWaveCategory(wt, wn);
+                if      (cat === '제주') agg.jeju     += qty;
+                else if (cat === '지방') agg.jibang   += qty;
+                else if (cat === '현장') agg.hyunjang += qty;
+                else if (cat === '경인') agg.gyeongin += qty;
+            }
         }
         const result = Array.from(map.values());
         result.forEach(agg => {
@@ -701,7 +736,7 @@ export const WmsShortageList = ({ userProfile }) => {
             else                                                                agg.action_status = 'none';
         });
         return result;
-    }, [rows]);
+    }, [rows, isCenterMove]);
 
     const sorted = useMemo(() => {
         if (!sortConfig.key) return aggregated;
@@ -826,7 +861,7 @@ export const WmsShortageList = ({ userProfile }) => {
         if (col.key === 'shortage_qty') {
             return <span className="font-bold text-letusOrange">{row[col.key] ?? '-'}</span>;
         }
-        if (['jeju', 'jibang', 'hyunjang', 'gyeongin'].includes(col.key)) {
+        if (['jeju', 'jibang', 'taekbae', 'center_move', 'hyunjang', 'gyeongin'].includes(col.key)) {
             const v = row[col.key];
             return v ? <span className="font-semibold text-gray-700">{v}</span> : <span className="text-gray-300">-</span>;
         }
