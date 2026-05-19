@@ -9,6 +9,7 @@ const COLS = [
     { key: 'brand',         label: '브랜드',   w: '70px'  },
     { key: 'vendor',        label: '공급업체',  w: '120px' },
     { key: 'item_code',     label: '품목코드',  w: '120px' },
+    { key: 'dept',          label: '확인부서',  w: '90px'  },
     { key: 'action_status', label: '조치 확인', w: '80px'  },
     { key: 'shortage_qty',  label: '결품수량',  w: '80px'  },
     { key: 'jeju',          label: '제주',      sub: '(12시 이전 입고)', w: '55px'  },
@@ -970,6 +971,7 @@ export const WmsShortageList = ({ userProfile }) => {
     const [reportModal, setReportModal]     = useState(false);
     const [constructionTeams, setConstructionTeams] = useState(new Set());
     const [excludeQc, setExcludeQc]         = useState(false);
+    const [vendorDeptMap, setVendorDeptMap]  = useState({});
 
     const QC_KEYWORDS = ['qcc', '양지재고', '양지 재고'];
     const isQcRow = (detail) => {
@@ -1010,6 +1012,20 @@ export const WmsShortageList = ({ userProfile }) => {
             } catch (e) { console.error('시공팀 조회 실패:', e); }
         };
         fetchTeams();
+    }, []);
+
+    useEffect(() => {
+        const fetchVendorDept = async () => {
+            try {
+                const { data } = await supabase.from('vendor_aliases').select('raw_name, dept');
+                if (data) {
+                    const map = {};
+                    data.forEach(v => { if (v.raw_name && v.dept) map[v.raw_name] = v.dept; });
+                    setVendorDeptMap(map);
+                }
+            } catch (e) { console.error('vendor_aliases 조회 실패:', e); }
+        };
+        fetchVendorDept();
     }, []);
 
     const isCenterMove = useCallback((wt, wn, sc) => {
@@ -1158,6 +1174,7 @@ export const WmsShortageList = ({ userProfile }) => {
                     item_code:     row.item_code,
                     brand:         row.brand,
                     vendor:        row.vendor,
+                    dept:          vendorDeptMap[row.vendor] || '',
                     upload_date:   row.upload_date,
                     delivery_date: parseDeliveryDate(row.wave_name, row.upload_date),
                     shortage_qty:  0,
@@ -1200,7 +1217,7 @@ export const WmsShortageList = ({ userProfile }) => {
             else                                                                agg.action_status = 'none';
         });
         return result;
-    }, [rows, isCenterMove, excludeQc]);
+    }, [rows, isCenterMove, excludeQc, vendorDeptMap]);
 
     const sorted = useMemo(() => {
         if (!sortConfig.key) return aggregated;
