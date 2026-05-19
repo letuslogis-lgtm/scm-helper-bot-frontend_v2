@@ -138,8 +138,6 @@ const VENDOR_BAR_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a855f7','#ec4899','#e
 
 const WmsReportModal = ({ selectedRows, applied, onClose }) => {
     const [itemNames, setItemNames] = useState({});
-    const [trendRows, setTrendRows] = useState([]);
-    const [isTrendLoading, setIsTrendLoading] = useState(true);
 
     // 선택 품목의 브랜드만 추려서 추이 차트에 사용
     const activeBrands = useMemo(() => {
@@ -173,20 +171,6 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
         fetchNames();
     }, [selectedRows]);
 
-    // 결품 추이 조회
-    useEffect(() => {
-        const fetchTrend = async () => {
-            setIsTrendLoading(true);
-            const { data } = await supabase
-                .from('wms_shortage_list')
-                .select('upload_date, brand, shortage_qty')
-                .gte('upload_date', applied.startDate)
-                .lte('upload_date', applied.endDate);
-            setTrendRows(data || []);
-            setIsTrendLoading(false);
-        };
-        fetchTrend();
-    }, [applied]);
 
     // 공급업체 Top 10
     const vendorData = useMemo(() => {
@@ -201,20 +185,19 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
             .map(([vendor, qty]) => ({ vendor, qty, pct: total > 0 ? qty / total * 100 : 0 }));
     }, [selectedRows]);
 
-    // 결품 추이 데이터 (일별 × 브랜드)
+    // 결품 추이 데이터 (선택된 품목 기준, 납기일자 × 브랜드)
     const trendData = useMemo(() => {
         const dateMap = {};
-        trendRows
-            .filter(r => activeBrands.includes(r.brand))
-            .forEach(r => {
-                const d = String(r.upload_date).slice(0, 10);
-                if (!dateMap[d]) { dateMap[d] = {}; activeBrands.forEach(b => { dateMap[d][b] = 0; }); }
-                if (r.brand) dateMap[d][r.brand] = (dateMap[d][r.brand] || 0) + (Number(r.shortage_qty) || 0);
-            });
+        selectedRows.forEach(r => {
+            if (!r.brand || !activeBrands.includes(r.brand)) return;
+            const d = r.delivery_date || '-';
+            if (!dateMap[d]) { dateMap[d] = {}; activeBrands.forEach(b => { dateMap[d][b] = 0; }); }
+            dateMap[d][r.brand] = (dateMap[d][r.brand] || 0) + (Number(r.shortage_qty) || 0);
+        });
         return Object.entries(dateMap)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, brands]) => ({ date: date.slice(5), ...brands }));
-    }, [trendRows, activeBrands]);
+    }, [selectedRows, activeBrands]);
 
     const getItemName = (itemCode) => {
         if (!itemCode) return '-';
@@ -310,13 +293,9 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                         {/* 결품 추이 */}
                         <div className="bg-gray-50 rounded-lg border border-gray-100 p-4">
                             <p className="text-xs font-bold text-gray-600 mb-3">결품 추이 (브랜드별)</p>
-                            {isTrendLoading
-                                ? <div className="flex justify-center py-10">
-                                    <div className="w-6 h-6 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin" />
-                                </div>
-                                : trendData.length === 0
-                                    ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
-                                    : <ResponsiveContainer width="100%" height={240}>
+                            {trendData.length === 0
+                                ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
+                                : <ResponsiveContainer width="100%" height={240}>
                                         <ComposedChart data={trendData} margin={{ top: 30, right: 20, left: 0, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                             <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
