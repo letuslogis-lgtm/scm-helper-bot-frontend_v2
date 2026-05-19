@@ -335,7 +335,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-5xl flex flex-col max-h-[85vh] border border-gray-100 overflow-hidden slide-up">
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full flex flex-col max-h-[85vh] border border-gray-100 overflow-hidden slide-up" style={{ maxWidth: '77rem' }}>
 
                 {/* 헤더 */}
                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
@@ -384,16 +384,17 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                         className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                                 </th>
                                 {[
-                                    { key: 'order_no',       label: '수주번호', cls: 'w-36' },
-                                    { key: 'order_name',     label: '수주건명', cls: '' },
-                                    { key: 'wave_category',  label: 'WAVE', cls: 'w-20 text-center' },
-                                    { key: 'shortage_qty',   label: '결품수량', cls: 'w-20 text-right pr-4' },
-                                    { key: 'action_type',    label: '조치유형', cls: 'w-32' },
-                                    { key: 'action_detail',  label: '조치내용', cls: '' },
-                                    { key: 'action_updated_by', label: '최종수정', cls: 'w-44 text-center' },
+                                    { key: 'order_no',          label: '수주번호', w: '9rem'   },
+                                    { key: 'order_name',        label: '수주건명'               },  // flex
+                                    { key: 'wave_category',     label: 'WAVE',    w: '6rem'   },
+                                    { key: 'shortage_qty',      label: '결품수량', w: '6rem'   },
+                                    { key: 'action_type',       label: '조치유형', w: '8rem'   },
+                                    { key: 'action_detail',     label: '조치내용', w: '11rem'  },
+                                    { key: 'action_updated_by', label: '최종수정', w: '7.7rem' },
                                 ].map(col => (
                                     <th key={col.key}
-                                        className={`p-3 cursor-pointer hover:bg-gray-100 select-none transition-colors text-center ${col.cls}`}
+                                        className={`p-3 cursor-pointer hover:bg-gray-100 select-none transition-colors text-center ${col.cls ?? ''}`}
+                                        style={col.w ? { width: col.w, minWidth: col.w } : {}}
                                         onClick={() => requestModalSort(col.key)}>
                                         <span className="flex items-center gap-1 justify-center">
                                             {col.label}
@@ -424,28 +425,28 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                                 onChange={() => handleSelectOne(row.id)}
                                                 className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                                         </td>
-                                        <td className="p-3 font-mono text-[11px] text-gray-600">{row.order_no || '-'}</td>
-                                        <td className="p-3 text-[11px] text-gray-700 max-w-[200px] truncate" title={row.order_name || ''}>{row.order_name || '-'}</td>
-                                        <td className="p-3 text-center">
+                                        <td className="p-3 font-mono text-[11px] text-gray-600" style={{ width: '9rem', minWidth: '9rem' }}>{row.order_no || '-'}</td>
+                                        <td className="p-3 text-[11px] text-gray-700 truncate" title={row.order_name || ''}>{row.order_name || '-'}</td>
+                                        <td className="p-3 text-center" style={{ width: '6rem', minWidth: '6rem' }}>
                                             {waveLabel
                                                 ? <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold border ${waveColor}`}>{waveLabel}</span>
                                                 : <span className="text-gray-300 text-[10px]">-</span>}
                                         </td>
-                                        <td className="p-3 text-right pr-4 font-bold text-letusOrange">{row.shortage_qty ?? '-'}</td>
-                                        <td className="p-3">
+                                        <td className="p-3 text-right pr-4 font-bold text-letusOrange" style={{ width: '6rem', minWidth: '6rem' }}>{row.shortage_qty ?? '-'}</td>
+                                        <td className="p-3" style={{ width: '8rem', minWidth: '8rem' }}>
                                             <select value={row.action_type}
                                                 onChange={e => updateRow(row.id, 'action_type', e.target.value)}
                                                 className="border border-gray-200 rounded text-[11px] px-1.5 h-6 w-full bg-white text-gray-700 focus:outline-none focus:border-letusBlue cursor-pointer">
                                                 {ACTION_TYPES.map(t => <option key={t} value={t}>{t || '(미처리)'}</option>)}
                                             </select>
                                         </td>
-                                        <td className="p-3">
+                                        <td className="p-3" style={{ width: '11rem', minWidth: '11rem' }}>
                                             <input value={row.action_detail}
                                                 onChange={e => updateRow(row.id, 'action_detail', e.target.value)}
                                                 className="border border-gray-200 rounded text-[11px] px-2 h-6 w-full focus:outline-none focus:border-letusBlue"
                                                 placeholder="내용 입력" />
                                         </td>
-                                        <td className="p-3 text-center">
+                                        <td className="p-3 text-center" style={{ width: '7.7rem', minWidth: '7.7rem' }}>
                                             {row.action_updated_by ? (
                                                 <div className="flex items-center justify-center gap-1.5">
                                                     <span className="text-[11px] font-bold text-gray-700">{row.action_updated_by}</span>
