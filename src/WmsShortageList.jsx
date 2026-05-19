@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts';
 import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
@@ -221,9 +222,9 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
         style.id = 'wms-report-print-style';
         style.innerHTML = `@media print {
             html, body { height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; }
-            body * { visibility: hidden !important; }
-            #wms-report-overlay { position: static !important; display: block !important; padding: 0 !important; visibility: visible !important; }
-            #wms-report-print, #wms-report-print * { visibility: visible !important; }
+            body > *:not(#wms-report-overlay) { display: none !important; }
+            #wms-report-overlay { position: static !important; display: block !important; padding: 0 !important; }
+            #wms-report-overlay > div:first-child { display: none !important; }
             #wms-report-print {
                 width: 100% !important; max-width: 100% !important;
                 max-height: none !important; height: auto !important;
@@ -242,7 +243,7 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
         return () => document.getElementById('wms-report-print-style')?.remove();
     }, []);
 
-    return (
+    return ReactDOM.createPortal(
         <div id="wms-report-overlay" className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div id="wms-report-print"
@@ -385,7 +386,8 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
