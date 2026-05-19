@@ -516,6 +516,7 @@ export const WmsShortageList = ({ userProfile }) => {
     const [rows, setRows]                   = useState([]);
     const [isLoading, setIsLoading]         = useState(false);
     const [isUploading, setIsUploading]     = useState(false);
+    const [uploadCenter, setUploadCenter]   = useState('');
     const [draft, setDraft]                 = useState(initFilter());
     const [applied, setApplied]             = useState(initFilter());
     const [sortConfig, setSortConfig]       = useState({ key: null, direction: 'none' });
@@ -560,12 +561,24 @@ export const WmsShortageList = ({ userProfile }) => {
         fetchTeams();
     }, []);
 
-    const isCenterMove = useCallback((wt, wn) => {
+    const isCenterMove = useCallback((wt, wn, sc) => {
         if (wt === '재고보충') return true;
-        if (wt === '경인(센터)') return false; // 대전센터 등 경인 권역 센터 배송 — 센터간이동 아님
+        if (wt === '경인(센터)') return false;
         const name = wn || '';
-        if (name.includes('소파') || name.includes('A02앞') || name.includes('양지센터이동') ||
-            name.includes('시안') || name.includes('1센터') || name.includes('2센터') || name.includes('3센터')) return true;
+        // 공통: 어느 센터든 해당
+        if (name.includes('시안') || name.includes('양지센터이동')) return true;
+        // 센터별 판별
+        if (sc === '1센터') {
+            if (name.includes('A02앞') || name.includes('소파')) return true;
+        } else if (sc === '2센터') {
+            if (name.includes('소파') || name.includes('3센터') || name.includes('1센터')) return true;
+        } else if (sc === '3센터') {
+            if (name.includes('소파') || name.includes('2센터') || name.includes('1센터')) return true;
+        } else {
+            // source_center 없는 기존 데이터 — 키워드 기반 fallback
+            if (name.includes('소파') || name.includes('A02앞') ||
+                name.includes('1센터') || name.includes('2센터') || name.includes('3센터')) return true;
+        }
         for (const team of constructionTeams) {
             if (team && name.includes(team)) return true;
         }
@@ -607,7 +620,7 @@ export const WmsShortageList = ({ userProfile }) => {
             const uploaded_by = userProfile?.name || '';
 
             const records = jsonData.map(row => {
-                const rec = { upload_id, upload_date, uploaded_by, upload_file: file.name };
+                const rec = { upload_id, upload_date, uploaded_by, upload_file: file.name, source_center: uploadCenter || null };
                 for (const [excelKey, dbKey] of Object.entries(EXCEL_TO_DB)) {
                     rec[dbKey] = excelValToDb(excelKey, row[excelKey]);
                 }
@@ -719,7 +732,7 @@ export const WmsShortageList = ({ userProfile }) => {
             const wn = row.wave_name  || '';
             if (wt === '택배') {
                 agg.taekbae += qty;
-            } else if (isCenterMove(wt, wn)) {
+            } else if (isCenterMove(wt, wn, row.source_center)) {
                 agg.center_move += qty;
             } else {
                 const cat = getWaveCategory(wt, wn);
@@ -928,15 +941,29 @@ export const WmsShortageList = ({ userProfile }) => {
                     💡 행을 <b>더블클릭</b>하면 조치사항을 입력할 수 있습니다
                 </p>
                 <div className="flex gap-3">
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
-                        className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px] disabled:opacity-50 disabled:cursor-not-allowed">
-                        <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
-                        </svg>
-                        {isUploading ? '업로드 중...' : 'WMS 파일 업로드 (Excel)'}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                        <select
+                            value={uploadCenter}
+                            onChange={e => setUploadCenter(e.target.value)}
+                            className="border border-gray-300 rounded-[3px] text-xs px-2 h-[32px] bg-white text-gray-700 focus:outline-none focus:border-green-500 cursor-pointer">
+                            <option value="">센터 선택</option>
+                            <option value="1센터">1센터</option>
+                            <option value="2센터">2센터</option>
+                            <option value="3센터">3센터</option>
+                        </select>
+                        <button
+                            onClick={() => {
+                                if (!uploadCenter) return alert('센터를 먼저 선택해주세요.');
+                                fileInputRef.current?.click();
+                            }}
+                            disabled={isUploading}
+                            className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px] disabled:opacity-50 disabled:cursor-not-allowed">
+                            <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
+                            </svg>
+                            {isUploading ? '업로드 중...' : 'WMS 파일 업로드 (Excel)'}
+                        </button>
+                    </div>
                     <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
 
                     <div className="relative z-50">
