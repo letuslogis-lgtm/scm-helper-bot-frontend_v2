@@ -9,12 +9,12 @@ const COLS = [
     { key: 'item_code',     label: '품목코드',  w: '120px' },
     { key: 'action_status', label: '조치 확인', w: '80px'  },
     { key: 'shortage_qty',  label: '결품수량',  w: '80px'  },
-    { key: 'jeju',          label: '제주',     w: '55px'  },
-    { key: 'jibang',        label: '지방',     w: '55px'  },
-    { key: 'taekbae',       label: '택배',     w: '55px'  },
-    { key: 'center_move',   label: '센터간이동', w: '80px'  },
-    { key: 'hyunjang',      label: '현장',     w: '55px'  },
-    { key: 'gyeongin',      label: '경인',     w: '55px'  },
+    { key: 'jeju',          label: '제주',      sub: '(12시 이전 입고)', w: '55px'  },
+    { key: 'jibang',        label: '지방',      sub: '(12시 이전 입고)', w: '55px'  },
+    { key: 'taekbae',       label: '택배',      sub: '(12시 이전 입고)', w: '55px'  },
+    { key: 'center_move',   label: '센터간이동', sub: '(12시 이전 입고)', w: '80px'  },
+    { key: 'hyunjang',      label: '현장',      sub: '(15시 이전 입고)', w: '55px'  },
+    { key: 'gyeongin',      label: '경인',      sub: '(15시 이전 입고)', w: '55px'  },
 ];
 
 const ACTION_TYPES = ['', '정상 출고', '납기 연기', '당일 출고', '현장 직출', '센터 직출'];
@@ -511,7 +511,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="bg-white rounded-xl shadow-2xl z-10 w-full flex flex-col max-h-[85vh] border border-gray-100 overflow-hidden slide-up" style={{ maxWidth: '77rem' }}>
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full flex flex-col max-h-[85vh] border border-gray-100 overflow-hidden slide-up" style={{ maxWidth: '85rem' }}>
 
                 {/* 헤더 */}
                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
@@ -1156,8 +1156,9 @@ export const WmsShortageList = ({ userProfile }) => {
                                     <th key={c.key} style={{ width: c.w, minWidth: c.w }}
                                         className="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
                                         onClick={() => requestSort(c.key)}>
-                                        <div className="flex items-center justify-center">
-                                            {c.label}{getSortIcon(c.key)}
+                                        <div className="flex flex-col items-center justify-center gap-0.5">
+                                            <span className="flex items-center">{c.label}{getSortIcon(c.key)}</span>
+                                            {c.sub && <span className="text-[9px] font-normal text-red-500 leading-tight">{c.sub}</span>}
                                         </div>
                                     </th>
                                 ))}
