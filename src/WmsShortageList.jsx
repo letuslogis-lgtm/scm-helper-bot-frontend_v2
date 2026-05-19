@@ -5,7 +5,7 @@ import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
 
 const COLS = [
-    { key: 'upload_date',   label: '납기일자',  w: '80px'  },
+    { key: 'delivery_date', label: '납기일자',  w: '80px'  },
     { key: 'brand',         label: '브랜드',   w: '70px'  },
     { key: 'vendor',        label: '공급업체',  w: '120px' },
     { key: 'item_code',     label: '품목코드',  w: '120px' },
@@ -66,6 +66,14 @@ const EXCEL_TO_DB = {
     '최종 변경자': 'wms_updated_by',
     '최종 변경 일시': 'wms_updated_at',
 };
+
+// wave_name의 [MM/DD]를 YYYY-MM-DD로 파싱 (연도는 upload_date에서)
+function parseDeliveryDate(waveName, uploadDate) {
+    const m = (waveName || '').match(/\[(\d{2})\/(\d{2})\]/);
+    if (!m) return uploadDate ? String(uploadDate).slice(0, 10) : '-';
+    const year = uploadDate ? String(uploadDate).slice(0, 4) : String(new Date().getFullYear());
+    return `${year}-${m[1]}-${m[2]}`;
+}
 
 function weekAgo() {
     const d = new Date(); d.setDate(d.getDate() - 7);
@@ -351,13 +359,13 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                                 <tbody className="divide-y divide-gray-100">
                                     {[...selectedRows]
                                         .sort((a, b) => {
-                                            const dateDiff = (a.upload_date || '').localeCompare(b.upload_date || '');
+                                            const dateDiff = (a.delivery_date || '').localeCompare(b.delivery_date || '');
                                             if (dateDiff !== 0) return dateDiff;
                                             return (Number(b.shortage_qty) || 0) - (Number(a.shortage_qty) || 0);
                                         })
                                         .map(row => (
                                             <tr key={row._rowId} className="hover:bg-gray-50">
-                                                <td className="px-3 py-2 text-center text-gray-500">{row.upload_date || '-'}</td>
+                                                <td className="px-3 py-2 text-center text-gray-500">{row.delivery_date || '-'}</td>
                                                 <td className="px-3 py-2 text-center text-gray-600">{row.brand || '-'}</td>
                                                 <td className="px-3 py-2 text-center font-semibold text-gray-700">{row.vendor || '-'}</td>
                                                 <td className="px-3 py-2 text-center font-mono text-gray-600 text-[11px]">{row.item_code || '-'}</td>
@@ -794,7 +802,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                         <h3 className="font-bold text-sm text-gray-800">
                             조치사항 — <span className="text-letusBlue font-mono">{aggRow.item_code}</span>
                         </h3>
-                        <span className="text-gray-400 text-xs font-medium">{aggRow.vendor ? `${aggRow.vendor} |` : ''} {aggRow.upload_date}</span>
+                        <span className="text-gray-400 text-xs font-medium">{aggRow.vendor ? `${aggRow.vendor} |` : ''} {aggRow.delivery_date}</span>
                     </div>
                     <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1149,6 +1157,7 @@ export const WmsShortageList = ({ userProfile }) => {
                     brand:         row.brand,
                     vendor:        row.vendor,
                     upload_date:   row.upload_date,
+                    delivery_date: parseDeliveryDate(row.wave_name, row.upload_date),
                     shortage_qty:  0,
                     action_total:  0,
                     action_done:   0,
@@ -1240,7 +1249,7 @@ export const WmsShortageList = ({ userProfile }) => {
         const XLSX = await loadXLSX();
         const target = sorted.filter(r => selectedIds.has(r._rowId));
         const excelData = target.map(r => ({
-            '일자':    r.upload_date || '',
+            '납기일자': r.delivery_date || '',
             '브랜드':  r.brand || '',
             '공급업체': r.vendor || '',
             '품목코드': r.item_code || '',
