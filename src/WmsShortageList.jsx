@@ -193,28 +193,57 @@ const WmsUploadModal = ({ onClose, onUpload }) => {
                         <p className="text-gray-400 text-xs mt-0.5">여러 파일 동시 선택 가능</p>
                     </div>
 
-                    {/* 파일 목록 */}
-                    {fileItems.length > 0 && (
-                        <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                            {fileItems.map((item, idx) => (
-                                <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    {/* 센터별 감지 상태 */}
+                    <div className="grid grid-cols-3 gap-2">
+                        {['1센터', '2센터', '3센터'].map(c => {
+                            const matched = fileItems.filter(i => i.center === c);
+                            const detected = matched.length > 0;
+                            return (
+                                <div key={c} className={`rounded-lg border p-2.5 text-center transition-colors ${detected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                                    <p className={`text-xs font-bold mb-1 ${detected ? 'text-green-700' : 'text-gray-400'}`}>
+                                        {c} {detected ? '✅' : ''}
+                                    </p>
+                                    {detected ? (
+                                        matched.map((item, i) => {
+                                            const fi = fileItems.indexOf(item);
+                                            return (
+                                                <div key={i} className="flex items-center justify-center gap-1 mt-0.5">
+                                                    <span className="text-[10px] text-green-600 truncate max-w-[90px]" title={item.file.name}>
+                                                        {item.file.name}
+                                                    </span>
+                                                    <button onClick={() => removeFile(fi)} className="text-green-300 hover:text-red-400 transition-colors shrink-0">
+                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <p className="text-[10px] text-gray-300">파일 없음</p>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* 센터 미감지 파일 (수동 선택) */}
+                    {fileItems.some(i => !i.center) && (
+                        <div className="space-y-1.5">
+                            <p className="text-[11px] font-bold text-orange-500">⚠️ 센터를 직접 선택해주세요</p>
+                            {fileItems.map((item, idx) => item.center ? null : (
+                                <div key={idx} className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                                    <svg className="w-4 h-4 text-orange-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
                                     </svg>
                                     <span className="text-xs text-gray-700 flex-1 truncate" title={item.file.name}>{item.file.name}</span>
-                                    {item.center ? (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 border border-green-200 rounded-full shrink-0">
-                                            ✓ {item.center}
-                                        </span>
-                                    ) : (
-                                        <select value={item.center} onChange={e => updateCenter(idx, e.target.value)}
-                                            className="border border-orange-300 rounded text-[11px] px-1.5 h-6 bg-white text-orange-600 font-bold focus:outline-none cursor-pointer shrink-0">
-                                            <option value="">센터 선택 ⚠️</option>
-                                            <option value="1센터">1센터</option>
-                                            <option value="2센터">2센터</option>
-                                            <option value="3센터">3센터</option>
-                                        </select>
-                                    )}
+                                    <select value={item.center} onChange={e => updateCenter(idx, e.target.value)}
+                                        className="border border-orange-300 rounded text-[11px] px-1.5 h-6 bg-white text-orange-600 font-bold focus:outline-none cursor-pointer shrink-0">
+                                        <option value="">센터 선택</option>
+                                        <option value="1센터">1센터</option>
+                                        <option value="2센터">2센터</option>
+                                        <option value="3센터">3센터</option>
+                                    </select>
                                     <button onClick={() => removeFile(idx)} className="text-gray-300 hover:text-red-400 transition-colors shrink-0">
                                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
