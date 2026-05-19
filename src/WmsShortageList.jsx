@@ -280,9 +280,9 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                     { key: 'action_updated_by', label: '최종수정', cls: 'w-44 text-center' },
                                 ].map(col => (
                                     <th key={col.key}
-                                        className={`p-3 cursor-pointer hover:bg-gray-100 select-none transition-colors ${col.cls}`}
+                                        className={`p-3 cursor-pointer hover:bg-gray-100 select-none transition-colors text-center ${col.cls}`}
                                         onClick={() => requestModalSort(col.key)}>
-                                        <span className="flex items-center gap-1 justify-inherit">
+                                        <span className="flex items-center gap-1 justify-center">
                                             {col.label}
                                             {modalSort.key === col.key && (
                                                 <span className="text-letusBlue font-black">
