@@ -287,20 +287,20 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                             <p className="text-xs font-bold text-gray-600 mb-3">공급업체별 결품 현황 (Top 10)</p>
                             {vendorData.length === 0
                                 ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
-                                : <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={vendorData} margin={{ top: 20, right: 10, left: 0, bottom: 60 }}>
+                                : <ResponsiveContainer width="100%" height={240}>
+                                    <BarChart data={vendorData} margin={{ top: 36, right: 10, left: 0, bottom: 60 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                        <XAxis dataKey="vendor" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }}
+                                        <XAxis dataKey="vendor" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 'bold' }}
                                             axisLine={false} tickLine={false} interval={0}
                                             angle={-35} textAnchor="end" />
-                                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                        <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
                                         <Bar dataKey="qty" radius={[4, 4, 0, 0]}>
                                             {vendorData.map((_, i) => (
                                                 <Cell key={i} fill={VENDOR_BAR_COLORS[i % VENDOR_BAR_COLORS.length]} />
                                             ))}
                                             <LabelList dataKey="qty" position="top"
                                                 formatter={v => v.toLocaleString()}
-                                                style={{ fontSize: 10, fill: '#374151', fontWeight: 'bold' }} />
+                                                style={{ fontSize: 13, fill: '#374151', fontWeight: 'bold' }} />
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -316,18 +316,18 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                                 </div>
                                 : trendData.length === 0
                                     ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
-                                    : <ResponsiveContainer width="100%" height={220}>
-                                        <ComposedChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                    : <ResponsiveContainer width="100%" height={240}>
+                                        <ComposedChart data={trendData} margin={{ top: 30, right: 20, left: 0, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                                            <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                                            <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                                             {activeBrands.map(brand => (
                                                 <Line key={brand} type="monotone" dataKey={brand}
                                                     stroke={REPORT_BRAND_COLORS[brand]} strokeWidth={2}
                                                     dot={{ r: 3 }} name={brand}>
                                                     <LabelList dataKey={brand} position="top"
-                                                        style={{ fontSize: 9, fill: REPORT_BRAND_COLORS[brand], fontWeight: 'bold' }}
+                                                        style={{ fontSize: 12, fill: REPORT_BRAND_COLORS[brand], fontWeight: 'bold' }}
                                                         formatter={v => v > 0 ? v : ''} />
                                                 </Line>
                                             ))}
@@ -337,45 +337,68 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                         </div>
                     </section>
 
-                    {/* 결품 리스트 */}
+                    {/* 결품 리스트 - 브랜드별 */}
                     <section>
                         <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
                             <span className="w-1 h-3.5 bg-letusOrange rounded-full" />
-                            결품 리스트
-                            <span className="text-xs text-gray-400 font-normal">{selectedRows.length}건</span>
+                            결품 리스트 (브랜드별 Top 5)
+                            <span className="text-xs text-gray-400 font-normal">전체 {selectedRows.length}건</span>
                         </h4>
-                        <div className="border border-gray-200 rounded-lg overflow-hidden">
-                            <table className="w-full text-xs text-left">
-                                <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
-                                    <tr>
-                                        <th className="px-3 py-2.5 text-center w-24">납기일자</th>
-                                        <th className="px-3 py-2.5 text-center w-20">브랜드</th>
-                                        <th className="px-3 py-2.5 text-center w-32">공급업체</th>
-                                        <th className="px-3 py-2.5 text-center w-32">품목코드</th>
-                                        <th className="px-3 py-2.5">단품명칭</th>
-                                        <th className="px-3 py-2.5 text-center w-20">결품수량</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {[...selectedRows]
-                                        .sort((a, b) => {
-                                            const dateDiff = (a.delivery_date || '').localeCompare(b.delivery_date || '');
-                                            if (dateDiff !== 0) return dateDiff;
-                                            return (Number(b.shortage_qty) || 0) - (Number(a.shortage_qty) || 0);
-                                        })
-                                        .map(row => (
-                                            <tr key={row._rowId} className="hover:bg-gray-50">
-                                                <td className="px-3 py-2 text-center text-gray-500">{row.delivery_date || '-'}</td>
-                                                <td className="px-3 py-2 text-center text-gray-600">{row.brand || '-'}</td>
-                                                <td className="px-3 py-2 text-center font-semibold text-gray-700">{row.vendor || '-'}</td>
-                                                <td className="px-3 py-2 text-center font-mono text-gray-600 text-[11px]">{row.item_code || '-'}</td>
-                                                <td className="px-3 py-2 text-gray-700">{getItemName(row.item_code)}</td>
-                                                <td className="px-3 py-2 text-center font-bold text-letusOrange">{(Number(row.shortage_qty) || 0).toLocaleString()}</td>
-                                            </tr>
-                                        ))
-                                    }
-                                </tbody>
-                            </table>
+                        <div className="space-y-4">
+                            {(() => {
+                                // 브랜드별 그룹핑
+                                const brandMap = {};
+                                for (const row of selectedRows) {
+                                    const b = row.brand || '미분류';
+                                    if (!brandMap[b]) brandMap[b] = [];
+                                    brandMap[b].push(row);
+                                }
+                                // 브랜드별 총 결품수량 내림차순 정렬
+                                return Object.entries(brandMap)
+                                    .sort((a, b) => {
+                                        const sumA = a[1].reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
+                                        const sumB = b[1].reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
+                                        return sumB - sumA;
+                                    })
+                                    .map(([brand, rows]) => {
+                                        const top5 = [...rows]
+                                            .sort((a, b) => (Number(b.shortage_qty) || 0) - (Number(a.shortage_qty) || 0))
+                                            .slice(0, 5);
+                                        const totalQty = rows.reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
+                                        return (
+                                            <div key={brand}>
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <span className="text-xs font-bold text-gray-700">{brand}</span>
+                                                    <span className="text-[11px] text-gray-400">총 {totalQty.toLocaleString()}개 / {rows.length}건</span>
+                                                </div>
+                                                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                                    <table className="w-full text-xs text-left">
+                                                        <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
+                                                            <tr>
+                                                                <th className="px-3 py-2 text-center w-24">납기일자</th>
+                                                                <th className="px-3 py-2 text-center w-32">공급업체</th>
+                                                                <th className="px-3 py-2 text-center w-32">품목코드</th>
+                                                                <th className="px-3 py-2">단품명칭</th>
+                                                                <th className="px-3 py-2 text-center w-20">결품수량</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-100">
+                                                            {top5.map(row => (
+                                                                <tr key={row._rowId}>
+                                                                    <td className="px-3 py-1.5 text-center text-gray-500">{row.delivery_date || '-'}</td>
+                                                                    <td className="px-3 py-1.5 text-center font-semibold text-gray-700">{row.vendor || '-'}</td>
+                                                                    <td className="px-3 py-1.5 text-center font-mono text-gray-600 text-[11px]">{row.item_code || '-'}</td>
+                                                                    <td className="px-3 py-1.5 text-gray-700">{getItemName(row.item_code)}</td>
+                                                                    <td className="px-3 py-1.5 text-center font-bold text-letusOrange">{(Number(row.shortage_qty) || 0).toLocaleString()}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                            })()}
                         </div>
                     </section>
                 </div>
