@@ -49,7 +49,7 @@ const clean = (val) => val ? String(val).trim() : '';
 
 // Supabase UPSERT 한 번 호출 당 처리할 row 수.
 // (item_code, item_color) UNIQUE 제약이 있어야 onConflict 기반 UPSERT 가능.
-const CHUNK_SIZE = 2000;
+const CHUNK_SIZE = 200;
 
 async function loadAliases() {
     const { data, error } = await supabase.from('vendor_aliases').select('raw_name, canonical_name');
@@ -82,6 +82,7 @@ async function syncProducts() {
             SELECT
                 단품코드,
                 단품색상,
+                [단품명칭(한글)],
                 브랜드,
                 회사,
                 공급업체,
@@ -106,6 +107,7 @@ async function syncProducts() {
             uniqueMap.set(`${itemCode}_${itemColor}`, {
                 item_code: itemCode,
                 item_color: itemColor,
+                item_name: clean(row['단품명칭(한글)']),
                 brand_category: clean(row['브랜드']),
                 company_division: clean(row['회사']),
                 vendor: vendorVal,
@@ -135,6 +137,8 @@ async function syncProducts() {
             }
 
             processed += chunk.length;
+            // 타임아웃 방지: 청크 사이 100ms 대기
+            await new Promise(r => setTimeout(r, 100));
             if (processed % 10000 === 0 || processed >= uniqueData.length) {
                 const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
                 console.log(`Progress: ${processed.toLocaleString()} / ${uniqueData.length.toLocaleString()} (${elapsed}s elapsed)`);
