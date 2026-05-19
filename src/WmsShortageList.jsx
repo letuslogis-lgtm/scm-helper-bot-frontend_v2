@@ -19,7 +19,22 @@ const ACTION_TYPES = ['', '정상 출고', '납기 연기', '당일 출고', '�
 
 function getWaveCategory(wt, wn) {
     if (!wt) return '';
-    if (wt.includes('지방')) return (wn || '').includes('제주') ? '제주' : '지방';
+    const name = wn || '';
+
+    if (wt === '전시품오더') {
+        // wave_name에서 '(전시품)-' 이후 코드 추출
+        const m = name.match(/\(전시품\)-(.+)/);
+        const code = (m ? m[1] : name).trim();
+
+        if (code.includes('제주') || name.includes('제주')) return '제주';
+        if (/^지\d/.test(code)) return '지방';                             // 지01, 지06...
+        if (/^(부산|대전|대구|창원|울산|광주|전주|청주|천안|포항|구미|여수|안동)/.test(code)) return '지방';
+        if (/^경\d/.test(code)) return '현장';                             // 경32, 경38...
+        return '경인';                                                      // I코드, 소파, PA, OA, A코드 등
+    }
+
+    // 일반 wave_type
+    if (wt.includes('지방')) return name.includes('제주') ? '제주' : '지방';
     if (wt.includes('현장')) return '현장';
     if (wt.includes('경인')) return '경인';
     return '';
@@ -673,19 +688,11 @@ export const WmsShortageList = ({ userProfile }) => {
             agg.action_total += 1;
             if (row.action_type) agg.action_done += 1;
 
-            const wt = row.wave_type || '';
-            const wn = row.wave_name || '';
-            if (wt.includes('지방')) {
-                // 지방(권역), 지방(센터), 지방(현장), AS(지방) 모두 포함
-                if (wn.includes('제주')) agg.jeju += qty;
-                else                     agg.jibang += qty;
-            } else if (wt.includes('현장')) {
-                // 지방(현장)은 위에서 처리됐으므로 여기서는 경인(현장)만 해당
-                agg.hyunjang += qty;
-            } else if (wt.includes('경인')) {
-                // 경인(소액), 경인(센터), 경인(권역), AS(경인)
-                agg.gyeongin += qty;
-            }
+            const cat = getWaveCategory(row.wave_type || '', row.wave_name || '');
+            if      (cat === '제주') agg.jeju     += qty;
+            else if (cat === '지방') agg.jibang   += qty;
+            else if (cat === '현장') agg.hyunjang += qty;
+            else if (cat === '경인') agg.gyeongin += qty;
         }
         const result = Array.from(map.values());
         result.forEach(agg => {
