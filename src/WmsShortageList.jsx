@@ -5,10 +5,16 @@ import { supabase } from './supabaseClient.js';
 const COLS = [
     { key: 'upload_date',  label: '일자',    w: '100px' },
     { key: 'brand',        label: '브랜드',  w: '90px'  },
+    { key: 'vendor',       label: '공급업체', w: '120px' },
     { key: 'item_code',    label: '품목코드', w: '160px' },
-    { key: 'vendor',       label: '공급업체' },
     { key: 'shortage_qty', label: '결품수량', w: '90px'  },
+    { key: 'jeju',         label: '제주',    w: '60px'  },
+    { key: 'jibang',       label: '지방',    w: '60px'  },
+    { key: 'hyunjang',     label: '현장',    w: '60px'  },
+    { key: 'gyeongin',     label: '경인',    w: '60px'  },
 ];
+
+const ACTION_TYPES = ['', '재발주', '대체출고', '취소처리', '보류', '기타'];
 
 const EXCEL_TO_DB = {
     'WAVE명':      'wave_name',
@@ -108,6 +114,194 @@ function excelValToDb(excelKey, val) {
     return val ? String(val) : null;
 }
 
+// ── 조치사항 모달 ──────────────────────────────────────────────
+const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
+    const [localRows, setLocalRows] = useState(() =>
+        rawRows.map(r => ({
+            id: r.id,
+            order_no: r.order_no,
+            order_name: r.order_name,
+            shortage_qty: r.shortage_qty,
+            action_type: r.action_type || '',
+            action_detail: r.action_detail || '',
+            action_updated_by: r.action_updated_by || '',
+            action_updated_at: r.action_updated_at || '',
+        }))
+    );
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkType, setBulkType] = useState('');
+    const [bulkDetail, setBulkDetail] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSelectAll = (e) => {
+        setSelectedIds(e.target.checked ? new Set(localRows.map(r => r.id)) : new Set());
+    };
+    const handleSelectOne = (id) => {
+        setSelectedIds(prev => {
+            const s = new Set(prev);
+            s.has(id) ? s.delete(id) : s.add(id);
+            return s;
+        });
+    };
+
+    const handleBulkApply = () => {
+        if (selectedIds.size === 0) return alert('적용할 행을 선택하세요.');
+        setLocalRows(prev => prev.map(r =>
+            selectedIds.has(r.id) ? { ...r, action_type: bulkType, action_detail: bulkDetail } : r
+        ));
+    };
+
+    const updateRow = (id, field, value) => {
+        setLocalRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const now = new Date().toISOString();
+            const userName = userProfile?.name || '';
+            for (const row of localRows) {
+                const hasAction = !!(row.action_type || row.action_detail);
+                const { error } = await supabase
+                    .from('wms_shortage_list')
+                    .update({
+                        action_type:       row.action_type || null,
+                        action_detail:     row.action_detail || null,
+                        action_updated_by: hasAction ? userName : null,
+                        action_updated_at: hasAction ? now : null,
+                    })
+                    .eq('id', row.id);
+                if (error) throw error;
+            }
+            alert('저장되었습니다.');
+            onSaved();
+            onClose();
+        } catch (e) {
+            console.error(e);
+            alert('저장 중 오류가 발생했습니다.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-5xl flex flex-col max-h-[85vh] border border-gray-100 overflow-hidden slide-up">
+
+                {/* 헤더 */}
+                <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full"></span>
+                        <h3 className="font-bold text-sm text-gray-800">
+                            조치사항 — <span className="text-letusBlue font-mono">{aggRow.item_code}</span>
+                        </h3>
+                        <span className="text-gray-400 text-xs font-medium">{aggRow.vendor ? `${aggRow.vendor} |` : ''} {aggRow.upload_date}</span>
+                    </div>
+                    <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* 일괄입력 바 */}
+                <div className="px-4 py-2.5 border-b bg-blue-50/40 flex items-center gap-3 shrink-0">
+                    <span className="text-[11px] font-bold text-gray-600 shrink-0">선택 행 일괄입력</span>
+                    <select value={bulkType} onChange={e => setBulkType(e.target.value)}
+                        className="border border-gray-200 rounded text-xs px-2 h-7 bg-white text-gray-700 focus:outline-none focus:border-letusBlue cursor-pointer">
+                        {ACTION_TYPES.map(t => <option key={t} value={t}>{t || '(미처리)'}</option>)}
+                    </select>
+                    <input value={bulkDetail} onChange={e => setBulkDetail(e.target.value)}
+                        placeholder="조치내용 입력"
+                        className="border border-gray-200 rounded text-xs px-2.5 h-7 flex-1 min-w-0 focus:outline-none focus:border-letusBlue" />
+                    <button onClick={handleBulkApply}
+                        className="bg-letusBlue text-white text-xs font-bold px-3 h-7 rounded hover:bg-blue-700 transition-colors shrink-0">
+                        일괄적용
+                    </button>
+                    {selectedIds.size > 0 && (
+                        <span className="text-[11px] text-letusBlue font-bold shrink-0">{selectedIds.size}행 선택됨</span>
+                    )}
+                </div>
+
+                {/* 테이블 */}
+                <div className="overflow-auto flex-1 custom-scrollbar">
+                    <table className="w-full text-left text-[12px]">
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0">
+                            <tr>
+                                <th className="p-3 pl-4 w-10 text-center">
+                                    <input type="checkbox"
+                                        checked={localRows.length > 0 && selectedIds.size === localRows.length}
+                                        onChange={handleSelectAll}
+                                        className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                                </th>
+                                <th className="p-3 w-36">오더번호</th>
+                                <th className="p-3">오더건명</th>
+                                <th className="p-3 w-20 text-right pr-4">결품수량</th>
+                                <th className="p-3 w-32">조치유형</th>
+                                <th className="p-3">조치내용</th>
+                                <th className="p-3 w-44 text-center">최종수정</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-gray-700">
+                            {localRows.map(row => (
+                                <tr key={row.id} className={`transition-colors ${selectedIds.has(row.id) ? 'bg-blue-50' : 'hover:bg-gray-50/50'}`}>
+                                    <td className="p-3 pl-4 text-center">
+                                        <input type="checkbox"
+                                            checked={selectedIds.has(row.id)}
+                                            onChange={() => handleSelectOne(row.id)}
+                                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                                    </td>
+                                    <td className="p-3 font-mono text-[11px] text-gray-600">{row.order_no || '-'}</td>
+                                    <td className="p-3 text-[11px] text-gray-700 max-w-[200px] truncate" title={row.order_name || ''}>{row.order_name || '-'}</td>
+                                    <td className="p-3 text-right pr-4 font-bold text-letusOrange">{row.shortage_qty ?? '-'}</td>
+                                    <td className="p-3">
+                                        <select value={row.action_type}
+                                            onChange={e => updateRow(row.id, 'action_type', e.target.value)}
+                                            className="border border-gray-200 rounded text-[11px] px-1.5 h-6 w-full bg-white text-gray-700 focus:outline-none focus:border-letusBlue cursor-pointer">
+                                            {ACTION_TYPES.map(t => <option key={t} value={t}>{t || '(미처리)'}</option>)}
+                                        </select>
+                                    </td>
+                                    <td className="p-3">
+                                        <input value={row.action_detail}
+                                            onChange={e => updateRow(row.id, 'action_detail', e.target.value)}
+                                            className="border border-gray-200 rounded text-[11px] px-2 h-6 w-full focus:outline-none focus:border-letusBlue"
+                                            placeholder="내용 입력" />
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        {row.action_updated_by ? (
+                                            <div className="text-[10px]">
+                                                <div className="font-bold text-gray-600">{row.action_updated_by}</div>
+                                                <div className="text-gray-400">{row.action_updated_at ? String(row.action_updated_at).slice(0, 16).replace('T', ' ') : ''}</div>
+                                            </div>
+                                        ) : <span className="text-gray-300 text-[10px]">-</span>}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* 푸터 */}
+                <div className="p-3 border-t bg-gray-50 flex justify-between items-center shrink-0">
+                    <span className="text-[11px] text-gray-500">총 {localRows.length}건</span>
+                    <div className="flex gap-2">
+                        <button onClick={onClose}
+                            className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                            닫기
+                        </button>
+                        <button onClick={handleSave} disabled={isSaving}
+                            className="px-5 py-1.5 bg-letusBlue text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50">
+                            {isSaving ? '저장 중...' : '저장'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ── 메인 컴포넌트 ──────────────────────────────────────────────
 export const WmsShortageList = ({ userProfile }) => {
     const isAdmin = userProfile?.role === '관리자';
 
@@ -120,6 +314,7 @@ export const WmsShortageList = ({ userProfile }) => {
     const [selectedIds, setSelectedIds]     = useState(new Set());
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+    const [actionModal, setActionModal]     = useState(null); // aggRow
     const fileInputRef = useRef(null);
 
     const setD = (k, v) => setDraft(p => ({ ...p, [k]: v }));
@@ -139,7 +334,7 @@ export const WmsShortageList = ({ userProfile }) => {
             }
             const { data, error } = await q;
             if (error) throw error;
-            setRows((data || []).map((r, i) => ({ ...r, _rowId: r.id })));
+            setRows((data || []).map((r) => ({ ...r, _rowId: r.id })));
         } catch (e) { console.error(e); alert('데이터 조회 중 오류가 발생했습니다.'); }
         finally { setIsLoading(false); }
     }, []);
@@ -189,7 +384,6 @@ export const WmsShortageList = ({ userProfile }) => {
             });
 
             // products 테이블에서 vendor 매칭
-            // WMS item_code = "품목코드-색상" → 마지막 '-' 기준으로 분리
             const splitItemCode = (raw) => {
                 if (!raw) return { code: '', color: '' };
                 const idx = raw.lastIndexOf('-');
@@ -208,7 +402,6 @@ export const WmsShortageList = ({ userProfile }) => {
                 const chunk = uniquePairs.slice(i, i + PCHUNK);
                 const codes = [...new Set(chunk.map(p => p.split('||')[0]).filter(Boolean))];
                 if (codes.length === 0) continue;
-                console.log('[DEBUG] products 쿼리 codes 샘플:', codes.slice(0, 5));
                 const { data: products } = await supabase
                     .from('products')
                     .select('item_code, item_color, display_vendor')
@@ -259,25 +452,41 @@ export const WmsShortageList = ({ userProfile }) => {
         setSelectedIds(new Set());
     };
 
-    // 품목코드 + 업로드 날짜 기준 집계: shortage_qty 합산
+    // 집계: 품목코드 + 업로드 날짜 기준, 제주/지방/현장/경인 qty 합산
     const aggregated = useMemo(() => {
         const map = new Map();
         for (const row of rows) {
             const key = `${row.item_code || '(미등록)'}|${row.upload_date || ''}`;
             if (!map.has(key)) {
                 map.set(key, {
-                    _rowId: key,
-                    _ids: [],
-                    item_code: row.item_code,
-                    brand: row.brand,
-                    vendor: row.vendor,
+                    _rowId:      key,
+                    _ids:        [],
+                    item_code:   row.item_code,
+                    brand:       row.brand,
+                    vendor:      row.vendor,
                     upload_date: row.upload_date,
                     shortage_qty: 0,
+                    jeju:        0,
+                    jibang:      0,
+                    hyunjang:    0,
+                    gyeongin:    0,
                 });
             }
             const agg = map.get(key);
             agg._ids.push(row.id);
-            agg.shortage_qty += Number(row.shortage_qty) || 0;
+            const qty = Number(row.shortage_qty) || 0;
+            agg.shortage_qty += qty;
+
+            const wt = row.wave_type || '';
+            const wn = row.wave_name || '';
+            if (wt === '지방(권역)') {
+                if (wn.includes('제주')) agg.jeju += qty;
+                else                     agg.jibang += qty;
+            } else if (wt === '경인(현장)') {
+                agg.hyunjang += qty;
+            } else if (wt === '경인(소액)') {
+                agg.gyeongin += qty;
+            }
         }
         return Array.from(map.values());
     }, [rows]);
@@ -333,12 +542,16 @@ export const WmsShortageList = ({ userProfile }) => {
         const excelData = target.map(r => ({
             '일자':    r.upload_date || '',
             '브랜드':  r.brand || '',
-            '품목코드': r.item_code || '',
             '공급업체': r.vendor || '',
+            '품목코드': r.item_code || '',
             '결품수량': r.shortage_qty ?? '',
+            '제주':    r.jeju || 0,
+            '지방':    r.jibang || 0,
+            '현장':    r.hyunjang || 0,
+            '경인':    r.gyeongin || 0,
         }));
         const ws = XLSX.utils.json_to_sheet(excelData);
-        ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 18 }, { wch: 10 }];
+        ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'D-2결품리스트');
         XLSX.writeFile(wb, `D-2결품리스트_${todayStr()}.xlsx`);
@@ -347,7 +560,6 @@ export const WmsShortageList = ({ userProfile }) => {
     const handleDeleteSelected = async () => {
         if (!isAdmin) return alert('삭제 권한이 없습니다. 관리자에게 문의하세요.');
         if (selectedIds.size === 0) return alert('항목을 체크해 주세요.');
-        // 선택된 집계 행들의 실제 DB id 수집
         const dbIds = sorted
             .filter(r => selectedIds.has(r._rowId))
             .flatMap(r => r._ids);
@@ -367,9 +579,29 @@ export const WmsShortageList = ({ userProfile }) => {
         }
     };
 
-    const formatDate = (val) => {
-        if (!val) return '-';
-        return String(val).slice(0, 10);
+    // 더블클릭 → 조치사항 모달
+    const handleRowDoubleClick = (aggRow) => {
+        setActionModal(aggRow);
+    };
+
+    // 모달에 전달할 raw rows
+    const modalRawRows = useMemo(() => {
+        if (!actionModal) return [];
+        return rows.filter(r =>
+            r.item_code === actionModal.item_code &&
+            r.upload_date === actionModal.upload_date
+        );
+    }, [actionModal, rows]);
+
+    const renderCell = (col, row) => {
+        if (col.key === 'shortage_qty') {
+            return <span className="font-bold text-letusOrange">{row[col.key] ?? '-'}</span>;
+        }
+        if (['jeju', 'jibang', 'hyunjang', 'gyeongin'].includes(col.key)) {
+            const v = row[col.key];
+            return v ? <span className="font-semibold text-gray-700">{v}</span> : <span className="text-gray-300">-</span>;
+        }
+        return <span>{row[col.key] ?? '-'}</span>;
     };
 
     return (
@@ -427,52 +659,56 @@ export const WmsShortageList = ({ userProfile }) => {
             </div>
 
             {/* ── 액션 바 ── */}
-            <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0 gap-3">
-
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px] disabled:opacity-50 disabled:cursor-not-allowed">
-                    <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
-                    </svg>
-                    {isUploading ? '업로드 중...' : 'WMS 파일 업로드 (Excel)'}
-                </button>
-                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
-
-                <div className="relative z-50">
-                    <button onClick={() => setIsActionMenuOpen(v => !v)}
-                        className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
-                        선택실행 {selectedIds.size > 0 && `(${selectedIds.size})`}
-                        <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <div className="flex justify-between w-full px-2 z-30 -mt-1 mb-1 shrink-0">
+                <p className="text-[11px] text-gray-400 self-center">
+                    💡 행을 <b>더블클릭</b>하면 조치사항을 입력할 수 있습니다
+                </p>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
                         </svg>
+                        {isUploading ? '업로드 중...' : 'WMS 파일 업로드 (Excel)'}
                     </button>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
 
-                    {isActionMenuOpen && (
-                        <>
-                            <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)}></div>
-                            <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
-                                <button
-                                    onClick={() => { setIsActionMenuOpen(false); handleExportExcel(); }}
-                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.size > 0 ? 'text-green-600 hover:bg-green-50' : 'text-gray-300 cursor-not-allowed'}`}
-                                >
-                                    엑셀 추출
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                </button>
-                                <div className="h-px bg-gray-100 my-1"></div>
-                                <button
-                                    onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
-                                    className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.size > 0 && isAdmin ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
-                                >
-                                    삭제
-                                    {selectedIds.size > 0 && isAdmin && <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
-                                </button>
-                            </div>
-                        </>
-                    )}
+                    <div className="relative z-50">
+                        <button onClick={() => setIsActionMenuOpen(v => !v)}
+                            className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
+                            선택실행 {selectedIds.size > 0 && `(${selectedIds.size})`}
+                            <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        {isActionMenuOpen && (
+                            <>
+                                <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)}></div>
+                                <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                    <button
+                                        onClick={() => { setIsActionMenuOpen(false); handleExportExcel(); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.size > 0 ? 'text-green-600 hover:bg-green-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                    >
+                                        엑셀 추출
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                    </button>
+                                    <div className="h-px bg-gray-100 my-1"></div>
+                                    <button
+                                        onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.size > 0 && isAdmin ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                    >
+                                        삭제
+                                        {selectedIds.size > 0 && isAdmin && <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -521,21 +757,22 @@ export const WmsShortageList = ({ userProfile }) => {
                                 sorted.map((row, i) => {
                                     const checked = selectedIds.has(row._rowId);
                                     return (
-                                        <tr key={row._rowId} className={`transition-colors ${checked ? 'bg-blue-50' : 'hover:bg-blue-50/40'}`}>
+                                        <tr
+                                            key={row._rowId}
+                                            className={`transition-colors cursor-pointer ${checked ? 'bg-blue-50' : 'hover:bg-blue-50/40'}`}
+                                            onDoubleClick={() => handleRowDoubleClick(row)}
+                                        >
                                             <td className="p-4 pl-6 text-center">
                                                 <input type="checkbox" checked={checked}
                                                     onChange={(e) => handleSelectOne(e, row._rowId, i)}
+                                                    onClick={(e) => e.stopPropagation()}
                                                     className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                             </td>
                                             {COLS.map(c => (
                                                 <td key={c.key} className="px-3 py-2.5 text-center" style={{ width: c.w }}>
-                                                    {c.key === 'shortage_qty'
-                                                        ? <span className="font-bold text-letusOrange">{row[c.key] ?? '-'}</span>
-                                                        : <span>{row[c.key] ?? '-'}</span>
-                                                    }
+                                                    {renderCell(c, row)}
                                                 </td>
                                             ))}
-
                                         </tr>
                                     );
                                 })
@@ -552,6 +789,17 @@ export const WmsShortageList = ({ userProfile }) => {
                     </div>
                 )}
             </div>
+
+            {/* ── 조치사항 모달 ── */}
+            {actionModal && (
+                <ActionModal
+                    aggRow={actionModal}
+                    rawRows={modalRawRows}
+                    userProfile={userProfile}
+                    onClose={() => setActionModal(null)}
+                    onSaved={() => fetchData(applied)}
+                />
+            )}
         </div>
     );
 };
