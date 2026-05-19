@@ -220,9 +220,23 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
         const style = document.createElement('style');
         style.id = 'wms-report-print-style';
         style.innerHTML = `@media print {
-            body > * { visibility: hidden !important; }
+            body * { visibility: hidden !important; }
             #wms-report-print, #wms-report-print * { visibility: visible !important; }
-            #wms-report-print { position: fixed; top: 0; left: 0; width: 100%; height: auto; overflow: visible; box-shadow: none; border-radius: 0; z-index: 9999; }
+            #wms-report-print {
+                position: absolute !important;
+                top: 0 !important; left: 0 !important;
+                width: 100% !important; max-width: 100% !important;
+                max-height: none !important; height: auto !important;
+                overflow: visible !important;
+                box-shadow: none !important; border-radius: 0 !important; border: none !important;
+            }
+            #wms-report-body {
+                overflow: visible !important;
+                max-height: none !important; height: auto !important;
+                flex: none !important;
+            }
+            #wms-report-footer { display: none !important; }
+            #wms-report-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }`;
         document.head.appendChild(style);
         return () => document.getElementById('wms-report-print-style')?.remove();
@@ -249,7 +263,7 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                 </div>
 
                 {/* 본문 */}
-                <div className="overflow-auto flex-1 p-6 space-y-6 custom-scrollbar">
+                <div id="wms-report-body" className="overflow-auto flex-1 p-6 space-y-6 custom-scrollbar">
 
                     {/* 특이사항 */}
                     <section>
