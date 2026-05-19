@@ -123,6 +123,98 @@ function excelValToDb(excelKey, val) {
     return val ? String(val) : null;
 }
 
+// ── 조치 변경 이력 모달 ───────────────────────────────────────
+const ActionLogModal = ({ row, onClose }) => {
+    const [logs, setLogs] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLogs = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('wms_action_logs')
+                    .select('*')
+                    .eq('shortage_id', row.id)
+                    .order('updated_at', { ascending: false });
+                if (error) throw error;
+                setLogs(data || []);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchLogs();
+    }, [row.id]);
+
+    return (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+            <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-2xl flex flex-col max-h-[65vh] border border-gray-100 overflow-hidden slide-up">
+
+                {/* 헤더 */}
+                <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full"></span>
+                        <h3 className="font-bold text-sm text-gray-800">변경 이력</h3>
+                        <span className="text-xs text-gray-400 font-mono">{row.order_no}</span>
+                    </div>
+                    <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* 본문 */}
+                <div className="overflow-auto flex-1 custom-scrollbar">
+                    {isLoading ? (
+                        <div className="py-16 text-center">
+                            <div className="w-7 h-7 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin mx-auto"></div>
+                        </div>
+                    ) : logs.length === 0 ? (
+                        <div className="py-16 text-center text-gray-400 text-sm font-bold">변경 이력이 없습니다.</div>
+                    ) : (
+                        <table className="w-full text-[12px] text-left">
+                            <thead className="bg-slate-50 border-b text-xs text-slate-500 font-bold sticky top-0">
+                                <tr>
+                                    <th className="p-3 text-center w-44">수정일시</th>
+                                    <th className="p-3 text-center w-24">수정자</th>
+                                    <th className="p-3 text-center w-28">조치유형</th>
+                                    <th className="p-3 text-center">조치내용</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-gray-700">
+                                {logs.map((log, i) => (
+                                    <tr key={log.id} className={i === 0 ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}>
+                                        <td className="p-3 text-center font-mono text-[11px] text-gray-500">
+                                            {log.updated_at ? String(log.updated_at).slice(0, 16).replace('T', ' ') : '-'}
+                                        </td>
+                                        <td className="p-3 text-center font-bold text-gray-700">{log.updated_by || '-'}</td>
+                                        <td className="p-3 text-center">
+                                            {log.action_type
+                                                ? <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px] font-bold">{log.action_type}</span>
+                                                : <span className="text-gray-300">-</span>}
+                                        </td>
+                                        <td className="p-3 text-gray-600">{log.action_detail || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                <div className="p-3 border-t bg-gray-50 flex justify-end shrink-0">
+                    <button onClick={onClose}
+                        className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm">
+                        닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── 조치사항 모달 ──────────────────────────────────────────────
 const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
     const [localRows, setLocalRows] = useState(() =>
@@ -144,7 +236,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
     const [bulkDetail, setBulkDetail] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [modalSort, setModalSort] = useState({ key: null, direction: 'none' });
-    const [logPopover, setLogPopover] = useState(null); // row.id
+    const [logModal, setLogModal] = useState(null); // row object
 
     const requestModalSort = (key) => {
         setModalSort(prev => {
@@ -196,6 +288,8 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
         try {
             const now = new Date().toISOString();
             const userName = userProfile?.name || '';
+
+            // 1) wms_shortage_list 업데이트
             for (const row of localRows) {
                 const hasAction = !!(row.action_type || row.action_detail);
                 const { error } = await supabase
@@ -209,6 +303,24 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                     .eq('id', row.id);
                 if (error) throw error;
             }
+
+            // 2) 변경 이력 INSERT (action_type 또는 action_detail이 있는 행만)
+            const logRecords = localRows
+                .filter(row => row.action_type || row.action_detail)
+                .map(row => ({
+                    shortage_id:   row.id,
+                    action_type:   row.action_type || null,
+                    action_detail: row.action_detail || null,
+                    updated_by:    userName,
+                    updated_at:    now,
+                }));
+            if (logRecords.length > 0) {
+                const { error: logError } = await supabase
+                    .from('wms_action_logs')
+                    .insert(logRecords);
+                if (logError) throw logError;
+            }
+
             alert('저장되었습니다.');
             onSaved();
             onClose();
@@ -333,38 +445,18 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                                 className="border border-gray-200 rounded text-[11px] px-2 h-6 w-full focus:outline-none focus:border-letusBlue"
                                                 placeholder="내용 입력" />
                                         </td>
-                                        <td className="p-3 text-center relative">
+                                        <td className="p-3 text-center">
                                             {row.action_updated_by ? (
                                                 <div className="flex items-center justify-center gap-1.5">
                                                     <span className="text-[11px] font-bold text-gray-700">{row.action_updated_by}</span>
                                                     <button
-                                                        onClick={() => setLogPopover(logPopover === row.id ? null : row.id)}
+                                                        onClick={() => setLogModal(row)}
                                                         className="text-gray-400 hover:text-letusBlue transition-colors"
-                                                        title="수정 이력">
+                                                        title="변경 이력 보기">
                                                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                         </svg>
                                                     </button>
-                                                    {logPopover === row.id && (
-                                                        <>
-                                                            <div className="fixed inset-0 z-10" onClick={() => setLogPopover(null)} />
-                                                            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-lg shadow-xl p-3 w-52 text-left">
-                                                                <div className="text-[10px] font-bold text-gray-500 mb-2 pb-1.5 border-b">수정 이력</div>
-                                                                <div className="flex items-start gap-2">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-letusBlue mt-1.5 shrink-0"></div>
-                                                                    <div>
-                                                                        <div className="text-[11px] font-bold text-gray-700">{row.action_updated_by}</div>
-                                                                        <div className="text-[10px] text-gray-400 mt-0.5">
-                                                                            {row.action_updated_at ? String(row.action_updated_at).slice(0, 16).replace('T', ' ') : '-'}
-                                                                        </div>
-                                                                        <div className="text-[10px] text-gray-500 mt-1">
-                                                                            {row.action_type && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">{row.action_type}</span>}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
                                                 </div>
                                             ) : <span className="text-gray-300 text-[10px]">-</span>}
                                         </td>
@@ -390,6 +482,11 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                     </div>
                 </div>
             </div>
+
+            {/* 변경 이력 모달 */}
+            {logModal && (
+                <ActionLogModal row={logModal} onClose={() => setLogModal(null)} />
+            )}
         </div>
     );
 };
