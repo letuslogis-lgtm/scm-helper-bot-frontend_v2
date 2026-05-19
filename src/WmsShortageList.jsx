@@ -5,7 +5,7 @@ import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
 
 const COLS = [
-    { key: 'upload_date',   label: '일자',     w: '80px'  },
+    { key: 'upload_date',   label: '납기일자',  w: '80px'  },
     { key: 'brand',         label: '브랜드',   w: '70px'  },
     { key: 'vendor',        label: '공급업체',  w: '120px' },
     { key: 'item_code',     label: '품목코드',  w: '120px' },
@@ -216,6 +216,7 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
         return itemNames[base] || '-';
     };
 
+
     // 인쇄 스타일 주입
     useEffect(() => {
         const style = document.createElement('style');
@@ -339,7 +340,7 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                             <table className="w-full text-xs text-left">
                                 <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
                                     <tr>
-                                        <th className="px-3 py-2.5 text-center w-24">일자</th>
+                                        <th className="px-3 py-2.5 text-center w-24">납기일자</th>
                                         <th className="px-3 py-2.5 text-center w-20">브랜드</th>
                                         <th className="px-3 py-2.5 text-center w-32">공급업체</th>
                                         <th className="px-3 py-2.5 text-center w-32">품목코드</th>
