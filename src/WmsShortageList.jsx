@@ -15,7 +15,7 @@ const COLS = [
     { key: 'gyeongin',     label: '경인',    w: '60px'  },
 ];
 
-const ACTION_TYPES = ['', '재발주', '대체출고', '취소처리', '보류', '기타'];
+const ACTION_TYPES = ['', '정상 출고', '납기 연기', '당일 출고', '현장 직출', '센터 직출'];
 
 const EXCEL_TO_DB = {
     'WAVE명':      'wave_name',
