@@ -118,6 +118,136 @@ const MultiSelect = ({ label, options, selected, onChange }) => {
     );
 };
 
+// ── WMS 업로드 모달 ────────────────────────────────────────────
+const WmsUploadModal = ({ onClose, onUpload }) => {
+    const [isDragging, setIsDragging] = useState(false);
+    const [fileItems, setFileItems] = useState([]); // [{ file, center }]
+    const fileInputRef = useRef(null);
+
+    const detectCenter = (name) => {
+        if (name.includes('1센터')) return '1센터';
+        if (name.includes('2센터')) return '2센터';
+        if (name.includes('3센터')) return '3센터';
+        return '';
+    };
+
+    const addFiles = (dropped) => {
+        const incoming = Array.from(dropped)
+            .filter(f => /\.xlsx?$/i.test(f.name))
+            .filter(f => !fileItems.find(i => i.file.name === f.name))
+            .map(f => ({ file: f, center: detectCenter(f.name) }));
+        setFileItems(prev => [...prev, ...incoming]);
+    };
+
+    const updateCenter = (idx, center) =>
+        setFileItems(prev => prev.map((item, i) => i === idx ? { ...item, center } : item));
+
+    const removeFile = (idx) =>
+        setFileItems(prev => prev.filter((_, i) => i !== idx));
+
+    const canUpload = fileItems.length > 0 && fileItems.every(i => i.center);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+            <div className="bg-white rounded-2xl shadow-2xl z-10 w-full max-w-lg slide-up overflow-hidden border border-gray-100 flex flex-col">
+
+                {/* 헤더 */}
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/80">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                        <span className="w-1.5 h-3.5 bg-green-500 rounded-full"></span>
+                        WMS 결품 파일 업로드
+                    </h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    {/* 가이드 */}
+                    <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-xs">
+                        <p className="font-bold text-letusBlue mb-1">💡 업로드 가이드</p>
+                        <ul className="text-gray-600 space-y-1 ml-1">
+                            <li>• 파일명에 <span className="font-bold text-gray-800">1센터 / 2센터 / 3센터</span> 포함 시 자동 감지됩니다</li>
+                            <li>• 예: <span className="font-mono text-gray-700">1센터_결품_20260519.xlsx</span></li>
+                            <li>• 여러 파일을 한 번에 드래그해서 동시 업로드 가능합니다</li>
+                        </ul>
+                    </div>
+
+                    {/* 드롭존 */}
+                    <div
+                        className={`w-full h-28 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-green-400'}`}
+                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                        onDragLeave={() => setIsDragging(false)}
+                        onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files); }}
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        <input ref={fileInputRef} type="file" hidden accept=".xlsx,.xls" multiple
+                            onChange={e => { addFiles(e.target.files); e.target.value = ''; }} />
+                        <svg className={`w-7 h-7 mb-1.5 ${isDragging ? 'text-green-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p className="text-gray-700 font-bold text-sm">파일을 드래그하거나 클릭해서 선택</p>
+                        <p className="text-gray-400 text-xs mt-0.5">여러 파일 동시 선택 가능</p>
+                    </div>
+
+                    {/* 파일 목록 */}
+                    {fileItems.length > 0 && (
+                        <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                            {fileItems.map((item, idx) => (
+                                <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
+                                    </svg>
+                                    <span className="text-xs text-gray-700 flex-1 truncate" title={item.file.name}>{item.file.name}</span>
+                                    {item.center ? (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 border border-green-200 rounded-full shrink-0">
+                                            ✓ {item.center}
+                                        </span>
+                                    ) : (
+                                        <select value={item.center} onChange={e => updateCenter(idx, e.target.value)}
+                                            className="border border-orange-300 rounded text-[11px] px-1.5 h-6 bg-white text-orange-600 font-bold focus:outline-none cursor-pointer shrink-0">
+                                            <option value="">센터 선택 ⚠️</option>
+                                            <option value="1센터">1센터</option>
+                                            <option value="2센터">2센터</option>
+                                            <option value="3센터">3센터</option>
+                                        </select>
+                                    )}
+                                    <button onClick={() => removeFile(idx)} className="text-gray-300 hover:text-red-400 transition-colors shrink-0">
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* 푸터 */}
+                <div className="p-4 border-t bg-gray-50 flex justify-between items-center">
+                    <span className="text-xs text-gray-500">
+                        {fileItems.length > 0 ? `${fileItems.length}개 파일 선택됨` : '파일을 선택해주세요'}
+                        {fileItems.some(i => !i.center) && <span className="text-orange-500 ml-2 font-bold">⚠️ 센터 미선택 있음</span>}
+                    </span>
+                    <div className="flex gap-2">
+                        <button onClick={onClose}
+                            className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm">
+                            취소
+                        </button>
+                        <button onClick={() => canUpload && onUpload(fileItems)} disabled={!canUpload}
+                            className="px-5 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                            업로드
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 function excelDateToStr(val) {
     if (!val) return '';
     if (typeof val === 'string') return val.split('T')[0].slice(0, 10);
@@ -516,7 +646,7 @@ export const WmsShortageList = ({ userProfile }) => {
     const [rows, setRows]                   = useState([]);
     const [isLoading, setIsLoading]         = useState(false);
     const [isUploading, setIsUploading]     = useState(false);
-    const [uploadCenter, setUploadCenter]   = useState('');
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [draft, setDraft]                 = useState(initFilter());
     const [applied, setApplied]             = useState(initFilter());
     const [sortConfig, setSortConfig]       = useState({ key: null, direction: 'none' });
@@ -525,7 +655,6 @@ export const WmsShortageList = ({ userProfile }) => {
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [actionModal, setActionModal]     = useState(null); // aggRow
     const [constructionTeams, setConstructionTeams] = useState(new Set());
-    const fileInputRef = useRef(null);
 
     const setD = (k, v) => setDraft(p => ({ ...p, [k]: v }));
 
@@ -599,7 +728,7 @@ export const WmsShortageList = ({ userProfile }) => {
         fetchData(next);
     };
 
-    const parseFile = async (file) => {
+    const parseFile = async (file, center) => {
         if (!file) return;
         setIsUploading(true);
         try {
@@ -620,7 +749,7 @@ export const WmsShortageList = ({ userProfile }) => {
             const uploaded_by = userProfile?.name || '';
 
             const records = jsonData.map(row => {
-                const rec = { upload_id, upload_date, uploaded_by, upload_file: file.name, source_center: uploadCenter || null };
+                const rec = { upload_id, upload_date, uploaded_by, upload_file: file.name, source_center: center || null };
                 for (const [excelKey, dbKey] of Object.entries(EXCEL_TO_DB)) {
                     rec[dbKey] = excelValToDb(excelKey, row[excelKey]);
                 }
@@ -683,8 +812,12 @@ export const WmsShortageList = ({ userProfile }) => {
         }
     };
 
-    const handleFile = (e) => { parseFile(e.target.files[0]); e.target.value = ''; };
-    const handleDrop = (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) parseFile(f); };
+    const handleUploadFiles = async (fileItems) => {
+        setIsUploadModalOpen(false);
+        for (const { file, center } of fileItems) {
+            await parseFile(file, center);
+        }
+    };
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -882,11 +1015,7 @@ export const WmsShortageList = ({ userProfile }) => {
     };
 
     return (
-        <div
-            className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-        >
+        <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
             {/* ── 검색 구역 ── */}
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex items-center z-30 shrink-0">
                 <div className="flex items-center gap-5 w-full flex-wrap">
@@ -941,30 +1070,15 @@ export const WmsShortageList = ({ userProfile }) => {
                     💡 행을 <b>더블클릭</b>하면 조치사항을 입력할 수 있습니다
                 </p>
                 <div className="flex gap-3">
-                    <div className="flex items-center gap-1.5">
-                        <select
-                            value={uploadCenter}
-                            onChange={e => setUploadCenter(e.target.value)}
-                            className="border border-gray-300 rounded-[3px] text-xs px-2 h-[32px] bg-white text-gray-700 focus:outline-none focus:border-green-500 cursor-pointer">
-                            <option value="">센터 선택</option>
-                            <option value="1센터">1센터</option>
-                            <option value="2센터">2센터</option>
-                            <option value="3센터">3센터</option>
-                        </select>
-                        <button
-                            onClick={() => {
-                                if (!uploadCenter) return alert('센터를 먼저 선택해주세요.');
-                                fileInputRef.current?.click();
-                            }}
-                            disabled={isUploading}
-                            className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px] disabled:opacity-50 disabled:cursor-not-allowed">
-                            <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
-                            </svg>
-                            {isUploading ? '업로드 중...' : 'WMS 파일 업로드 (Excel)'}
-                        </button>
-                    </div>
-                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
+                    <button
+                        onClick={() => setIsUploadModalOpen(true)}
+                        disabled={isUploading}
+                        className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" />
+                        </svg>
+                        {isUploading ? '업로드 중...' : 'WMS 파일 업로드'}
+                    </button>
 
                     <div className="relative z-50">
                         <button onClick={() => setIsActionMenuOpen(v => !v)}
@@ -1089,6 +1203,14 @@ export const WmsShortageList = ({ userProfile }) => {
                     userProfile={userProfile}
                     onClose={() => setActionModal(null)}
                     onSaved={() => fetchData(applied)}
+                />
+            )}
+
+            {/* ── 업로드 모달 ── */}
+            {isUploadModalOpen && (
+                <WmsUploadModal
+                    onClose={() => setIsUploadModalOpen(false)}
+                    onUpload={handleUploadFiles}
                 />
             )}
         </div>
