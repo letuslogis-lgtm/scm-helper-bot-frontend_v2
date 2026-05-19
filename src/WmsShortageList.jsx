@@ -389,7 +389,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                     { key: 'wave_category',     label: 'WAVE',    w: '6rem'   },
                                     { key: 'shortage_qty',      label: '결품수량', w: '6rem'   },
                                     { key: 'action_type',       label: '조치유형', w: '8rem'   },
-                                    { key: 'action_detail',     label: '조치내용', w: '11rem'  },
+                                    { key: 'action_detail',     label: '조치내용', w: '17.6rem'  },
                                     { key: 'action_updated_by', label: '최종수정', w: '7.7rem' },
                                 ].map(col => (
                                     <th key={col.key}
@@ -440,7 +440,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
                                                 {ACTION_TYPES.map(t => <option key={t} value={t}>{t || '(미처리)'}</option>)}
                                             </select>
                                         </td>
-                                        <td className="p-3" style={{ width: '11rem', minWidth: '11rem' }}>
+                                        <td className="p-3" style={{ width: '17.6rem', minWidth: '17.6rem' }}>
                                             <input value={row.action_detail}
                                                 onChange={e => updateRow(row.id, 'action_detail', e.target.value)}
                                                 className="border border-gray-200 rounded text-[11px] px-2 h-6 w-full focus:outline-none focus:border-letusBlue"
