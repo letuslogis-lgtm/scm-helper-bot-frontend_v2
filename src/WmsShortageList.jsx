@@ -1249,7 +1249,6 @@ export const WmsShortageList = ({ userProfile }) => {
             }))];
 
             const vendorMap = new Map();
-            const nonInventoryKeys = new Set();
             const PCHUNK = 200;
             for (let i = 0; i < uniquePairs.length; i += PCHUNK) {
                 const chunk = uniquePairs.slice(i, i + PCHUNK);
@@ -1257,13 +1256,12 @@ export const WmsShortageList = ({ userProfile }) => {
                 if (codes.length === 0) continue;
                 const { data: products } = await supabase
                     .from('products')
-                    .select('item_code, item_color, display_vendor, stock_type')
+                    .select('item_code, item_color, display_vendor')
                     .in('item_code', codes);
                 (products || []).forEach(p => {
                     const key = `${p.item_code}||${(p.item_color || '').trim()}`;
                     const resolved = (p.display_vendor || '').trim();
                     if (resolved) vendorMap.set(key, resolved);
-                    if (p.stock_type === '비재고') nonInventoryKeys.add(key);
                 });
             }
 
@@ -1273,17 +1271,9 @@ export const WmsShortageList = ({ userProfile }) => {
                 if (matched) r.vendor = matched;
             });
 
-            // 비재고 품목 제외
-            const totalBefore = records.length;
-            const niFiltered = records.filter(r => {
-                const { code, color } = splitItemCode(r.item_code);
-                return !nonInventoryKeys.has(`${code}||${color.trim()}`);
-            });
-            const excluded = totalBefore - niFiltered.length;
-
             // 자연키 기준 중복 제거 (Excel 내 중복 행 방어)
             const seenKeys = new Map();
-            niFiltered.forEach(r => {
+            records.forEach(r => {
                 const key = `${r.source_center}|${r.upload_date}|${r.order_no}|${r.item_code}|${r.wave_name}`;
                 seenKeys.set(key, r);
             });
@@ -1300,7 +1290,7 @@ export const WmsShortageList = ({ userProfile }) => {
                 if (error) throw error;
             }
 
-            alert(`${filteredRecords.length}건이 업로드되었습니다.${excluded > 0 ? ` (비재고 ${excluded}건 제외)` : ''}`);
+            alert(`${filteredRecords.length}건이 업로드되었습니다.`);
             const next = initFilter();
             setDraft(next);
             setApplied(next);
