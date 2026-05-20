@@ -2,6 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient.js';
 
+const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
+const ISSUE_TYPE_GROUPS = [
+    { group: '계획·수량', items: ['계획 없음/누락', '수량 부족 (계획>실물)', '과입고 (계획<실물)', '계획 연기·컷·미출'] },
+    { group: '품질·포장',  items: ['파손·불량', '바코드 오류', '포장 불량·혼적', '표기·규격 미흡'] },
+    { group: '반송·오입고', items: ['반송품 처리', '오반품·잘못 입고'] },
+    { group: '전산·시스템', items: ['전산-실물 불일치', 'WMS·전산 오류'] },
+    { group: '기타',       items: ['기타 특이사항'] },
+];
+
 const STATUS_STYLE = {
     '조치대기': 'bg-yellow-50 text-yellow-600 border-yellow-200',
     '처리 중':  'bg-blue-50 text-blue-600 border-blue-200',
@@ -108,8 +117,9 @@ const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
     );
 };
 
-const IssueDetailSheet = ({ issue, onClose, onRespond }) => {
+const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, userProfile }) => {
     if (!issue) return null;
+    const canEdit = issue.status === '조치대기' && issue.reporter === userProfile?.name;
     return (
         <>
             <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
@@ -221,6 +231,15 @@ const IssueDetailSheet = ({ issue, onClose, onRespond }) => {
                         </>
                     )}
 
+                    {canEdit && (
+                        <button
+                            onClick={() => onEdit?.(issue)}
+                            className="w-full py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <span>✏️</span>
+                            수정하기
+                        </button>
+                    )}
                     <button
                         onClick={onClose}
                         className="w-full py-3.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm active:bg-slate-200 transition-colors"
@@ -377,6 +396,154 @@ const WorkerResponseSheet = ({ issue, onClose, onSubmitted }) => {
     );
 };
 
+const EditIssueSheet = ({ issue, onClose, onSaved }) => {
+    const [brand, setBrand] = useState(issue.brand || '');
+    const [issueType, setIssueType] = useState(issue.issue_type || '');
+    const [productCode, setProductCode] = useState(issue.product_code || '');
+    const [requestContent, setRequestContent] = useState(issue.request_content || '');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+    }, []);
+
+    const handleSave = async () => {
+        if (!brand) return alert('브랜드를 선택해주세요.');
+        if (!issueType) return alert('이슈 유형을 선택해주세요.');
+        setIsSaving(true);
+        try {
+            const { error } = await supabase.from('logistics_issues').update({
+                brand,
+                issue_type: issueType,
+                product_code: productCode.trim() || null,
+                request_content: requestContent.trim() || null,
+            }).eq('id', issue.id);
+            if (error) throw error;
+            onSaved();
+        } catch (err) {
+            alert('저장 중 오류가 발생했습니다: ' + (err.message || ''));
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <>
+            <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+            <div className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl shadow-2xl max-h-[90svh] overflow-y-auto overscroll-contain">
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-10 h-1 rounded-full bg-slate-200" />
+                </div>
+                <div className="px-5 pb-10 pt-3 space-y-5">
+                    {/* 헤더 */}
+                    <div className="flex items-center gap-2">
+                        <p className="text-slate-800 font-black text-base flex-1">접수 내용 수정</p>
+                        <span className="text-xs font-mono text-slate-400">{issue.reception_no}</span>
+                    </div>
+
+                    {/* 브랜드 선택 */}
+                    <div>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                            브랜드 <span className="text-red-400">*</span>
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                            {BRANDS.map(b => (
+                                <button
+                                    key={b}
+                                    onClick={() => setBrand(b)}
+                                    className={`py-2.5 rounded-xl text-sm font-bold border transition-colors ${
+                                        brand === b
+                                            ? 'bg-letusBlue text-white border-letusBlue'
+                                            : 'bg-slate-50 text-slate-600 border-slate-200 active:bg-slate-100'
+                                    }`}
+                                >
+                                    {b}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 이슈 유형 선택 */}
+                    <div>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                            이슈 유형 <span className="text-red-400">*</span>
+                        </p>
+                        {issueType && (
+                            <p className="mb-2 text-xs text-letusOrange font-bold bg-orange-50 px-3 py-1.5 rounded-lg">
+                                선택됨: {issueType}
+                            </p>
+                        )}
+                        <div className="space-y-3">
+                            {ISSUE_TYPE_GROUPS.map(({ group, items }) => (
+                                <div key={group}>
+                                    <p className="text-[10px] font-bold text-slate-400 mb-1.5 px-1">{group}</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {items.map(label => (
+                                            <button
+                                                key={label}
+                                                onClick={() => setIssueType(label)}
+                                                className={`py-2.5 px-3 rounded-xl text-xs font-bold border text-left transition-colors ${
+                                                    issueType === label
+                                                        ? 'bg-letusOrange text-white border-letusOrange'
+                                                        : 'bg-slate-50 text-slate-600 border-slate-200 active:bg-slate-100'
+                                                }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 품목코드 */}
+                    <div>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">품목코드 (선택)</p>
+                        <input
+                            type="text"
+                            value={productCode}
+                            onChange={e => setProductCode(e.target.value)}
+                            placeholder="예) A1234567"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm font-mono focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue"
+                        />
+                    </div>
+
+                    {/* 접수 내용 */}
+                    <div>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">접수 내용 (선택)</p>
+                        <textarea
+                            value={requestContent}
+                            onChange={e => setRequestContent(e.target.value)}
+                            placeholder="특이사항을 상세히 입력해주세요"
+                            rows={4}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue resize-none"
+                        />
+                    </div>
+
+                    {/* 버튼 */}
+                    <div className="flex gap-2.5">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm active:bg-slate-200 transition-colors"
+                        >
+                            취소
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving || !brand || !issueType}
+                            className="flex-[2] py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors disabled:bg-slate-200 disabled:text-slate-400"
+                        >
+                            {isSaving ? '저장 중...' : '저장하기'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+};
+
 export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const navigate = useNavigate();
     const [issues, setIssues] = useState([]);
@@ -386,6 +553,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const [dateRange, setDateRange] = useState({ start: daysAgo(3), end: today() });
     const [showDateSheet, setShowDateSheet] = useState(false);
     const [respondingIssue, setRespondingIssue] = useState(null);
+    const [editingIssue, setEditingIssue] = useState(null);
 
     const fetchIssues = async (range = dateRange) => {
         if (!userProfile?.name) return;
@@ -600,13 +768,30 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                     onClose={() => setShowDateSheet(false)}
                 />
             )}
-            <IssueDetailSheet issue={selectedIssue} onClose={() => setSelectedIssue(null)} onRespond={(issue) => setRespondingIssue(issue)} />
+            <IssueDetailSheet
+                issue={selectedIssue}
+                onClose={() => setSelectedIssue(null)}
+                onRespond={(issue) => setRespondingIssue(issue)}
+                onEdit={(issue) => setEditingIssue(issue)}
+                userProfile={userProfile}
+            />
             {respondingIssue && (
                 <WorkerResponseSheet
                     issue={respondingIssue}
                     onClose={() => setRespondingIssue(null)}
                     onSubmitted={() => {
                         setRespondingIssue(null);
+                        setSelectedIssue(null);
+                        fetchIssues();
+                    }}
+                />
+            )}
+            {editingIssue && (
+                <EditIssueSheet
+                    issue={editingIssue}
+                    onClose={() => setEditingIssue(null)}
+                    onSaved={() => {
+                        setEditingIssue(null);
                         setSelectedIssue(null);
                         fetchIssues();
                     }}
