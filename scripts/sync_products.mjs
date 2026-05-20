@@ -88,7 +88,9 @@ async function syncProducts() {
                 공급업체,
                 생산지창고,
                 출고창고,
-                공장도가
+                공장도가,
+                재고구분,
+                제품구분
             FROM [group].[DM_단품마스터+소속법인사별단품마스터]
         `);
 
@@ -115,6 +117,8 @@ async function syncProducts() {
                 outbound_warehouse: clean(row['출고창고']),
                 factory_price: priceRaw != null && priceRaw !== '' ? Number(priceRaw) : null,
                 display_vendor: resolveDisplayVendor(vendorVal, prodLine, aliasMap),
+                stock_type: clean(row['재고구분']) || null,
+                product_type: clean(row['제품구분']) || null,
             });
         });
         const uniqueData = Array.from(uniqueMap.values());
