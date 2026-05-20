@@ -242,22 +242,37 @@ def download_cut_list(center: str, start_date: str, end_date: str, download_dir:
             state='visible', timeout=60000
         )
 
+        # ── 결과 건수 확인 ────────────────────────────────────────
+        tab_text = cut_page.locator('#resultTable2HeadBox').inner_text()
+        print(f'    탭 텍스트: {tab_text}')
+        import re as _re
+        count_match = _re.search(r'\d+', tab_text)
+        result_count = int(count_match.group()) if count_match else -1
+        print(f'    조회 결과: {result_count}건')
+
+        if result_count == 0:
+            print('    결과 없음 → 다운로드 스킵')
+            context.close()
+            browser.close()
+            return None
+
         # ── 엑셀 다운로드 ─────────────────────────────────────────
         print('[6/6] 엑셀 다운로드 중...')
 
-        # 1차 클릭 후 WMS 자체 다이얼로그(저장 확인) 처리
-        cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
-        cut_page.wait_for_timeout(2000)
-
-        save_btn = cut_page.get_by_role('button', name='저장', exact=True)
-        if save_btn.count() > 0 and save_btn.is_visible():
-            # 다이얼로그 "저장" 버튼 클릭
+        # 1차 시도: 바로 다운로드 (다이얼로그 없는 경우)
+        try:
+            with cut_page.expect_download(timeout=5000) as dl_info:
+                cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
+            download = dl_info.value
+            print('    다운로드 성공 (다이얼로그 없음)')
+        except Exception:
+            # 다이얼로그가 뜬 경우 → "저장" 버튼 클릭
+            print('    다이얼로그 감지 → "저장" 클릭')
+            save_btn = cut_page.get_by_role('button', name='저장', exact=True)
+            save_btn.wait_for(state='visible', timeout=10000)
             with cut_page.expect_download(timeout=60000) as dl_info:
                 save_btn.click()
-        else:
-            # 다이얼로그 없음 → 재클릭으로 다운로드
-            with cut_page.expect_download(timeout=60000) as dl_info:
-                cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
+            download = dl_info.value
 
         download = dl_info.value
         file_path = Path(download_dir) / f'cut_list_{start_date}_{end_date}.xlsx'
@@ -313,8 +328,30 @@ def parse_and_upload(file_path: Path, upload_date: str, center: str):
     records = list(seen.values())
     print(f'    중복 제거 후: {len(records)}건')
 
-    print(f'    유효 데이터: {len(records)}건 → Supabase 업로드 중...')
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    # ── 공급업체명 정규화 (vendor_aliases 테이블 적용) ────────────────
+    alias_resp = supabase.table('vendor_aliases').select('raw_name,canonical_name').execute()
+    alias_map  = {row['raw_name']: row['canonical_name'] for row in (alias_resp.data or [])}
+    print(f'    vendor_aliases 로드: {len(alias_map)}건')
+
+    normalized = []
+    for rec in records:
+        raw = rec.get('vendor') or ''
+        if raw in alias_map:
+            canonical = alias_map[raw]
+            if canonical is None:
+                continue          # canonical=NULL → 제외 대상
+            rec['vendor'] = canonical
+        normalized.append(rec)
+    print(f'    공급업체 정규화 후: {len(normalized)}건 (제외: {len(records) - len(normalized)}건)')
+    records = normalized
+
+    if not records:
+        print('    업로드할 데이터 없음 (정규화 후 0건)')
+        return 0
+
+    print(f'    유효 데이터: {len(records)}건 → Supabase 업로드 중...')
 
     # upsert: 자연키 충돌 시 WMS 원본 필드만 업데이트 (action_logs 연결 보존)
     WMS_UPDATE_COLS = [
@@ -355,6 +392,10 @@ def main():
         except Exception as e:
             print(f'[ERROR] 다운로드 실패: {e}')
             raise
+
+        if file_path is None:
+            print(f'=== 완료: [{center}] 조회 결과 없음 (0건) ===')
+            return
 
         uploaded = parse_and_upload(file_path, start_date, center)
 
