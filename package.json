@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "worker": "node scripts/worker.mjs",
-    "sync:products": "node scripts/sync_products.mjs"
+    "sync:products": "node scripts/sync_products.mjs",
+    "sync:holidays": "node scripts/sync_holidays.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
