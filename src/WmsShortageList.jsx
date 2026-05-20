@@ -223,13 +223,13 @@ const PivotShortageSection = ({ selectedRows, getItemName }) => {
                             <table className="w-full text-xs text-left">
                                 <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
                                     <tr>
-                                        <th className="px-3 py-2 text-center w-28">공급업체</th>
-                                        <th className="px-3 py-2 text-center w-28">품목코드</th>
-                                        <th className="px-3 py-2">단품명칭</th>
+                                        <th className="px-3 py-2 text-center w-28 min-w-[112px]">공급업체</th>
+                                        <th className="px-3 py-2 text-center w-36 min-w-[144px]">품목코드</th>
+                                        <th className="px-3 py-2 min-w-[160px]">단품명칭</th>
                                         {dateKeys.map(dk => (
-                                            <th key={dk} className="py-2 text-center min-w-[40px] w-10 text-[10px]">{dk}</th>
+                                            <th key={dk} className="py-2 text-center min-w-[42px] w-10 text-[10px]">{dk}</th>
                                         ))}
-                                        <th className="px-3 py-2 text-center w-20">총 결품수량</th>
+                                        <th className="px-3 py-2 text-center w-20 min-w-[80px]">총 결품수량</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -309,7 +309,7 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
     }, [selectedRows]);
 
     // 결품 추이 데이터 (선택된 품목 기준, 납기일자 × 브랜드)
-    const trendData = useMemo(() => {
+    const { trendData, trendDates } = useMemo(() => {
         const dateMap = {};
         selectedRows.forEach(r => {
             if (!r.brand || !activeBrands.includes(r.brand)) return;
@@ -317,9 +317,11 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
             if (!dateMap[d]) { dateMap[d] = {}; activeBrands.forEach(b => { dateMap[d][b] = 0; }); }
             dateMap[d][r.brand] = (dateMap[d][r.brand] || 0) + (Number(r.shortage_qty) || 0);
         });
-        return Object.entries(dateMap)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([date, brands]) => ({ date: date.slice(5), ...brands }));
+        const sorted = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b));
+        return {
+            trendData:  sorted.map(([date, brands]) => ({ date: date.slice(5), ...brands })),
+            trendDates: sorted.map(([date]) => date),   // YYYY-MM-DD 원본
+        };
     }, [selectedRows, activeBrands]);
 
     const getItemName = (itemCode) => {
@@ -418,8 +420,9 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                             <p className="text-xs font-bold text-gray-600 mb-3">결품 추이 (브랜드별)</p>
                             {trendData.length === 0
                                 ? <p className="text-xs text-gray-300 py-4 text-center font-bold">데이터 없음</p>
-                                : <ResponsiveContainer width="100%" height={240}>
-                                        <ComposedChart data={trendData} margin={{ top: 30, right: 20, left: 0, bottom: 5 }}>
+                                : <>
+                                    <ResponsiveContainer width="100%" height={240}>
+                                        <ComposedChart data={trendData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                             <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                                             <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -427,14 +430,60 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                                             {activeBrands.map(brand => (
                                                 <Line key={brand} type="monotone" dataKey={brand}
                                                     stroke={REPORT_BRAND_COLORS[brand]} strokeWidth={2}
-                                                    dot={{ r: 3 }} name={brand}>
-                                                    <LabelList dataKey={brand} position="top"
-                                                        style={{ fontSize: 12, fill: REPORT_BRAND_COLORS[brand], fontWeight: 'bold' }}
-                                                        formatter={v => v > 0 ? v : ''} />
-                                                </Line>
+                                                    dot={{ r: 3 }} name={brand} />
                                             ))}
                                         </ComposedChart>
                                     </ResponsiveContainer>
+
+                                    {/* 브랜드 × 날짜 집계 표 */}
+                                    <div className="mt-3 overflow-x-auto">
+                                        <table className="text-[11px] w-full border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-100 text-slate-500 font-bold">
+                                                    <th className="px-2 py-1.5 text-left w-20 border border-slate-200">브랜드</th>
+                                                    {trendDates.map(d => (
+                                                        <th key={d} className="px-1 py-1.5 text-center min-w-[42px] border border-slate-200">{d.slice(5)}</th>
+                                                    ))}
+                                                    <th className="px-2 py-1.5 text-center w-16 border border-slate-200">총 합계</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {activeBrands.map(brand => {
+                                                    const rowTotal = trendDates.reduce((s, d) => {
+                                                        const entry = trendData.find(t => t.date === d.slice(5));
+                                                        return s + (entry ? (Number(entry[brand]) || 0) : 0);
+                                                    }, 0);
+                                                    return (
+                                                        <tr key={brand} className="border-b border-slate-100 hover:bg-slate-50">
+                                                            <td className="px-2 py-1 font-semibold border border-slate-200" style={{ color: REPORT_BRAND_COLORS[brand] }}>{brand}</td>
+                                                            {trendDates.map(d => {
+                                                                const entry = trendData.find(t => t.date === d.slice(5));
+                                                                const v = entry ? (Number(entry[brand]) || 0) : 0;
+                                                                return <td key={d} className="px-1 py-1 text-center text-gray-600 border border-slate-200">{v > 0 ? v.toLocaleString() : '-'}</td>;
+                                                            })}
+                                                            <td className="px-2 py-1 text-center font-bold text-letusOrange border border-slate-200">{rowTotal > 0 ? rowTotal.toLocaleString() : '-'}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {/* 일자별 합계 행 */}
+                                                <tr className="bg-slate-100 font-bold text-slate-600">
+                                                    <td className="px-2 py-1.5 border border-slate-200">일자별 합계</td>
+                                                    {trendDates.map(d => {
+                                                        const entry = trendData.find(t => t.date === d.slice(5));
+                                                        const colTotal = activeBrands.reduce((s, b) => s + (entry ? (Number(entry[b]) || 0) : 0), 0);
+                                                        return <td key={d} className="px-1 py-1.5 text-center border border-slate-200">{colTotal > 0 ? colTotal.toLocaleString() : '-'}</td>;
+                                                    })}
+                                                    <td className="px-2 py-1.5 text-center text-letusOrange border border-slate-200">
+                                                        {trendDates.reduce((s, d) => {
+                                                            const entry = trendData.find(t => t.date === d.slice(5));
+                                                            return s + activeBrands.reduce((ss, b) => ss + (entry ? (Number(entry[b]) || 0) : 0), 0);
+                                                        }, 0).toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
                             }
                         </div>
                     </section>
