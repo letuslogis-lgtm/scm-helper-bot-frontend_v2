@@ -10,7 +10,7 @@ const ISSUE_TYPE_GROUPS = [
             { label: '계획 없음/누락' },
             { label: '수량 부족 (계획>실물)' },
             { label: '과입고 (계획<실물)' },
-            { label: '계획 연기·컷·미출' },
+            { label: '미입고' },
         ],
     },
     {
@@ -26,7 +26,7 @@ const ISSUE_TYPE_GROUPS = [
         group: '반송·오입고',
         items: [
             { label: '반송품 처리' },
-            { label: '오반품·잘못 입고' },
+            { label: '오반품·오입고' },
         ],
     },
     {
