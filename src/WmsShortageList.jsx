@@ -1291,7 +1291,12 @@ export const WmsShortageList = ({ userProfile }) => {
 
             const CHUNK = 500;
             for (let i = 0; i < filteredRecords.length; i += CHUNK) {
-                const { error } = await supabase.from('wms_shortage_list').insert(filteredRecords.slice(i, i + CHUNK));
+                const { error } = await supabase
+                    .from('wms_shortage_list')
+                    .upsert(filteredRecords.slice(i, i + CHUNK), {
+                        onConflict: 'source_center,upload_date,order_no,item_code,wave_name',
+                        ignoreDuplicates: false,
+                    });
                 if (error) throw error;
             }
 
