@@ -81,10 +81,24 @@ function weekAgo() {
     return d.toISOString().split('T')[0];
 }
 function todayStr() { return new Date().toISOString().split('T')[0]; }
+function nextWorkDayStr() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+}
 
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
 
-const initFilter = () => ({ startDate: weekAgo(), endDate: todayStr(), brands: '전체', searchType: 'item_code', searchValue: '' });
+const initFilter = () => ({
+    startDate:    todayStr(),
+    endDate:      nextWorkDayStr(),
+    brands:       '전체',
+    searchType:   'item_code',
+    searchValue:  '',
+    actionStatus: '전체',
+    dept:         '전체',
+});
 
 const MultiSelect = ({ label, options, selected, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -1363,6 +1377,21 @@ export const WmsShortageList = ({ userProfile }) => {
         });
     }, [aggregated, sortConfig]);
 
+    // 확인부서 옵션 (vendor_aliases.dept 고유값, DB 추가 시 자동 반영)
+    const deptOptions = useMemo(() => {
+        const set = new Set(Object.values(vendorDeptMap).filter(Boolean));
+        return ['전체', ...Array.from(set).sort()];
+    }, [vendorDeptMap]);
+
+    // 조치확인·확인부서 클라이언트 필터
+    const filtered = useMemo(() => {
+        return sorted.filter(r => {
+            if (applied.actionStatus !== '전체' && r.action_status !== applied.actionStatus) return false;
+            if (applied.dept !== '전체' && r.dept !== applied.dept) return false;
+            return true;
+        });
+    }, [sorted, applied.actionStatus, applied.dept]);
+
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
         return sortConfig.direction === 'asc'
@@ -1370,20 +1399,20 @@ export const WmsShortageList = ({ userProfile }) => {
             : <span className="ml-1 text-letusBlue font-black">↓</span>;
     };
 
-    const totalCut = useMemo(() => sorted.reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0), [sorted]);
+    const totalCut = useMemo(() => filtered.reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0), [filtered]);
 
     const handleSelectAll = (e) => {
-        setSelectedIds(e.target.checked ? new Set(sorted.map(r => r._rowId)) : new Set());
+        setSelectedIds(e.target.checked ? new Set(filtered.map(r => r._rowId)) : new Set());
         setLastSelectedId(null);
     };
     const handleSelectOne = (e, id, idx) => {
         if (e.nativeEvent.shiftKey && lastSelectedId !== null) {
-            const lastIdx = sorted.findIndex(r => r._rowId === lastSelectedId);
+            const lastIdx = filtered.findIndex(r => r._rowId === lastSelectedId);
             const min = Math.min(lastIdx, idx);
             const max = Math.max(lastIdx, idx);
             setSelectedIds(prev => {
                 const s = new Set(prev);
-                sorted.slice(min, max + 1).forEach(r => s.add(r._rowId));
+                filtered.slice(min, max + 1).forEach(r => s.add(r._rowId));
                 return s;
             });
         } else {
@@ -1399,7 +1428,7 @@ export const WmsShortageList = ({ userProfile }) => {
     const handleExportExcel = async () => {
         if (selectedIds.size === 0) return alert('항목을 체크해 주세요.');
         const XLSX = await loadXLSX();
-        const target = sorted.filter(r => selectedIds.has(r._rowId));
+        const target = filtered.filter(r => selectedIds.has(r._rowId));
         const excelData = target.map(r => ({
             '납기일자': r.delivery_date || '',
             '브랜드':  r.brand || '',
@@ -1489,7 +1518,7 @@ export const WmsShortageList = ({ userProfile }) => {
                 <div className="flex items-center gap-5 w-full flex-wrap">
 
                     <div className="flex items-center shrink-0">
-                        <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">조회 기간</label>
+                        <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">납기 일자</label>
                         <div className="flex items-center">
                             <input type="date" value={draft.startDate} onChange={e => setD('startDate', e.target.value)}
                                 className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
@@ -1500,6 +1529,27 @@ export const WmsShortageList = ({ userProfile }) => {
                     </div>
 
                     <MultiSelect label="브랜드" options={BRANDS} selected={draft.brands} onChange={v => setD('brands', v)} />
+
+                    {/* 조치 확인 필터 */}
+                    <div className="flex items-center shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">조치 확인</label>
+                        <select value={draft.actionStatus} onChange={e => setD('actionStatus', e.target.value)}
+                            className="border border-gray-200 rounded-[3px] text-xs px-2 h-[30px] text-gray-700 bg-white focus:outline-none focus:border-letusOrange cursor-pointer">
+                            <option value="전체">전체</option>
+                            <option value="none">미확인</option>
+                            <option value="partial">일부확인</option>
+                            <option value="done">완료</option>
+                        </select>
+                    </div>
+
+                    {/* 확인 부서 필터 */}
+                    <div className="flex items-center shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">확인 부서</label>
+                        <select value={draft.dept} onChange={e => setD('dept', e.target.value)}
+                            className="border border-gray-200 rounded-[3px] text-xs px-2 h-[30px] text-gray-700 bg-white focus:outline-none focus:border-letusOrange cursor-pointer">
+                            {deptOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    </div>
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">검색어</label>
@@ -1609,7 +1659,7 @@ export const WmsShortageList = ({ userProfile }) => {
                             <tr>
                                 <th className="p-4 pl-6 w-10 text-center">
                                     <input type="checkbox"
-                                        checked={sorted.length > 0 && selectedIds.size === sorted.length}
+                                        checked={filtered.length > 0 && selectedIds.size === filtered.length}
                                         onChange={handleSelectAll}
                                         className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                 </th>
@@ -1644,7 +1694,7 @@ export const WmsShortageList = ({ userProfile }) => {
                                     </div>
                                 </td></tr>
                             ) : (
-                                sorted.map((row, i) => {
+                                filtered.map((row, i) => {
                                     const checked = selectedIds.has(row._rowId);
                                     return (
                                         <tr
@@ -1674,7 +1724,7 @@ export const WmsShortageList = ({ userProfile }) => {
                 {/* 하단 요약 */}
                 {!isLoading && rows.length > 0 && (
                     <div className="border-t border-gray-100 px-6 py-2 flex items-center gap-4 text-xs text-gray-500 shrink-0">
-                        <span>품목 <b className="text-gray-700">{sorted.length.toLocaleString()}</b>종</span>
+                        <span>품목 <b className="text-gray-700">{filtered.length.toLocaleString()}</b>종</span>
                         <span>결품합계 <b className="text-letusOrange">{totalCut.toLocaleString()}</b></span>
                     </div>
                 )}
@@ -1694,7 +1744,7 @@ export const WmsShortageList = ({ userProfile }) => {
             {/* ── 보고서 모달 ── */}
             {reportModal && (
                 <WmsReportModal
-                    selectedRows={sorted.filter(r => selectedIds.has(r._rowId))}
+                    selectedRows={filtered.filter(r => selectedIds.has(r._rowId))}
                     applied={applied}
                     onClose={() => setReportModal(false)}
                 />
