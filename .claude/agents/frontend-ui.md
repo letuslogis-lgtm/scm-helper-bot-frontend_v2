@@ -49,7 +49,7 @@ src/
 |---|---|---|
 | `/mobile` | MobileMenuScreen (index) | **모바일 PWA 전용** — MainLayout 바깥에 독립 배치, ProtectedMobileRoute 로 감쌈 |
 | `/mobile/register` | MobileIssueRegister | 입고 특이사항 등록 |
-| `/mobile/my-issues` | MobileMyIssues | 내 등록 이력 + 조치 내용 바텀시트 |
+| `/mobile/my-issues` | MobileMyIssues | 내 등록 이력 + 조치 내용 바텀시트 + 조치대기 건 수정 (작성자 본인만) |
 | `/mobile/notice` | MobileNotice | 공지사항 |
 | `/home` | MyDashboard | TODO, 위젯 |
 | `/team_calendar` | TeamCalendar | |

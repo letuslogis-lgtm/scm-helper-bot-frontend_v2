@@ -36,7 +36,7 @@ tools: Read, Edit, Write, Glob, Grep, Bash
 | 테이블 | 핵심 컬럼 | 용도 |
 |---|---|---|
 | `profiles` | id, name, login_id, role('관리자'/'사용자'), status, brands, team, managed_vendors, managed_brands, accessible_menus | 사용자 프로필 + 권한 |
-| `logistics_issues` | reception_no (M-prefix 는 모바일), brand, issue_type, product_code, vendor, request_content, status, image_url, reporter, action_content, final_handler, resolved_at, is_notified, feedback_sent_at | 입고 특이사항 |
+| `logistics_issues` | reception_no (M-prefix 는 모바일), brand, issue_type, product_code, vendor, request_content, status, image_url, reporter, action_content, final_handler, resolved_at, is_notified, feedback_sent_at, worker_response, worker_response_photos, worker_responded_at | 입고 특이사항 |
 | `logistics_accidents` | service_date, brand, order_no, order_name, item_code, issue_qty, action_result, zone, worker_name, shift_type, status, responsible_dept, cause_detail, is_delayed, **ai_analyzed_cause, ai_cause_detail, ai_cause_summary, ai_confidence**, handler_team, action_content, handler_name | 상차 사고 (AI 분석 컬럼 포함) |
 | `ai_analysis_logs` | source_menu ('AccidentManagement' / 'MobileBarcode'), target_id, original_text, ai_analyzed_cause, ai_cause_detail, ai_cause_summary, ai_confidence, low_confidence_reason, is_reviewed, corrected_cause, corrected_detail, reviewed_at | AI 판별 이력 + 관리자 보정 (Fine-tuning 학습용) |
 | `products` | item_code, item_color, brand_category, company_division, vendor, production_line, outbound_warehouse | 단품 마스터 |
