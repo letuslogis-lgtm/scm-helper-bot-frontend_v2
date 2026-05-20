@@ -137,6 +137,128 @@ const REPORT_BRAND_COLORS = {
 const REPORT_BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
 const VENDOR_BAR_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a855f7','#ec4899','#ef4444','#f97316','#eab308','#22c55e','#14b8a6'];
 
+// ── 피벗 결품 리스트 섹션 ─────────────────────────────────────
+const PivotShortageSection = ({ selectedRows, getItemName }) => {
+    const pivotData = useMemo(() => {
+        if (!selectedRows || selectedRows.length === 0) return { brandGroups: [], dateKeys: [], useWeekly: false };
+
+        // 고유 날짜 추출 및 범위 계산
+        const allDates = [...new Set(selectedRows.map(r => r.delivery_date).filter(Boolean))].sort();
+        const toMs = d => new Date(d).getTime();
+        const rangeMs = allDates.length >= 2 ? toMs(allDates[allDates.length - 1]) - toMs(allDates[0]) : 0;
+        const rangeDays = rangeMs / (1000 * 60 * 60 * 24);
+        const useWeekly = rangeDays > 7;
+
+        // 날짜 → 컬럼 키 변환 함수
+        const toColKey = (dateStr) => {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return null;
+            if (useWeekly) {
+                const month = d.getMonth() + 1;
+                const week = Math.ceil(d.getDate() / 7);
+                return `${String(month).padStart(2, '0')}/${week}주`;
+            } else {
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${month}-${day}`;
+            }
+        };
+
+        // 고유 컬럼 키 목록 (정렬)
+        const dateKeySet = new Set();
+        allDates.forEach(d => { const k = toColKey(d); if (k) dateKeySet.add(k); });
+        const dateKeys = [...dateKeySet].sort();
+
+        // 브랜드별 그룹핑
+        const brandMap = {};
+        for (const row of selectedRows) {
+            const brand = row.brand || '미분류';
+            const vendor = row.vendor || '-';
+            const itemCode = row.item_code || '-';
+            const colKey = toColKey(row.delivery_date);
+            const qty = Number(row.shortage_qty) || 0;
+
+            if (!brandMap[brand]) brandMap[brand] = {};
+            const groupKey = `${vendor}|||${itemCode}`;
+            if (!brandMap[brand][groupKey]) {
+                brandMap[brand][groupKey] = { vendor, itemCode, dateQty: {}, total: 0 };
+            }
+            if (colKey) {
+                brandMap[brand][groupKey].dateQty[colKey] = (brandMap[brand][groupKey].dateQty[colKey] || 0) + qty;
+            }
+            brandMap[brand][groupKey].total += qty;
+        }
+
+        // 브랜드별 총합 내림차순 → 브랜드 내 Top5 추출
+        const brandGroups = Object.entries(brandMap)
+            .map(([brand, groupMap]) => {
+                const items = Object.values(groupMap);
+                const brandTotal = items.reduce((s, i) => s + i.total, 0);
+                const top5 = [...items].sort((a, b) => b.total - a.total).slice(0, 5);
+                return { brand, brandTotal, top5, totalCount: items.length };
+            })
+            .sort((a, b) => b.brandTotal - a.brandTotal);
+
+        return { brandGroups, dateKeys, useWeekly };
+    }, [selectedRows]);
+
+    const { brandGroups, dateKeys } = pivotData;
+
+    return (
+        <section>
+            <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-1 h-3.5 bg-letusOrange rounded-full" />
+                결품 리스트 (브랜드별 Top 5)
+                <span className="text-xs text-gray-400 font-normal">전체 {selectedRows.length}건</span>
+            </h4>
+            <div className="space-y-4">
+                {brandGroups.map(({ brand, brandTotal, top5, totalCount }) => (
+                    <div key={brand}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-xs font-bold text-gray-700">{brand}</span>
+                            <span className="text-[11px] text-gray-400">총 {brandTotal.toLocaleString()}개 / {totalCount}건</span>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg overflow-x-auto">
+                            <table className="w-full text-xs text-left">
+                                <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
+                                    <tr>
+                                        <th className="px-3 py-2 text-center w-28">공급업체</th>
+                                        <th className="px-3 py-2 text-center w-28">품목코드</th>
+                                        <th className="px-3 py-2">단품명칭</th>
+                                        {dateKeys.map(dk => (
+                                            <th key={dk} className="py-2 text-center min-w-[40px] w-10 text-[10px]">{dk}</th>
+                                        ))}
+                                        <th className="px-3 py-2 text-center w-20">총 결품수량</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {top5.map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td className="px-3 py-1.5 text-center font-semibold text-gray-700">{item.vendor}</td>
+                                            <td className="px-3 py-1.5 text-center font-mono text-gray-600 text-[11px]">{item.itemCode}</td>
+                                            <td className="px-3 py-1.5 text-gray-700">{getItemName(item.itemCode)}</td>
+                                            {dateKeys.map(dk => {
+                                                const v = item.dateQty[dk] || 0;
+                                                return (
+                                                    <td key={dk} className="py-1.5 text-center text-gray-600">
+                                                        {v === 0 ? '-' : v.toLocaleString()}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="px-3 py-1.5 text-center font-bold text-letusOrange">{item.total.toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
 const WmsReportModal = ({ selectedRows, applied, onClose }) => {
     const [itemNames, setItemNames] = useState({});
 
@@ -317,70 +439,8 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                         </div>
                     </section>
 
-                    {/* 결품 리스트 - 브랜드별 */}
-                    <section>
-                        <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" />
-                            결품 리스트 (브랜드별 Top 5)
-                            <span className="text-xs text-gray-400 font-normal">전체 {selectedRows.length}건</span>
-                        </h4>
-                        <div className="space-y-4">
-                            {(() => {
-                                // 브랜드별 그룹핑
-                                const brandMap = {};
-                                for (const row of selectedRows) {
-                                    const b = row.brand || '미분류';
-                                    if (!brandMap[b]) brandMap[b] = [];
-                                    brandMap[b].push(row);
-                                }
-                                // 브랜드별 총 결품수량 내림차순 정렬
-                                return Object.entries(brandMap)
-                                    .sort((a, b) => {
-                                        const sumA = a[1].reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
-                                        const sumB = b[1].reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
-                                        return sumB - sumA;
-                                    })
-                                    .map(([brand, rows]) => {
-                                        const top5 = [...rows]
-                                            .sort((a, b) => (Number(b.shortage_qty) || 0) - (Number(a.shortage_qty) || 0))
-                                            .slice(0, 5);
-                                        const totalQty = rows.reduce((s, r) => s + (Number(r.shortage_qty) || 0), 0);
-                                        return (
-                                            <div key={brand}>
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                    <span className="text-xs font-bold text-gray-700">{brand}</span>
-                                                    <span className="text-[11px] text-gray-400">총 {totalQty.toLocaleString()}개 / {rows.length}건</span>
-                                                </div>
-                                                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                                    <table className="w-full text-xs text-left">
-                                                        <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
-                                                            <tr>
-                                                                <th className="px-3 py-2 text-center w-24">납기일자</th>
-                                                                <th className="px-3 py-2 text-center w-32">공급업체</th>
-                                                                <th className="px-3 py-2 text-center w-32">품목코드</th>
-                                                                <th className="px-3 py-2">단품명칭</th>
-                                                                <th className="px-3 py-2 text-center w-20">결품수량</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-gray-100">
-                                                            {top5.map(row => (
-                                                                <tr key={row._rowId}>
-                                                                    <td className="px-3 py-1.5 text-center text-gray-500">{row.delivery_date || '-'}</td>
-                                                                    <td className="px-3 py-1.5 text-center font-semibold text-gray-700">{row.vendor || '-'}</td>
-                                                                    <td className="px-3 py-1.5 text-center font-mono text-gray-600 text-[11px]">{row.item_code || '-'}</td>
-                                                                    <td className="px-3 py-1.5 text-gray-700">{getItemName(row.item_code)}</td>
-                                                                    <td className="px-3 py-1.5 text-center font-bold text-letusOrange">{(Number(row.shortage_qty) || 0).toLocaleString()}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        );
-                                    });
-                            })()}
-                        </div>
-                    </section>
+                    {/* 결품 리스트 - 브랜드별 피벗 */}
+                    <PivotShortageSection selectedRows={selectedRows} getItemName={getItemName} />
                 </div>
 
                 {/* 푸터 */}
@@ -388,6 +448,30 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                     <button onClick={onClose}
                         className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm">
                         닫기
+                    </button>
+                    <button
+                        onClick={async () => {
+                            const today = new Date();
+                            const yyyymmdd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+                            const rows = selectedRows.map(r => ({
+                                '납기일자': r.delivery_date || '',
+                                '브랜드': r.brand || '',
+                                '공급업체': r.vendor || '',
+                                '품목코드': r.item_code || '',
+                                '단품명칭': getItemName(r.item_code),
+                                '결품수량': Number(r.shortage_qty) || 0,
+                            }));
+                            const xlsx = await loadXLSX();
+                            const ws = xlsx.utils.json_to_sheet(rows);
+                            const wb = xlsx.utils.book_new();
+                            xlsx.utils.book_append_sheet(wb, ws, '결품리스트');
+                            xlsx.writeFile(wb, `D-2결품보고서_로우데이터_${yyyymmdd}.xlsx`);
+                        }}
+                        className="px-4 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        엑셀 다운로드
                     </button>
                     <button onClick={() => window.print()}
                         className="px-5 py-1.5 bg-letusBlue text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5">
