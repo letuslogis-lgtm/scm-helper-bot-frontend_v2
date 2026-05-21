@@ -88,6 +88,14 @@ const ImageSlider = ({ imageUrlString }) => {
     const urls = imageUrlString ? imageUrlString.split(',').map(s => s.trim()).filter(Boolean) : [];
     const [currentIndex, setCurrentIndex] = React.useState(0);
 
+    const prev = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.max(0, i - 1)); };
+    const next = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.min(urls.length - 1, i + 1)); };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'ArrowLeft') prev();
+        if (e.key === 'ArrowRight') next();
+    };
+
     if (urls.length === 0) {
         return (
             <div className="w-full h-full min-h-[400px] bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-sm font-medium">
@@ -98,7 +106,11 @@ const ImageSlider = ({ imageUrlString }) => {
 
     return (
         <div className="flex flex-col items-center gap-3 w-full h-full">
-            <div className="relative w-full h-[400px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 overflow-hidden group">
+            <div
+                className="relative w-full h-[400px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 overflow-hidden group outline-none"
+                tabIndex={0}
+                onKeyDown={handleKeyDown}
+            >
                 <img
                     src={urls[currentIndex]}
                     alt={`현장사진 ${currentIndex + 1}`}
@@ -109,6 +121,24 @@ const ImageSlider = ({ imageUrlString }) => {
                     <div className="absolute top-4 right-4 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-md backdrop-blur-sm">
                         {currentIndex + 1} / {urls.length}
                     </div>
+                )}
+
+                {/* 좌우 화살표 버튼 */}
+                {urls.length > 1 && currentIndex > 0 && (
+                    <button
+                        onClick={prev}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 hover:bg-black/65 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                )}
+                {urls.length > 1 && currentIndex < urls.length - 1 && (
+                    <button
+                        onClick={next}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 hover:bg-black/65 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                    </button>
                 )}
             </div>
 

@@ -286,7 +286,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  </div>
 
  <div className="p-5 bg-white overflow-y-auto max-h-[70vh]">
- <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
  <div className="flex flex-col">
  <h4 className="text-sm font-bold text-gray-700 mb-2">📸 현장 사진</h4>
  <ImageSlider imageUrlString={row.image_url} />
@@ -297,7 +297,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {isAdmin && isWaiting && (
  <div className="flex flex-col">
  <h4 className="text-xs font-bold text-gray-400 mb-1.5">📋 현장 원본 접수 내용 (참고용)</h4>
- <div className="w-full border border-gray-100 bg-gray-50 rounded-lg p-3 text-sm text-gray-400 min-h-[50px]">
+ <div className="w-full border border-gray-100 bg-gray-50 rounded-lg p-3 text-sm text-gray-400 min-h-[75px]">
  {row.request_content || '(내용 없음)'}
  </div>
  </div>
@@ -306,6 +306,15 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {/* 이관 메시지 — 관리자 입력 / 이관팀에 표시 */}
  <div className="flex flex-col">
  <h4 className="text-sm font-bold text-gray-700 mb-2">① 이관 메시지</h4>
+ {isWaiting && isAdmin && (
+ <div className="flex items-center gap-2 mb-2">
+  <label className="text-xs font-bold text-gray-500 whitespace-nowrap shrink-0">이관 대상 팀</label>
+  <select value={assignedTeam} onChange={e => setAssignedTeam(e.target.value)} className="flex-1 border border-gray-300 rounded text-sm px-2 py-1.5 focus:outline-none focus:border-letusBlue text-gray-700 bg-white">
+   <option value="">팀 선택</option>
+   {availableTeams.map(t => <option key={t} value={t}>{t}</option>)}
+  </select>
+ </div>
+ )}
  {isWaiting ? (
  <textarea
  value={relayText}
@@ -357,20 +366,10 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  className={`px-6 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
  {isSaving ? '처리 중...' : '직접 조치'}
  </button>
- <div className="flex items-center gap-1.5">
-  <select
-   value={assignedTeam}
-   onChange={e => setAssignedTeam(e.target.value)}
-   className="border border-gray-300 rounded text-sm px-2 py-[7px] focus:outline-none focus:border-letusBlue text-gray-700 bg-white h-[34px]"
-  >
-   <option value="">팀 선택</option>
-   {availableTeams.map(t => <option key={t} value={t}>{t}</option>)}
-  </select>
-  <button onClick={handleTransfer} disabled={isSaving || !assignedTeam}
-  className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${(isSaving || !assignedTeam) ? 'opacity-70 cursor-not-allowed' : ''}`}>
-  {isSaving ? '처리 중...' : '② 이관'}
-  </button>
- </div>
+ <button onClick={handleTransfer} disabled={isSaving || !assignedTeam}
+ className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${(isSaving || !assignedTeam) ? 'opacity-70 cursor-not-allowed' : ''}`}>
+ {isSaving ? '처리 중...' : '② 이관'}
+ </button>
  </>
  )}
  {isProcessing && !hasPurchaseResponse && isAdmin && (
