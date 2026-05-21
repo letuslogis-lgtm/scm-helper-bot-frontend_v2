@@ -203,33 +203,19 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
  const [relayText, setRelayText] = useState(row.relay_content || '');
  const [isSaving, setIsSaving] = useState(false);
- const [assignedTeam, setAssignedTeam] = useState(row.assigned_team || '');
- const [availableTeams, setAvailableTeams] = useState([]);
  const isAdmin = userProfile?.role !== '사용자';
  const isWaiting = row.status === '조치대기';
  const isProcessing = row.status === '처리 중';
  const isDone = row.status === '조치완료';
  const hasPurchaseResponse = !!(row.purchase_response);
 
- // 재직 중인 팀 목록 조회
- useEffect(() => {
-  supabase.from('profiles').select('team').eq('status', '재직').then(({ data }) => {
-   if (data) {
-    const teams = [...new Set(data.map(p => p.team).filter(Boolean))].sort();
-    setAvailableTeams(teams);
-   }
-  });
- }, []);
-
  const handleTransfer = async () => {
- if (!assignedTeam) return alert('이관할 팀을 선택해주세요.');
  if (!relayText.trim()) return alert('이관 메시지를 입력해주세요.');
  setIsSaving(true);
  try {
  const { error } = await supabase.from('logistics_issues').update({
  relay_content: relayText,
  status: '처리 중',
- assigned_team: assignedTeam,
  }).eq('id', row.id);
  if (error) throw error;
  await onReload(); onClose();
@@ -297,7 +283,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {isAdmin && isWaiting && (
  <div className="flex flex-col">
  <h4 className="text-xs font-bold text-gray-400 mb-1.5">📋 현장 원본 접수 내용 (참고용)</h4>
- <div className="w-full border border-gray-100 bg-gray-50 rounded-lg p-3 text-sm text-gray-400 min-h-[75px]">
+ <div className="w-full border border-gray-100 bg-gray-50 rounded-lg p-3 text-sm text-gray-400 min-h-[100px]">
  {row.request_content || '(내용 없음)'}
  </div>
  </div>
@@ -306,15 +292,6 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {/* 이관 메시지 — 관리자 입력 / 이관팀에 표시 */}
  <div className="flex flex-col">
  <h4 className="text-sm font-bold text-gray-700 mb-2">① 이관 메시지</h4>
- {isWaiting && isAdmin && (
- <div className="flex items-center gap-2 mb-2">
-  <label className="text-xs font-bold text-gray-500 whitespace-nowrap shrink-0">이관 대상 팀</label>
-  <select value={assignedTeam} onChange={e => setAssignedTeam(e.target.value)} className="flex-1 border border-gray-300 rounded text-sm px-2 py-1.5 focus:outline-none focus:border-letusBlue text-gray-700 bg-white">
-   <option value="">팀 선택</option>
-   {availableTeams.map(t => <option key={t} value={t}>{t}</option>)}
-  </select>
- </div>
- )}
  {isWaiting ? (
  <textarea
  value={relayText}
@@ -366,8 +343,8 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  className={`px-6 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
  {isSaving ? '처리 중...' : '직접 조치'}
  </button>
- <button onClick={handleTransfer} disabled={isSaving || !assignedTeam}
- className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${(isSaving || !assignedTeam) ? 'opacity-70 cursor-not-allowed' : ''}`}>
+ <button onClick={handleTransfer} disabled={isSaving}
+ className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
  {isSaving ? '처리 중...' : '② 이관'}
  </button>
  </>
