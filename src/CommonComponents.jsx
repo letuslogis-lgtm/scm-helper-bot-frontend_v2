@@ -22,6 +22,9 @@ const VendorSearchModal = ({ initialVendors, onApplyVendors, initialBrands, onAp
 
     const brandList = ['퍼시스', '일룸', '시디즈', '슬로우베드', '알로소', '데스커', '바로스'];
 
+    const lastVendorIdx = React.useRef(null);
+    const lastBrandIdx = React.useRef(null);
+
     React.useEffect(() => {
         const fetchVendors = async () => {
             setIsLoading(true);
@@ -41,15 +44,49 @@ const VendorSearchModal = ({ initialVendors, onApplyVendors, initialBrands, onAp
         fetchVendors();
     }, []);
 
+    // 검색어 바뀌면 인덱스 초기화 (이전 리스트 기준 인덱스 오염 방지)
+    React.useEffect(() => {
+        lastVendorIdx.current = null;
+        lastBrandIdx.current = null;
+    }, [query]);
+
     const filteredVendors = vendorList.filter(v => v.vendor_name.includes(query));
     const filteredBrands = brandList.filter(b => b.includes(query));
 
-    const toggleVendor = (name) => {
-        setCheckedVendors(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+    const toggleVendor = (name, idx, e) => {
+        if (e.shiftKey && lastVendorIdx.current !== null) {
+            e.preventDefault();
+            const start = Math.min(lastVendorIdx.current, idx);
+            const end = Math.max(lastVendorIdx.current, idx);
+            const rangeNames = filteredVendors.slice(start, end + 1).map(v => v.vendor_name);
+            const isChecking = !checkedVendors.includes(name);
+            setCheckedVendors(prev =>
+                isChecking
+                    ? [...new Set([...prev, ...rangeNames])]
+                    : prev.filter(n => !rangeNames.includes(n))
+            );
+        } else {
+            setCheckedVendors(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+        }
+        lastVendorIdx.current = idx;
     };
 
-    const toggleBrand = (name) => {
-        setCheckedBrands(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+    const toggleBrand = (name, idx, e) => {
+        if (e.shiftKey && lastBrandIdx.current !== null) {
+            e.preventDefault();
+            const start = Math.min(lastBrandIdx.current, idx);
+            const end = Math.max(lastBrandIdx.current, idx);
+            const rangeNames = filteredBrands.slice(start, end + 1);
+            const isChecking = !checkedBrands.includes(name);
+            setCheckedBrands(prev =>
+                isChecking
+                    ? [...new Set([...prev, ...rangeNames])]
+                    : prev.filter(n => !rangeNames.includes(n))
+            );
+        } else {
+            setCheckedBrands(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+        }
+        lastBrandIdx.current = idx;
     };
 
     const handleApply = () => {
@@ -101,8 +138,8 @@ const VendorSearchModal = ({ initialVendors, onApplyVendors, initialBrands, onAp
                             {filteredBrands.length > 0 && (
                                 <div className="bg-white">
                                     <div className="px-5 py-2 bg-slate-50 text-[10px] font-bold text-slate-400">관리 브랜드</div>
-                                    {filteredBrands.map(b => (
-                                        <div key={b} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors ${checkedBrands.includes(b) ? 'bg-orange-50' : 'hover:bg-gray-50'}`} onClick={() => toggleBrand(b)}>
+                                    {filteredBrands.map((b, idx) => (
+                                        <div key={b} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors select-none ${checkedBrands.includes(b) ? 'bg-orange-50' : 'hover:bg-gray-50'}`} onClick={e => toggleBrand(b, idx, e)}>
                                             <input type="checkbox" readOnly checked={checkedBrands.includes(b)} className="w-3.5 h-3.5 accent-letusOrange cursor-pointer" />
                                             <span className="text-xs font-bold text-gray-700">{b}</span>
                                         </div>
@@ -111,9 +148,9 @@ const VendorSearchModal = ({ initialVendors, onApplyVendors, initialBrands, onAp
                             )}
                             {filteredVendors.length > 0 && (
                                 <div className="bg-white">
-                                    <div className="px-5 py-2 bg-slate-50 text-[10px] font-bold text-slate-400">담당 업체</div>
-                                    {filteredVendors.map(v => (
-                                        <div key={v.id} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors ${checkedVendors.includes(v.vendor_name) ? 'bg-blue-50' : 'hover:bg-gray-50'}`} onClick={() => toggleVendor(v.vendor_name)}>
+                                    <div className="px-5 py-2 bg-slate-50 text-[10px] font-bold text-slate-400">담당 업체 <span className="text-gray-400 font-normal">(Shift+클릭으로 범위 선택)</span></div>
+                                    {filteredVendors.map((v, idx) => (
+                                        <div key={v.id} className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors select-none ${checkedVendors.includes(v.vendor_name) ? 'bg-blue-50' : 'hover:bg-gray-50'}`} onClick={e => toggleVendor(v.vendor_name, idx, e)}>
                                             <input type="checkbox" readOnly checked={checkedVendors.includes(v.vendor_name)} className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                                             <span className="text-xs font-bold text-gray-700">{v.vendor_name}</span>
                                         </div>
