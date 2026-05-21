@@ -42,7 +42,7 @@ function getWaveCategory(wt, wn) {
     // 일반 wave_type
     if (wt.includes('지방')) return name.includes('제주') ? '제주' : '지방';
     if (wt.includes('현장')) return '현장';
-    if (wt.includes('경인')) return '경인';
+    if (wt.includes('경인') || wt.includes('수출')) return '경인';
     return '';
 }
 
