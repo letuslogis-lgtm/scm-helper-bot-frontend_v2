@@ -245,20 +245,20 @@ def download_cut_list(center: str, start_date: str, end_date: str, download_dir:
         # ── 엑셀 다운로드 ─────────────────────────────────────────
         print('[6/6] 엑셀 다운로드 중...')
 
-        # 1차 시도: 바로 다운로드 (다이얼로그 없는 경우)
+        # 다운로드 버튼 클릭 → WMS 다이얼로그 "저장" 대기 (최대 30초)
+        # WMS는 항상 파일 다운로드 다이얼로그를 띄움
+        cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
         try:
-            with cut_page.expect_download(timeout=5000) as dl_info:
-                cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
-            download = dl_info.value
-            print('    다운로드 성공 (다이얼로그 없음)')
-        except Exception:
-            # 다이얼로그가 뜬 경우 → "저장" 버튼 클릭
-            print('    다이얼로그 감지 → "저장" 클릭')
             save_btn = cut_page.get_by_role('button', name='저장', exact=True)
-            save_btn.wait_for(state='visible', timeout=10000)
+            save_btn.wait_for(state='visible', timeout=30000)
+            print('    다이얼로그 확인 → "저장" 클릭')
             with cut_page.expect_download(timeout=60000) as dl_info:
                 save_btn.click()
-            download = dl_info.value
+        except Exception:
+            # 다이얼로그 없이 바로 다운로드된 경우 (예외 케이스)
+            print('    다이얼로그 없음 → 직접 다운로드 재시도')
+            with cut_page.expect_download(timeout=60000) as dl_info:
+                cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
 
         download = dl_info.value
         file_path = Path(download_dir) / f'cut_list_{start_date}_{end_date}.xlsx'
