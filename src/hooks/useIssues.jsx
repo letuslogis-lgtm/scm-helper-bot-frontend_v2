@@ -15,9 +15,16 @@ export const useIssues = (session, userProfile) => {
         setIsLoading(true);
         try {
             let query = supabase.from('logistics_issues').select('*').order('id', { ascending: false });
-            // 사용자 역할이면 본인 팀에 이관된 건만 조회
-            if (userProfile?.role === '사용자' && userProfile?.team) {
-                query = query.eq('assigned_team', userProfile.team);
+            if (userProfile?.role === '사용자') {
+                if (userProfile?.team) {
+                    // 팀이 있으면 해당 팀에 이관된 건만 조회
+                    query = query.eq('assigned_team', userProfile.team);
+                } else {
+                    // 사용자인데 팀 미지정 → 빈 목록 (전체 노출 방지)
+                    setIssues([]);
+                    setIsLoading(false);
+                    return;
+                }
             }
             const { data, error } = await query;
             if (error) throw error;
