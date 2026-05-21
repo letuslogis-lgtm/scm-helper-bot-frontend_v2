@@ -42,7 +42,7 @@ import { useNotifications } from './hooks/useNotifications.jsx';
 
 const AppContent = () => {
     const authLogic = useAuth();
-    const issueLogic = useIssues(authLogic.session);
+    const issueLogic = useIssues(authLogic.session, authLogic.userProfile);
     const notiLogic = useNotifications(authLogic.session, authLogic.userProfile, issueLogic.fetchIssues);
 
     const navigate = useNavigate();

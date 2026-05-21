@@ -280,6 +280,16 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                         />
                     </div>
                 )}
+
+                {/* 사용자 역할 — 이관 필터 안내 */}
+                {userProfile?.role === '사용자' && userProfile?.team && (
+                    <div className="flex items-center gap-2 pt-2.5 mt-1 border-t border-gray-100">
+                        <span className="w-1.5 h-1.5 rounded-full bg-letusBlue shrink-0"></span>
+                        <span className="text-[11px] text-gray-500">
+                            <span className="font-bold text-letusBlue">{userProfile.team}</span>에 이관된 건만 표시됩니다
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* 2. 선택실행 (드롭다운) 구역 (사용자 관리 스타일로 통일) */}

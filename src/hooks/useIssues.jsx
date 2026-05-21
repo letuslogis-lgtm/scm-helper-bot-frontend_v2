@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient.js';
 
-export const useIssues = (session) => {
+export const useIssues = (session, userProfile) => {
     const [issues, setIssues] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [accidentDrillDownFilters, setAccidentDrillDownFilters] = useState(null);
@@ -14,7 +14,12 @@ export const useIssues = (session) => {
     const fetchIssues = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.from('logistics_issues').select('*').order('id', { ascending: false });
+            let query = supabase.from('logistics_issues').select('*').order('id', { ascending: false });
+            // 사용자 역할이면 본인 팀에 이관된 건만 조회
+            if (userProfile?.role === '사용자' && userProfile?.team) {
+                query = query.eq('assigned_team', userProfile.team);
+            }
+            const { data, error } = await query;
             if (error) throw error;
             setIssues(data || []);
         } catch (error) {
@@ -26,10 +31,11 @@ export const useIssues = (session) => {
     };
 
     useEffect(() => {
-        if (session) {
+        // userProfile 로드 완료 후 한 번만 조회 (역할 기반 필터 정확히 적용)
+        if (session && userProfile) {
             fetchIssues();
         }
-    }, [session]);
+    }, [session, userProfile?.id]);
 
     return {
         issues,

@@ -203,18 +203,32 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  const [requestText, setRequestText] = useState(row.request_content || '');
  const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
  const [isSaving, setIsSaving] = useState(false);
+ const [assignedTeam, setAssignedTeam] = useState(row.assigned_team || '');
+ const [availableTeams, setAvailableTeams] = useState([]);
  const isAdmin = userProfile?.role !== '사용자';
  const isWaiting = row.status === '조치대기';
  const isProcessing = row.status === '처리 중';
  const isDone = row.status === '조치완료';
  const hasPurchaseResponse = !!(row.purchase_response);
 
+ // 재직 중인 팀 목록 조회
+ useEffect(() => {
+  supabase.from('profiles').select('team').eq('status', '재직').then(({ data }) => {
+   if (data) {
+    const teams = [...new Set(data.map(p => p.team).filter(Boolean))].sort();
+    setAvailableTeams(teams);
+   }
+  });
+ }, []);
+
  const handleTransfer = async () => {
+ if (!assignedTeam) return alert('이관할 팀을 선택해주세요.');
  setIsSaving(true);
  try {
  const { error } = await supabase.from('logistics_issues').update({
  request_content: requestText,
  status: '처리 중',
+ assigned_team: assignedTeam,
  }).eq('id', row.id);
  if (error) throw error;
  await onReload(); onClose();
@@ -332,10 +346,20 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  className={`px-6 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
  {isSaving ? '처리 중...' : '직접 조치'}
  </button>
- <button onClick={handleTransfer} disabled={isSaving}
- className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
- {isSaving ? '처리 중...' : '② 이관'}
- </button>
+ <div className="flex items-center gap-1.5">
+  <select
+   value={assignedTeam}
+   onChange={e => setAssignedTeam(e.target.value)}
+   className="border border-gray-300 rounded text-sm px-2 py-[7px] focus:outline-none focus:border-letusBlue text-gray-700 bg-white h-[34px]"
+  >
+   <option value="">팀 선택</option>
+   {availableTeams.map(t => <option key={t} value={t}>{t}</option>)}
+  </select>
+  <button onClick={handleTransfer} disabled={isSaving || !assignedTeam}
+  className={`px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold rounded shadow transition-colors ${(isSaving || !assignedTeam) ? 'opacity-70 cursor-not-allowed' : ''}`}>
+  {isSaving ? '처리 중...' : '② 이관'}
+  </button>
+ </div>
  </>
  )}
  {isProcessing && !hasPurchaseResponse && isAdmin && (
