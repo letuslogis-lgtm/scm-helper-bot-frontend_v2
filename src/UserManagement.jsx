@@ -18,14 +18,13 @@ const UserManagement = () => {
     const [filterKeyword, setFilterKeyword] = useState('');
     const [filterVendor, setFilterVendor] = useState('');
     const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
-    const [selectedUserIds, setSelectedUserIds] = useState([]);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
     const isAllSelected = users.length > 0 && selectedUsers.length === users.length;
 
     const handleExportExcel = async () => {
-        const targetData = selectedUserIds.length > 0 ? users.filter(u => selectedUserIds.includes(u.id)) : users;
+        const targetData = selectedUsers.length > 0 ? users.filter(u => selectedUsers.includes(u.id)) : users;
         if (targetData.length === 0) return alert('추출할 데이터가 없습니다.');
         const XLSX = await loadXLSX();
 
@@ -70,15 +69,11 @@ const UserManagement = () => {
 
         if (!window.confirm(`선택하신 ${selectedUsers.length}명의 계정을 정말 삭제하시겠습니까?\n시스템 접속 권한이 영구적으로 박탈되며 복구할 수 없습니다.`)) return;
 
-        setIsLoading(true); // 삭제 중 로딩 스피너 작동
+        setIsLoading(true);
         try {
-            // 🔥 Auth 계정 + profile 동시 삭제. Edge Function(user-admin) 안에서 둘 다 처리됨.
-            for (const userId of selectedUsers) {
-                await invokeFunction('user-admin', {
-                    action: 'delete',
-                    payload: { userId },
-                });
-            }
+            await Promise.all(selectedUsers.map(userId =>
+                invokeFunction('user-admin', { action: 'delete', payload: { userId } })
+            ));
 
             alert(`🗑️ ${selectedUsers.length}명의 사용자 계정이 완벽하게 삭제되었습니다.`);
             setSelectedUsers([]); // 🚩 체크박스 초기화
@@ -199,12 +194,12 @@ const UserManagement = () => {
                                     <button
                                         onClick={() => {
                                             setIsActionMenuOpen(false);
-                                            if (selectedUsers.length === 0 && selectedUserIds.length === 0) alert('일괄 변경할 사용자를 먼저 체크박스로 선택해 주세요.');
+                                            if (selectedUsers.length === 0) alert('일괄 변경할 사용자를 먼저 체크박스로 선택해 주세요.');
                                             else setIsBulkEditModalOpen(true);
                                         }}
-                                        className={`w-full text-left px-4 py-2 text-xs font-medium ${(selectedUsers.length > 0 || selectedUserIds.length > 0) ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        className={`w-full text-left px-4 py-2 text-xs font-medium ${selectedUsers.length > 0 ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}
                                     >
-                                        일괄 변경 {(selectedUsers.length > 0 || selectedUserIds.length > 0) && `(${Math.max(selectedUsers.length, selectedUserIds.length)})`}
+                                        일괄 변경 {selectedUsers.length > 0 && `(${selectedUsers.length})`}
                                     </button>
 
                                     <div className="h-px bg-gray-100 my-1"></div>
@@ -219,10 +214,10 @@ const UserManagement = () => {
                                     <button
                                         onClick={() => {
                                             setIsActionMenuOpen(false);
-                                            if (selectedUsers.length === 0 && selectedUserIds.length === 0) alert('삭제할 사용자를 먼저 선택해 주세요.');
+                                            if (selectedUsers.length === 0) alert('삭제할 사용자를 먼저 선택해 주세요.');
                                             else handleDeleteSelected();
                                         }}
-                                        className={`w-full text-left px-4 py-2 text-xs font-medium ${(selectedUsers.length > 0 || selectedUserIds.length > 0) ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        className={`w-full text-left px-4 py-2 text-xs font-medium ${selectedUsers.length > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
                                     >
                                         삭제
                                     </button>
