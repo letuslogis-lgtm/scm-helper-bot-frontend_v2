@@ -32,11 +32,6 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             Notification.requestPermission();
         }
 
-        const channel = window.supabase.channel('logistics_issue_notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logistics_issues' }, (payload) => handleIssueChange(payload.new, '신규 입고'))
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'logistics_issues' }, (payload) => handleIssueChange(payload.new, '상태 변경'))
-            .subscribe();
-
         const handleIssueChange = (newData, type) => {
             const userBrands = userProfile?.managed_brands ? userProfile.managed_brands.split(',').map(s => s.trim()) : [];
             const userVendors = userProfile?.managed_vendors ? userProfile.managed_vendors.split(',').map(s => s.trim()) : [];
@@ -74,7 +69,12 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             }
         };
 
-        return () => { window.supabase.removeChannel(channel); };
+        const channel = supabase.channel('logistics_issue_notifications')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logistics_issues' }, (payload) => handleIssueChange(payload.new, '신규 입고'))
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'logistics_issues' }, (payload) => handleIssueChange(payload.new, '상태 변경'))
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
     }, [session, userProfile, fetchIssues]);
 
     // 🌟 캘린더 30분 전 알림 로직

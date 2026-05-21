@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient.js';
 
 export const useIssues = (session) => {
     const [issues, setIssues] = useState([]);
@@ -13,7 +14,7 @@ export const useIssues = (session) => {
     const fetchIssues = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await window.supabase.from('logistics_issues').select('*').order('id', { ascending: false });
+            const { data, error } = await supabase.from('logistics_issues').select('*').order('id', { ascending: false });
             if (error) throw error;
             setIssues(data || []);
         } catch (error) {

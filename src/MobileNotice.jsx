@@ -19,7 +19,7 @@ export const MobileNotice = () => {
             try {
                 const { data, error } = await supabase
                     .from('notices')
-                    .select('id, title, content, author_name, is_important, created_at')
+                    .select('id, title, content, creator_name, is_important, created_at')
                     .order('is_important', { ascending: false })
                     .order('created_at', { ascending: false })
                     .limit(30);
@@ -83,7 +83,7 @@ export const MobileNotice = () => {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-slate-800 font-bold text-sm leading-snug">{notice.title}</p>
                                         <div className="flex items-center gap-1.5 mt-1">
-                                            <p className="text-slate-400 text-xs">{notice.author_name}</p>
+                                            <p className="text-slate-400 text-xs">{notice.creator_name}</p>
                                             <span className="text-slate-300 text-xs">·</span>
                                             <p className="text-slate-400 text-xs">{formatDate(notice.created_at)}</p>
                                         </div>

@@ -109,13 +109,15 @@ const SuggestionModal = ({ item, onClose, onReload, userProfile }) => {
  </button>
  )}
  </div>
- <div className="flex gap-2 items-center w-full md:w-auto">
- <span className="text-[11px] font-bold text-gray-500 mr-1">조회 기간</span>
- <input type="date" value={tempStartDate} onChange={(e) => setTempStartDate(e.target.value)} className="border border-gray-200 rounded px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none focus:border-letusBlue" />
- <span className="text-gray-400 mx-0.5">~</span>
- <input type="date" value={tempEndDate} onChange={(e) => setTempEndDate(e.target.value)} className="border border-gray-200 rounded px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none focus:border-letusBlue" />
- <div className="h-5 w-px bg-gray-200 mx-2 hidden sm:block"></div>
- <button onClick={() => { setStartDate(tempStartDate); setEndDate(tempEndDate); }} className="bg-letusBlue text-white font-bold px-4 py-1.5 rounded text-xs shadow-sm hover:bg-blue-600 transition-colors">조회</button>
+ <div className="flex gap-2 items-center">
+ <button onClick={onClose} disabled={isSaving || isDeleting} className="px-5 py-2 border border-gray-300 text-gray-600 text-sm font-bold rounded hover:bg-gray-100 transition-colors bg-white">
+ {isAdmin ? '취소' : '닫기'}
+ </button>
+ {isAdmin && (
+ <button onClick={handleSave} disabled={isSaving || isDeleting} className={`px-6 py-2 bg-letusBlue text-white text-sm font-bold rounded shadow hover:bg-blue-600 transition-colors flex items-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
+ {isSaving ? '저장 중...' : '답변 저장'}
+ </button>
+ )}
  </div>
  </div>
  </div>

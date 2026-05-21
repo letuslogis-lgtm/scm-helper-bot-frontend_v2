@@ -3,9 +3,14 @@ import { supabase } from './supabaseClient.js';
 import { ALL_MENUS } from './menuConfig.jsx';
 
 const Header = ({ page, userProfile, onLogout, notifications = [], isNotiOpen, toggleNoti, onNotiClick, onEditProfile, favorites, toggleFavorite, isSidebarOpen, setIsSidebarOpen, onMarkAllRead }) => {
-    const [notiStatus, setNotiStatus] = useState(Notification.permission);
+    const notiSupported = typeof window !== 'undefined' && 'Notification' in window;
+    const [notiStatus, setNotiStatus] = useState(notiSupported ? Notification.permission : 'unsupported');
 
     const handleRequestNotification = () => {
+        if (!notiSupported) {
+            alert('이 브라우저에서는 알림 기능을 지원하지 않습니다.');
+            return;
+        }
         if (notiStatus === 'denied') {
             alert('🔕 알림이 차단되어 있습니다!\n\n브라우저 상단 주소창 왼쪽의 [자물쇠(🔒) 아이콘]을 클릭한 후, [알림] 권한을 "허용"으로 변경하고 새로고침해 주세요.');
             return;

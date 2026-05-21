@@ -17,8 +17,15 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
     const [selectedTodoDate, setSelectedTodoDate] = useState(new Date());
 
     const [widgets, setWidgets] = useState(() => {
-        const saved = localStorage.getItem(`letus_widgets_${userProfile?.id}`);
-        return saved ? JSON.parse(saved) : ['issue_todo', 'acc_todo', null, null, null, null];
+        try {
+            if (!userProfile?.id) return ['issue_todo', 'acc_todo', null, null, null, null];
+            const saved = localStorage.getItem(`letus_widgets_${userProfile.id}`);
+            if (!saved) return ['issue_todo', 'acc_todo', null, null, null, null];
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) ? parsed : ['issue_todo', 'acc_todo', null, null, null, null];
+        } catch {
+            return ['issue_todo', 'acc_todo', null, null, null, null];
+        }
     });
 
     const [todos, setTodos] = useState([]);

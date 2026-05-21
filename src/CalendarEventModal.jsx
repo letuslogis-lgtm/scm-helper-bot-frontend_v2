@@ -28,16 +28,6 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
 
     const locationOptions = ['미사용', 'fursys Office', 'iloom office', 'sidiz office', 'letus office', '바로스 회의실', '바로스 관제실'];
 
-    // 휴가 체크 시 로직 수정
-    const handleVacationChange = (e) => {
-        const checked = e.target.checked;
-        setIsVacation(checked);
-        if (checked) {
-            setEventData(prev => ({ ...prev, location: '', collab_teams: '' }));
-            // 기본값 '연차' 세팅
-        }
-    };
-
     const timeOptions = useMemo(() => {
         const opts = [];
         for (let i = 0; i < 24; i++) {

@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient.js';
 import { loadXLSX } from './utils.js';
 import { CloseIcon } from './SharedUI.jsx';
 
-const supabaseClient = window.supabase;
+const supabaseClient = supabase;
 
 const BrandTaskSelectModal = ({ initialBrands, onApplyBrands, initialTasks, onApplyTasks, onClose }) => {
     const [selectedBrands, setSelectedBrands] = useState(initialBrands ? initialBrands.split(',').map(b => b.trim()).filter(Boolean) : []);

@@ -577,7 +577,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                     <Bar key={`bar_${b}`} yAxisId="left" dataKey={`issue_${b}`} name={`[특이사항] ${b}`}
                                         stackId="issues" fill={TREND_COLORS[b]}
                                         radius={idx === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                                        maxBarSize={40} animationDuration={1000} />
+                                        maxBarSize={20} animationDuration={1000} />
                                 ))}
                                 {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map(b => (
                                     <Line key={`line_${b}`} yAxisId="right" type="monotone" dataKey={`shortage_${b}`}

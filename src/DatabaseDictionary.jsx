@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { AttendanceManagement } from './AttendanceManagement.jsx';
-;
 
 
 

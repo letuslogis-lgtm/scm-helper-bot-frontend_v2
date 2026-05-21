@@ -4,7 +4,7 @@ import { loadXLSX } from './utils.js';
 import { CloseIcon } from './SharedUI.jsx';
 import { BrandTaskSelectModal, WorkerAddModal, WorkerEditModal, WorkerBulkUploadModal, WorkerBulkEditModal } from './WorkerModals.jsx';
 
-const supabaseClient = window.supabase;
+const supabaseClient = supabase;
 
 const WorkerManagement = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);

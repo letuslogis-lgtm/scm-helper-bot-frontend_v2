@@ -108,7 +108,7 @@ const Sidebar = ({ page, setPage, userProfile, isSidebarOpen, setIsSidebarOpen, 
                                                 className={`cursor-pointer px-3 py-1.5 text-[12px] font-medium transition-colors rounded-md ${page === child.id ? 'bg-letusBlue text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
                                             >
                                                 {searchTerm ? (
-                                                    <span dangerouslySetInnerHTML={{ __html: child.label.replace(new RegExp(searchTerm, 'gi'), match => `<span class="text-letusOrange font-bold">${match}</span>`) }} />
+                                                    <span dangerouslySetInnerHTML={{ __html: child.label.replace(new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), match => `<span class="text-letusOrange font-bold">${match}</span>`) }} />
                                                 ) : (
                                                     child.label
                                                 )}

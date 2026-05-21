@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { supabase } from './supabaseClient.js';
 import { CloseIcon } from './SharedUI.jsx';
 import { AttendanceUploadModal } from './AttendanceUploadModal.jsx';
 
-const supabaseClient = window.supabase;
+const supabaseClient = supabase;
 
 const AttendanceBulkEditModal = ({ selectedIds, onClose, onReload }) => {
   const [workedVendor, setWorkedVendor] = useState('');

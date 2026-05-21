@@ -61,7 +61,7 @@ export const RpaManagement = () => {
 
         return () => { supabase.removeChannel(channel); };
     }, []);
-    const handleSearch = () => { setSavedFilters({ ...draftFilters }); };
+    const handleSearch = () => { setSavedFilters({ ...draftFilters }); fetchRpaJobs(); };
 
     // ============================================================
     // 데이터 로드

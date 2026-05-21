@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { supabase } from './supabaseClient.js';
 import { loadXLSX } from './utils.js';
 import { CloseIcon } from './SharedUI.jsx';
 
-const supabaseClient = window.supabase;
+const supabaseClient = supabase;
 
 const AttendanceUploadModal = ({ onClose, onReload }) => {
   const [files, setFiles] = useState([]);

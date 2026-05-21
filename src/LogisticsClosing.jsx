@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import * as XLSX from 'xlsx';
+import { supabase } from './supabaseClient.js';
+import { loadXLSX } from './utils.js';
 import { CloseIcon } from './SharedUI.jsx';
 import { processClosingData, generateClosingReport, UPLOAD_TYPES, HARDCODED_TYPES } from './utils/closingUtils.js';
-
-const supabase = window.supabase;
 
 // ─── 업로드 카드 설정 ─────────────────────────────────────────────
 const UPLOAD_CARDS = [
@@ -406,6 +405,7 @@ export const LogisticsClosing = () => {
     // ── 파일 선택 처리 ──
     const handleFileSelect = async (uploadType, file) => {
         const buffer = await file.arrayBuffer();
+        const XLSX = await loadXLSX();
         const wb = XLSX.read(buffer, { type: 'array' });
 
         if (HARDCODED_TYPES.has(uploadType)) {
