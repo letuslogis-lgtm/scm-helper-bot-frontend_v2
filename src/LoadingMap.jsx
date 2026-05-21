@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
+import { SearchButton } from './SharedUI.jsx';
 
 // --- 1. 상차 구역 일괄 업로드 모달 ---
 const MapBulkUploadModal = ({ onClose, onReload, currentWarehouse }) => {
@@ -311,9 +312,7 @@ export const LoadingMap = () => {
                         <button onClick={() => setIsEditMode(!isEditMode)} className={`font-bold px-4 h-[30px] rounded-[3px] text-xs border transition-colors shadow-sm ${isEditMode ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-600 border-gray-300 hover:bg-gray-50'}`}>
                             {isEditMode ? '🔴 도면 편집 켜짐' : '✏️ 도면 편집 켜기'}
                         </button>
-                        <button onClick={fetchMapData} className="bg-letusOrange text-white hover:bg-orange-600 font-bold px-6 h-[30px] rounded-[3px] text-xs shadow-md transition-colors">
-                            조회
-                        </button>
+                        <SearchButton onClick={fetchMapData} label="조회" />
                     </div>
                 </div>
             </div>

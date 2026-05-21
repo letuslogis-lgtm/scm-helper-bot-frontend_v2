@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon, formatDateTime } from './SharedUI.jsx';
+import { CloseIcon, formatDateTime, SearchButton } from './SharedUI.jsx';
 
 const CATEGORY_DATA = [
     { group: '현장 운영 귀책', codes: ['W-01 피킹 수량 누락', 'W-02 오피킹', 'W-03 PLT 오분배·미분배', 'W-04 오합적', 'W-05 평탄화·이동 누락', 'W-06 작업 중 파손', 'W-07 재고 관리 미흡'] },
@@ -346,10 +346,7 @@ export const AiInsightLab = () => {
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                             학습 데이터 내보내기
                         </button>
-                        <button onClick={fetchLogs} className="bg-letusBlue text-white hover:bg-blue-600 font-bold px-4 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            새로고침
-                        </button>
+                        <SearchButton onClick={fetchLogs} label="새로고침" />
                     </div>
                 </div>
 
