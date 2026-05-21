@@ -242,20 +242,6 @@ def download_cut_list(center: str, start_date: str, end_date: str, download_dir:
             state='visible', timeout=60000
         )
 
-        # ── 결과 건수 확인 ────────────────────────────────────────
-        tab_text = cut_page.locator('#resultTable2HeadBox').inner_text()
-        print(f'    탭 텍스트: {tab_text}')
-        import re as _re
-        count_match = _re.search(r'\d+', tab_text)
-        result_count = int(count_match.group()) if count_match else -1
-        print(f'    조회 결과: {result_count}건')
-
-        if result_count == 0:
-            print('    결과 없음 → 다운로드 스킵')
-            context.close()
-            browser.close()
-            return None
-
         # ── 엑셀 다운로드 ─────────────────────────────────────────
         print('[6/6] 엑셀 다운로드 중...')
 
