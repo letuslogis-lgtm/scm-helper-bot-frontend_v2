@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon, formatDateTime, SearchButton } from './SharedUI.jsx';
+import { CloseIcon, formatDateTime, SearchButton, DateInput } from './SharedUI.jsx';
 
 const CATEGORY_DATA = [
     { group: '현장 운영 귀책', codes: ['W-01 피킹 수량 누락', 'W-02 오피킹', 'W-03 PLT 오분배·미분배', 'W-04 오합적', 'W-05 평탄화·이동 누락', 'W-06 작업 중 파손', 'W-07 재고 관리 미흡'] },
@@ -303,9 +303,9 @@ export const AiInsightLab = () => {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
                             <label className="text-[11px] font-bold text-gray-600">등록일자</label>
-                            <input type="date" value={dateFilter.start} onChange={e => setDateFilter({ ...dateFilter, start: e.target.value })} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer text-gray-700" />
+                            <DateInput value={dateFilter.start} onChange={v => setDateFilter({ ...dateFilter, start: v })} />
                             <span className="text-gray-400 text-xs">~</span>
-                            <input type="date" value={dateFilter.end} onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })} className="border border-gray-200 rounded text-xs px-2 py-1.5 focus:outline-none cursor-pointer text-gray-700" />
+                            <DateInput value={dateFilter.end} onChange={v => setDateFilter({ ...dateFilter, end: v })} />
                         </div>
                         <div className="flex items-center gap-2">
                             <label className="text-[11px] font-bold text-gray-600">신뢰도</label>

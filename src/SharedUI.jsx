@@ -387,4 +387,107 @@ export { CategoryBadge };
 export { formatDateTime };
 export { ImageSlider };
 export { UserEditModal };
+// --- 날짜 입력 공통 컴포넌트 (커스텀 달력) ---
+const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+    const pad = n => String(n).padStart(2, '0');
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+    const [viewYear, setViewYear] = useState(() => value ? parseInt(value.slice(0,4)) : today.getFullYear());
+    const [viewMonth, setViewMonth] = useState(() => value ? parseInt(value.slice(5,7))-1 : today.getMonth());
+
+    const handleOpen = () => {
+        if (value) { setViewYear(parseInt(value.slice(0,4))); setViewMonth(parseInt(value.slice(5,7))-1); }
+        setIsOpen(o => !o);
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const onDown = (e) => { if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false); };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [isOpen]);
+
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+    const cells = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+    const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+    const years = Array.from({ length: 10 }, (_, i) => today.getFullYear() - 3 + i);
+
+    const prevMonth = () => { if (viewMonth === 0) { setViewYear(y => y-1); setViewMonth(11); } else setViewMonth(m => m-1); };
+    const nextMonth = () => { if (viewMonth === 11) { setViewYear(y => y+1); setViewMonth(0); } else setViewMonth(m => m+1); };
+
+    const inputBase = variant === 'ghost'
+        ? `bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]`
+        : `border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700`;
+
+    return (
+        <div ref={containerRef} className="relative inline-block">
+            <input
+                type="text"
+                readOnly
+                value={value || ''}
+                placeholder="날짜 선택"
+                onClick={handleOpen}
+                className={`${inputBase} ${className}`}
+            />
+            {isOpen && (
+                <div className="absolute top-full left-0 mt-1 z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[224px] select-none overflow-hidden">
+                    {/* 헤더 */}
+                    <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
+                        <button onClick={prevMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">‹</button>
+                        <div className="flex items-center gap-1">
+                            <select value={viewYear} onChange={e => setViewYear(Number(e.target.value))}
+                                className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer">
+                                {years.map(y => <option key={y} value={y} className="text-gray-800 bg-white">{y}년</option>)}
+                            </select>
+                            <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))}
+                                className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer">
+                                {Array.from({ length: 12 }, (_, i) => i).map(m => <option key={m} value={m} className="text-gray-800 bg-white">{m+1}월</option>)}
+                            </select>
+                        </div>
+                        <button onClick={nextMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">›</button>
+                    </div>
+                    {/* 요일 헤더 */}
+                    <div className="grid grid-cols-7 px-2 pt-2">
+                        {DAY_NAMES.map((d, i) => (
+                            <div key={d} className={`text-center text-[10px] font-bold pb-1 ${i===0?'text-red-400':i===6?'text-blue-400':'text-gray-400'}`}>{d}</div>
+                        ))}
+                    </div>
+                    {/* 날짜 셀 */}
+                    <div className="grid grid-cols-7 px-2 pb-2 gap-y-0.5">
+                        {cells.map((day, idx) => {
+                            if (!day) return <div key={`e${idx}`} className="h-7" />;
+                            const dateStr = `${viewYear}-${pad(viewMonth+1)}-${pad(day)}`;
+                            const isSelected = dateStr === value;
+                            const isToday = dateStr === todayStr;
+                            const dow = (firstDay + day - 1) % 7;
+                            return (
+                                <button key={day}
+                                    onClick={() => { onChange(dateStr); setIsOpen(false); }}
+                                    className={`h-7 w-full flex items-center justify-center text-[11px] font-semibold rounded-full transition-colors
+                                        ${isSelected ? 'bg-letusOrange text-white' :
+                                          isToday    ? 'border border-letusOrange text-letusOrange' :
+                                          dow === 0  ? 'text-red-400 hover:bg-orange-50' :
+                                          dow === 6  ? 'text-blue-400 hover:bg-orange-50' :
+                                                       'text-gray-700 hover:bg-orange-50'}`}>
+                                    {day}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {/* 푸터 */}
+                    <div className="border-t border-gray-100 flex justify-between px-3 py-1.5">
+                        <button onClick={() => { onChange(''); setIsOpen(false); }} className="text-[11px] text-gray-400 hover:text-gray-600 font-bold">지우기</button>
+                        <button onClick={() => { onChange(todayStr); setIsOpen(false); }} className="text-[11px] text-letusOrange hover:opacity-70 font-bold">오늘</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export { SearchButton };
+export { DateInput };

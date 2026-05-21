@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
 import { loadXLSXStyle } from './utils.js';
-import { SearchButton } from './SharedUI.jsx';
+import { SearchButton, DateInput } from './SharedUI.jsx';
 
 const INCIDENT_REASONS     = ['시공팀 상차 누락', '센터 과/오출', '확인 중', '미출고', '연기건 미상차', '반품건 미적재'];
 const CONSTRUCTION_ACTIONS = ['조치 완료', '센터 반납'];
@@ -767,9 +767,9 @@ const ReturnsManagement = ({ userProfile }) => {
                 <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 whitespace-nowrap">기간</label>
-                        <input type="date" value={draftFilters.startDate} onChange={e => setDraftFilters(p => ({ ...p, startDate: e.target.value }))} className={filterSel} />
+                        <DateInput value={draftFilters.startDate} onChange={v => setDraftFilters(p => ({ ...p, startDate: v }))} />
                         <span className="text-gray-400 text-xs">~</span>
-                        <input type="date" value={draftFilters.endDate} onChange={e => setDraftFilters(p => ({ ...p, endDate: e.target.value }))} className={filterSel} />
+                        <DateInput value={draftFilters.endDate} onChange={v => setDraftFilters(p => ({ ...p, endDate: v }))} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                         <label className="text-[11px] font-bold text-gray-600">발생센터</label>

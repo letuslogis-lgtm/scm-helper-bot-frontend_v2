@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts';
 import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
-import { SearchButton } from './SharedUI.jsx';
+import { SearchButton, DateInput } from './SharedUI.jsx';
 
 const COLS = [
     { key: 'delivery_date', label: '납기일자',  w: '80px'  },
@@ -1538,11 +1538,9 @@ export const WmsShortageList = ({ userProfile }) => {
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">납기 일자</label>
                         <div className="flex items-center">
-                            <input type="date" value={draft.startDate} onChange={e => setD('startDate', e.target.value)}
-                                className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
+                            <DateInput value={draft.startDate} onChange={v => setD('startDate', v)} />
                             <span className="mx-1 text-gray-400 text-xs font-bold">~</span>
-                            <input type="date" value={draft.endDate} onChange={e => setD('endDate', e.target.value)}
-                                className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
+                            <DateInput value={draft.endDate} onChange={v => setD('endDate', v)} />
                         </div>
                     </div>
 

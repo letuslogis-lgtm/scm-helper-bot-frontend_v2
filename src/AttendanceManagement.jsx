@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon, SearchButton } from './SharedUI.jsx';
+import { CloseIcon, SearchButton, DateInput } from './SharedUI.jsx';
 import { AttendanceUploadModal } from './AttendanceUploadModal.jsx';
 
 const supabaseClient = supabase;
@@ -487,9 +487,9 @@ const AttendanceManagement = () => {
                 <div className="flex items-center justify-end flex-1 gap-2">
                   {chartFilterType === 'CUSTOM' && (
                     <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 animate-fade-in shadow-sm h-[38px]">
-                      <input type="date" value={tempChartStartDate} onChange={(e) => setTempChartStartDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                      <DateInput value={tempChartStartDate} onChange={v => setTempChartStartDate(v)} variant="ghost" />
                       <span className="text-gray-400 text-xs mx-1">~</span>
-                      <input type="date" value={tempChartEndDate} onChange={(e) => setTempChartEndDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                      <DateInput value={tempChartEndDate} onChange={v => setTempChartEndDate(v)} variant="ghost" />
                       <SearchButton onClick={() => { setChartStartDate(tempChartStartDate); setChartEndDate(tempChartEndDate); }} label="조회" className="ml-1" />
                     </div>
                   )}
@@ -515,9 +515,9 @@ const AttendanceManagement = () => {
                 <div className="flex items-center justify-end flex-1 gap-2">
                   {filterType === 'CUSTOM' && (
                     <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 animate-fade-in shadow-sm h-[38px]">
-                      <input type="date" value={tempStartDate} onChange={(e) => setTempStartDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                      <DateInput value={tempStartDate} onChange={v => setTempStartDate(v)} variant="ghost" />
                       <span className="text-gray-400 text-xs mx-0.5">~</span>
-                      <input type="date" value={tempEndDate} onChange={(e) => setTempEndDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                      <DateInput value={tempEndDate} onChange={v => setTempEndDate(v)} variant="ghost" />
                       <SearchButton onClick={() => { setStartDate(tempStartDate); setEndDate(tempEndDate); }} label="조회" className="ml-1" />
                     </div>
                   )}

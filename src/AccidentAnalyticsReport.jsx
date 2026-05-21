@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from './supabaseClient.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import ReactMarkdown from 'react-markdown';
+import { DateInput } from './SharedUI.jsx';
 
 
 
@@ -227,9 +228,9 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
                 <div className="flex items-center gap-2">
                     {filterType === 'CUSTOM' && (
                         <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 animate-fade-in shadow-sm">
-                            <input type="date" value={customDate.start} onChange={e => setCustomDate({ ...customDate, start: e.target.value })} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                            <DateInput value={customDate.start} onChange={v => setCustomDate({ ...customDate, start: v })} variant="ghost" />
                             <span className="text-gray-400 text-xs mx-1">~</span>
-                            <input type="date" value={customDate.end} onChange={e => setCustomDate({ ...customDate, end: e.target.value })} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                            <DateInput value={customDate.end} onChange={v => setCustomDate({ ...customDate, end: v })} variant="ghost" />
                         </div>
                     )}
                     <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">

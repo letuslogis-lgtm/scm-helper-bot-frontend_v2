@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
 import { loadXLSXStyle } from './utils.js';
-import { CloseIcon, SearchButton } from './SharedUI.jsx';
+import { CloseIcon, SearchButton, DateInput } from './SharedUI.jsx';
 import { AccidentModal, AccidentBulkEditModal, AccidentUploadModal } from './AccidentModals.jsx';
 
 const AccidentList = ({ userProfile, initialFilter }) => {
@@ -621,9 +621,9 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">서비스예약일</label>
                         <div className="flex items-center">
-                            <input type="date" value={draftFilters.startDate} onChange={e => setDraftFilters({ ...draftFilters, startDate: e.target.value })} className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
+                            <DateInput value={draftFilters.startDate} onChange={v => setDraftFilters({ ...draftFilters, startDate: v })} />
                             <span className="mx-1 text-gray-400 text-xs font-bold">~</span>
-                            <input type="date" value={draftFilters.endDate} onChange={e => setDraftFilters({ ...draftFilters, endDate: e.target.value })} className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
+                            <DateInput value={draftFilters.endDate} onChange={v => setDraftFilters({ ...draftFilters, endDate: v })} />
                         </div>
                     </div>
 

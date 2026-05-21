@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
+import { DateInput } from './SharedUI.jsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line, ComposedChart, Area, AreaChart } from 'recharts';
 
 const AccidentDashboard = ({ userProfile, onDrillDown }) => {
@@ -241,9 +242,9 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                         {/* 사용자 지정 시 나타나는 달력 폼 */}
                         {filterType === 'CUSTOM' && (
                             <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 animate-fade-in shadow-sm">
-                                <input type="date" value={customDate.start} onChange={e => setCustomDate({ ...customDate, start: e.target.value })} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                                <DateInput value={customDate.start} onChange={v => setCustomDate({ ...customDate, start: v })} variant="ghost" />
                                 <span className="text-gray-400 text-xs mx-1">~</span>
-                                <input type="date" value={customDate.end} onChange={e => setCustomDate({ ...customDate, end: e.target.value })} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
+                                <DateInput value={customDate.end} onChange={v => setCustomDate({ ...customDate, end: v })} variant="ghost" />
                             </div>
                         )}
 

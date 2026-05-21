@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { StatusBadge, CategoryBadge, formatDateTime, SearchButton } from './SharedUI.jsx';
+import { StatusBadge, CategoryBadge, formatDateTime, SearchButton, DateInput } from './SharedUI.jsx';
 import { RequestModal, HandleModal } from './SupportCenter.jsx';
 import { loadXLSX } from './utils.js';
 
@@ -231,9 +231,9 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">등록일자</label>
                         <div className="flex items-center">
                             {/* 🚩 [수정] 인풋 포커스 색상과 높이(h-[30px]) 통일 */}
-                            <input type="date" value={draftFilters.startDate} onChange={e => setDraftFilters({ ...draftFilters, startDate: e.target.value })} className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
+                            <DateInput value={draftFilters.startDate} onChange={v => setDraftFilters({ ...draftFilters, startDate: v })} />
                             <span className="mx-1 text-gray-400 text-xs font-bold">~</span>
-                            <input type="date" value={draftFilters.endDate} onChange={e => setDraftFilters({ ...draftFilters, endDate: e.target.value })} className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700" />
+                            <DateInput value={draftFilters.endDate} onChange={v => setDraftFilters({ ...draftFilters, endDate: v })} />
                         </div>
                     </div>
 
