@@ -332,6 +332,52 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
     );
 };
 
+// --- 조회 버튼 공통 컴포넌트 ---
+const SearchButton = ({ onClick, label = '조회하기', className = '' }) => {
+    const [phase, setPhase] = useState('idle'); // 'idle' | 'loading' | 'done'
+
+    const handleClick = async () => {
+        if (phase !== 'idle') return;
+        setPhase('loading');
+        await Promise.all([
+            Promise.resolve(onClick?.()),
+            new Promise(r => setTimeout(r, 500)),
+        ]);
+        setPhase('done');
+        setTimeout(() => setPhase('idle'), 500);
+    };
+
+    const base = 'font-bold px-6 h-[30px] rounded-[3px] text-xs flex items-center justify-center shadow-sm gap-1.5 transition-all duration-150 select-none';
+
+    if (phase === 'loading') return (
+        <button disabled className={`${base} bg-orange-400 text-white scale-95 cursor-not-allowed ${className}`}>
+            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
+            </svg>
+            조회 중...
+        </button>
+    );
+
+    if (phase === 'done') return (
+        <button disabled className={`${base} bg-green-500 text-white ${className}`}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            완료
+        </button>
+    );
+
+    return (
+        <button onClick={handleClick} className={`${base} bg-letusOrange text-white hover:bg-orange-600 active:scale-95 ${className}`}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {label}
+        </button>
+    );
+};
+
 export { TableSkeleton };
 export { CloseIcon };
 export { CATEGORY_COLORS };
@@ -341,3 +387,4 @@ export { CategoryBadge };
 export { formatDateTime };
 export { ImageSlider };
 export { UserEditModal };
+export { SearchButton };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon } from './SharedUI.jsx';
+import { CloseIcon, SearchButton } from './SharedUI.jsx';
 import { AttendanceUploadModal } from './AttendanceUploadModal.jsx';
 
 const supabaseClient = supabase;
@@ -490,7 +490,7 @@ const AttendanceManagement = () => {
                       <input type="date" value={tempChartStartDate} onChange={(e) => setTempChartStartDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
                       <span className="text-gray-400 text-xs mx-1">~</span>
                       <input type="date" value={tempChartEndDate} onChange={(e) => setTempChartEndDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
-                      <button onClick={() => { setChartStartDate(tempChartStartDate); setChartEndDate(tempChartEndDate); }} className="bg-orange-500 text-white font-bold px-3 h-full rounded text-[11px] shadow hover:bg-orange-600 transition-colors ml-1 tracking-tight">조회</button>
+                      <SearchButton onClick={() => { setChartStartDate(tempChartStartDate); setChartEndDate(tempChartEndDate); }} label="조회" className="ml-1" />
                     </div>
                   )}
                   <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner h-[38px] items-center">
@@ -518,7 +518,7 @@ const AttendanceManagement = () => {
                       <input type="date" value={tempStartDate} onChange={(e) => setTempStartDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
                       <span className="text-gray-400 text-xs mx-0.5">~</span>
                       <input type="date" value={tempEndDate} onChange={(e) => setTempEndDate(e.target.value)} className="bg-transparent text-xs text-gray-700 font-bold focus:outline-none cursor-pointer px-1 w-[110px]" />
-                      <button onClick={() => { setStartDate(tempStartDate); setEndDate(tempEndDate); }} className="bg-orange-500 text-white font-bold px-3 py-1.5 h-full rounded text-[11px] shadow-sm hover:bg-blue-600 transition-colors ml-1">조회</button>
+                      <SearchButton onClick={() => { setStartDate(tempStartDate); setEndDate(tempEndDate); }} label="조회" className="ml-1" />
                     </div>
                   )}
                   <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner h-[38px] items-center">

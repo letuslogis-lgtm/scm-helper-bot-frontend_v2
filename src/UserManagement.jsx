@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase, invokeFunction } from './supabaseClient.js';
 import { VendorSearchModal, VendorListModal, MenuPermissionModal } from './CommonComponents.jsx';
-import { TableSkeleton, CloseIcon, formatDateTime, UserEditModal } from './SharedUI.jsx';
+import { TableSkeleton, CloseIcon, formatDateTime, UserEditModal, SearchButton } from './SharedUI.jsx';
 import { DEFAULT_MENUS } from './menuConfig.jsx';
 import { loadXLSX } from './utils.js';
 import { UserAddModal, UserBulkEditModal, UserBulkUploadModal } from './UserModals.jsx';
@@ -165,10 +165,7 @@ const UserManagement = () => {
                         >
                             초기화
                         </button>
-                        {/* 🚩 문제 3 해결: 조회 버튼을 bg-letusOrange text-white 로 채워서 강조! */}
-                        <button onClick={handleSearch} className="bg-letusOrange text-white hover:bg-orange-600 font-bold px-6 h-[30px] rounded-[3px] transition-colors text-xs flex items-center justify-center shadow-sm">
-                            조회하기
-                        </button>
+                        <SearchButton onClick={handleSearch} />
                     </div>
                 </div>
             </div>

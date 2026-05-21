@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { StatusBadge, CategoryBadge, formatDateTime } from './SharedUI.jsx';
+import { StatusBadge, CategoryBadge, formatDateTime, SearchButton } from './SharedUI.jsx';
 import { RequestModal, HandleModal } from './SupportCenter.jsx';
 import { loadXLSX } from './utils.js';
 
@@ -262,10 +262,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                         <button onClick={() => { const todayStr = new Date().toISOString().split('T')[0]; setDraftFilters({ brand: '전체', status: '전체', startDate: todayStr, endDate: todayStr, searchType: '품목코드', searchValue: '', teams: '전체' }); setSavedFilters({ brand: '전체', status: '전체', startDate: todayStr, endDate: todayStr, searchType: '품목코드', searchValue: '', teams: '전체' }); }} className="border border-gray-300 text-gray-500 hover:bg-gray-50 font-bold px-4 h-[30px] rounded-[3px] text-xs transition-colors">
                             초기화
                         </button>
-                        <button onClick={handleSearch} className="bg-letusOrange text-white hover:bg-orange-600 font-bold px-6 h-[30px] rounded-[3px] transition-colors text-xs flex items-center justify-center shadow-sm gap-1.5">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                            조회하기
-                        </button>
+                        <SearchButton onClick={handleSearch} />
                     </div>
                 </div>
 

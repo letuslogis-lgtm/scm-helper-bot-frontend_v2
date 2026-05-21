@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts';
 import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
+import { SearchButton } from './SharedUI.jsx';
 
 const COLS = [
     { key: 'delivery_date', label: '납기일자',  w: '80px'  },
@@ -1591,13 +1592,7 @@ export const WmsShortageList = ({ userProfile }) => {
                             className="border border-gray-300 text-gray-500 hover:bg-gray-50 font-bold px-4 h-[30px] rounded-[3px] text-xs transition-colors">
                             초기화
                         </button>
-                        <button onClick={handleSearch}
-                            className="bg-letusOrange text-white hover:bg-orange-600 font-bold px-6 h-[30px] rounded-[3px] transition-colors text-xs flex items-center gap-1.5 shadow-sm">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                            조회하기
-                        </button>
+                        <SearchButton onClick={handleSearch} />
                     </div>
                 </div>
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
 import { loadXLSXStyle } from './utils.js';
+import { SearchButton } from './SharedUI.jsx';
 
 const INCIDENT_REASONS     = ['시공팀 상차 누락', '센터 과/오출', '확인 중', '미출고', '연기건 미상차', '반품건 미적재'];
 const CONSTRUCTION_ACTIONS = ['조치 완료', '센터 반납'];
@@ -813,11 +814,7 @@ const ReturnsManagement = ({ userProfile }) => {
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
                             발생 등록
                         </button>
-                        <button onClick={handleSearchClick}
-                            className="bg-letusOrange text-white hover:bg-orange-600 font-bold px-6 h-[30px] rounded-[3px] transition-colors text-xs flex items-center gap-1.5 shadow-sm">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                            조회하기
-                        </button>
+                        <SearchButton onClick={handleSearchClick} />
                     </div>
                 </div>
             </div>
