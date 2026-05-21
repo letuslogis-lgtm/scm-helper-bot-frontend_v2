@@ -200,8 +200,8 @@ const FaqAddModal = ({ onClose, onReload }) => {
 };
 
 const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) => {
- const [requestText, setRequestText] = useState(row.request_content || '');
  const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
+ const [relayText, setRelayText] = useState(row.relay_content || '');
  const [isSaving, setIsSaving] = useState(false);
  const [assignedTeam, setAssignedTeam] = useState(row.assigned_team || '');
  const [availableTeams, setAvailableTeams] = useState([]);
@@ -223,10 +223,11 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
 
  const handleTransfer = async () => {
  if (!assignedTeam) return alert('이관할 팀을 선택해주세요.');
+ if (!relayText.trim()) return alert('이관 메시지를 입력해주세요.');
  setIsSaving(true);
  try {
  const { error } = await supabase.from('logistics_issues').update({
- request_content: requestText,
+ relay_content: relayText,
  status: '처리 중',
  assigned_team: assignedTeam,
  }).eq('id', row.id);
@@ -239,12 +240,11 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  setIsSaving(true);
  try {
  const { error } = await supabase.from('logistics_issues').update({
- request_content: requestText,
  status: '처리 중',
  }).eq('id', row.id);
  if (error) throw error;
  await onReload();
- onDirectHandle?.({ ...row, request_content: requestText, status: '처리 중' });
+ onDirectHandle?.({ ...row, status: '처리 중' });
  } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
  };
 
@@ -293,19 +293,30 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  </div>
 
  <div className="flex flex-col space-y-4">
+ {/* 현장 원본 접수 내용 — 관리자(조치대기)만 참고용으로 표시 */}
+ {isAdmin && isWaiting && (
  <div className="flex flex-col">
- <h4 className="text-sm font-bold text-gray-700 mb-2">① 접수 내용</h4>
+ <h4 className="text-xs font-bold text-gray-400 mb-1.5">📋 현장 원본 접수 내용 (참고용)</h4>
+ <div className="w-full border border-gray-100 bg-gray-50 rounded-lg p-3 text-sm text-gray-400 min-h-[50px]">
+ {row.request_content || '(내용 없음)'}
+ </div>
+ </div>
+ )}
+
+ {/* 이관 메시지 — 관리자 입력 / 이관팀에 표시 */}
+ <div className="flex flex-col">
+ <h4 className="text-sm font-bold text-gray-700 mb-2">① 이관 메시지</h4>
  {isWaiting ? (
  <textarea
- value={requestText}
- onChange={e => setRequestText(e.target.value)}
- placeholder="특이사항 조치 관련 요청 상세 내용이나 확인된 메모를 자유롭게 입력해 주세요."
+ value={relayText}
+ onChange={e => setRelayText(e.target.value)}
+ placeholder="구매/생산팀에 전달할 요청 내용을 정리해서 입력해주세요."
  disabled={!isAdmin}
  className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-800 outline-none resize-none focus:ring-2 focus:ring-letusBlue focus:border-letusBlue min-h-[80px]"
  />
  ) : (
  <div className="w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-600 min-h-[60px]">
- {row.request_content || '(내용 없음)'}
+ {row.relay_content || '(내용 없음)'}
  </div>
  )}
  </div>
@@ -417,10 +428,13 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  </div>
 
  <div className="flex flex-col space-y-4">
+ {/* 이관 케이스: relay_content 표시 / 직접 조치: request_content 표시 */}
  <div>
- <h4 className="text-sm font-bold text-gray-700 mb-2">① 접수 내용</h4>
+ <h4 className="text-sm font-bold text-gray-700 mb-2">
+ {row.relay_content ? '① 이관 메시지' : '① 접수 내용'}
+ </h4>
  <div className="w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-600 min-h-[50px]">
- {row.request_content || '(내용 없음)'}
+ {row.relay_content || row.request_content || '(내용 없음)'}
  </div>
  </div>
 
