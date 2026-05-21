@@ -199,10 +199,19 @@ const FaqAddModal = ({ onClose, onReload }) => {
  );
 };
 
+const autoResize = (el) => {
+ if (!el) return;
+ el.style.height = 'auto';
+ el.style.height = el.scrollHeight + 'px';
+};
+
 const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) => {
  const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
  const [relayText, setRelayText] = useState(row.relay_content || '');
  const [isSaving, setIsSaving] = useState(false);
+ const relayRef = React.useRef(null);
+ const purchaseRef = React.useRef(null);
+ React.useEffect(() => { autoResize(relayRef.current); autoResize(purchaseRef.current); }, []);
  const isAdmin = userProfile?.role !== '사용자';
  const isWaiting = row.status === '조치대기';
  const isProcessing = row.status === '처리 중';
@@ -294,11 +303,12 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  <h4 className="text-sm font-bold text-gray-700 mb-2">① 이관 메시지</h4>
  {isWaiting ? (
  <textarea
+ ref={relayRef}
  value={relayText}
- onChange={e => setRelayText(e.target.value)}
+ onChange={e => { setRelayText(e.target.value); autoResize(e.target); }}
  placeholder="구매/생산팀에 전달할 요청 내용을 정리해서 입력해주세요."
  disabled={!isAdmin}
- className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-800 outline-none resize-none focus:ring-2 focus:ring-letusBlue focus:border-letusBlue min-h-[80px]"
+ className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden focus:ring-2 focus:ring-letusBlue focus:border-letusBlue min-h-[80px]"
  />
  ) : (
  <div className="w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-600 min-h-[60px]">
@@ -316,10 +326,11 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  </div>
  ) : (
  <textarea
+ ref={purchaseRef}
  value={purchaseText}
- onChange={e => setPurchaseText(e.target.value)}
+ onChange={e => { setPurchaseText(e.target.value); autoResize(e.target); }}
  placeholder="구매/생산팀 확인 내용을 입력해주세요."
- className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 text-sm text-gray-800 outline-none resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+ className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
  />
  )}
  </div>
@@ -366,6 +377,8 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  const [actionText, setActionText] = useState(row.action_content || '');
  const [isSaving, setIsSaving] = useState(false);
  const isDone = row.status === '조치완료';
+ const actionRef = React.useRef(null);
+ React.useEffect(() => { autoResize(actionRef.current); }, []);
 
  const handleComplete = async () => {
  setIsSaving(true);
@@ -426,11 +439,12 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  <div>
  <h4 className="text-sm font-bold text-green-600 mb-2">④ 담당자 조치 내용</h4>
  <textarea
+ ref={actionRef}
  value={actionText}
- onChange={e => setActionText(e.target.value)}
+ onChange={e => { setActionText(e.target.value); autoResize(e.target); }}
  disabled={isDone}
  placeholder="현장 작업자에게 전달할 조치 결과를 입력해주세요."
- className={`w-full border rounded-lg p-3 text-sm text-gray-800 outline-none resize-none transition-shadow min-h-[100px] ${isDone ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'}`}
+ className={`w-full border rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden transition-shadow min-h-[100px] ${isDone ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'}`}
  />
  </div>
  </div>
