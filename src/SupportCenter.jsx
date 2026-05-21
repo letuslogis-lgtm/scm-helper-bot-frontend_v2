@@ -291,7 +291,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {/* 현장 원본 접수 내용 — 관리자(조치대기)만 참고용으로 표시 */}
  {isAdmin && isWaiting && (
  <div className="flex flex-col">
- <h4 className="text-xs font-bold text-gray-400 mb-1.5">📋 현장 원본 접수 내용 (참고용)</h4>
+ <h4 className="text-sm font-bold text-gray-700 mb-2">📋 현장 원본 접수 내용 (참고용)</h4>
  <div className="w-full border border-gray-100 bg-gray-50 rounded-lg p-3 text-sm text-gray-400 min-h-[100px]">
  {row.request_content || '(내용 없음)'}
  </div>
