@@ -22,6 +22,7 @@ WMS CUT리스트 자동 추출 → Supabase 업로드
 
 import argparse
 import os
+import re
 import sys
 import time
 import tempfile
@@ -297,6 +298,14 @@ def parse_and_upload(file_path: Path, upload_date: str, center: str):
                 rec['shortage_qty'] = int(float(rec['shortage_qty']))
             except (ValueError, TypeError):
                 rec['shortage_qty'] = 0
+
+        # delivery_date: wave_name의 [MM/DD] 파싱
+        m = re.search(r'\[(\d{2})/(\d{2})\]', rec.get('wave_name') or '')
+        if m:
+            year = upload_date[:4]
+            rec['delivery_date'] = f"{year}-{m.group(1)}-{m.group(2)}"
+        else:
+            rec['delivery_date'] = None
 
         if rec.get('shortage_qty', 0) > 0:  # 0건 제외
             records.append(rec)

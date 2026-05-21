@@ -1134,8 +1134,8 @@ export const WmsShortageList = ({ userProfile }) => {
         setIsLoading(true);
         try {
             let q = supabase.from('wms_shortage_list').select('*').order('wms_registered_at', { ascending: false });
-            if (filter.startDate) q = q.gte('upload_date', filter.startDate);
-            if (filter.endDate)   q = q.lte('upload_date', filter.endDate);
+            if (filter.startDate) q = q.gte('delivery_date', filter.startDate);
+            if (filter.endDate)   q = q.lte('delivery_date', filter.endDate);
             if (filter.brands && filter.brands !== '전체') {
                 const arr = Array.isArray(filter.brands) ? filter.brands : [filter.brands];
                 q = q.in('brand', arr);
@@ -1233,6 +1233,9 @@ export const WmsShortageList = ({ userProfile }) => {
                 for (const [excelKey, dbKey] of Object.entries(EXCEL_TO_DB)) {
                     rec[dbKey] = excelValToDb(excelKey, row[excelKey]);
                 }
+                // 납기일자: wave_name의 [MM/DD] 파싱 → DB 저장
+                const parsedDate = parseDeliveryDate(rec.wave_name, upload_date);
+                rec.delivery_date = (parsedDate && parsedDate !== '-') ? parsedDate : null;
                 return rec;
             });
 
