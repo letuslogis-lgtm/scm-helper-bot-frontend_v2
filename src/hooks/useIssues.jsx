@@ -8,7 +8,7 @@ export const useIssues = (session) => {
 
     const today = new Date().toISOString().split("T")[0];
     const [savedListFilters, setSavedListFilters] = useState({
-        brand: '전체', status: '전체', startDate: today, endDate: today, searchType: '품목코드', searchValue: ''
+        brand: '전체', status: '전체', startDate: today, endDate: today, searchType: '품목코드', searchValue: '', teams: '전체'
     });
 
     const fetchIssues = async () => {

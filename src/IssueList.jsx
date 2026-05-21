@@ -18,8 +18,23 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
     const [draftFilters, setDraftFilters] = useState({ ...savedFilters });
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+    const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+    const [reporterTeamMap, setReporterTeamMap] = useState({});
 
     useEffect(() => { setDraftFilters({ ...savedFilters }); }, [savedFilters]);
+
+    // 접수자 이름 목록으로 profiles 에서 팀 매핑 조회
+    useEffect(() => {
+        if (!issues || issues.length === 0) return;
+        const reporters = [...new Set(issues.map(i => i.reporter).filter(Boolean))];
+        if (reporters.length === 0) return;
+        supabase.from('profiles').select('name, team').in('name', reporters).then(({ data }) => {
+            if (!data) return;
+            const map = {};
+            data.forEach(p => { if (p.name && p.team) map[p.name] = p.team; });
+            setReporterTeamMap(map);
+        });
+    }, [issues]);
     const handleSearch = () => { setSavedFilters({ ...draftFilters }); };
 
     const MultiSelect = ({ label, options, selected, onChange }) => {
@@ -67,12 +82,22 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         );
     };
 
+    const teamOptions = useMemo(() => {
+        const teams = new Set(Object.values(reporterTeamMap).filter(Boolean));
+        return [...teams].sort();
+    }, [reporterTeamMap]);
+
     const filteredIssues = useMemo(() => {
         return issues.filter(issue => {
             const filterBrands = Array.isArray(savedFilters.brand) ? savedFilters.brand : (savedFilters.brand === '전체' ? [] : [savedFilters.brand]);
             const filterStatus = Array.isArray(savedFilters.status) ? savedFilters.status : (savedFilters.status === '전체' ? [] : [savedFilters.status]);
+            const filterTeams = Array.isArray(savedFilters.teams) ? savedFilters.teams : (savedFilters.teams === '전체' ? [] : [savedFilters.teams]);
             if (filterBrands.length > 0 && !filterBrands.includes(issue.brand)) return false;
             if (filterStatus.length > 0 && !filterStatus.includes(issue.status)) return false;
+            if (filterTeams.length > 0) {
+                const issueTeam = reporterTeamMap[issue.reporter];
+                if (!issueTeam || !filterTeams.includes(issueTeam)) return false;
+            }
             if (issue.created_at) {
                 const issueDate = issue.created_at.split('T')[0];
                 if (issueDate < savedFilters.startDate || issueDate > savedFilters.endDate) return false;
@@ -85,7 +110,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
             }
             return true;
         });
-    }, [issues, savedFilters]);
+    }, [issues, savedFilters, reporterTeamMap]);
 
     const sortedIssues = useMemo(() => {
         let items = [...filteredIssues];
@@ -197,7 +222,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
             {/* 1. 검색 박스 구역 (사용자 관리 스타일로 통일) */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex items-center z-30 shrink-0">
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
                 <div className="flex items-center gap-5 w-full flex-wrap">
 
                     <MultiSelect label="브랜드" options={['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소']} selected={draftFilters.brand} onChange={(val) => setDraftFilters({ ...draftFilters, brand: val })} />
@@ -229,7 +254,12 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
 
                     {/* 🚩 [수정] 버튼 스타일을 사용자 관리와 완벽하게 동일하게 (주황색 강조, 둥글기 맞춤) */}
                     <div className="ml-auto flex items-center gap-2 shrink-0">
-                        <button onClick={() => { const todayStr = new Date().toISOString().split('T')[0]; setDraftFilters({ brand: '전체', status: '전체', startDate: todayStr, endDate: todayStr, searchType: '품목코드', searchValue: '' }); setSavedFilters({ brand: '전체', status: '전체', startDate: todayStr, endDate: todayStr, searchType: '품목코드', searchValue: '' }); }} className="border border-gray-300 text-gray-500 hover:bg-gray-50 font-bold px-4 h-[30px] rounded-[3px] text-xs transition-colors">
+                        <button onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} className={`text-[11px] font-bold border px-3 h-[30px] rounded-[3px] transition-colors flex items-center gap-1 shadow-sm ${isAdvancedOpen ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+                            <svg className={`w-3.5 h-3.5 transition-transform ${isAdvancedOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+                            상세 조회
+                        </button>
+                        <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                        <button onClick={() => { const todayStr = new Date().toISOString().split('T')[0]; setDraftFilters({ brand: '전체', status: '전체', startDate: todayStr, endDate: todayStr, searchType: '품목코드', searchValue: '', teams: '전체' }); setSavedFilters({ brand: '전체', status: '전체', startDate: todayStr, endDate: todayStr, searchType: '품목코드', searchValue: '', teams: '전체' }); }} className="border border-gray-300 text-gray-500 hover:bg-gray-50 font-bold px-4 h-[30px] rounded-[3px] text-xs transition-colors">
                             초기화
                         </button>
                         <button onClick={handleSearch} className="bg-letusOrange text-white hover:bg-orange-600 font-bold px-6 h-[30px] rounded-[3px] transition-colors text-xs flex items-center justify-center shadow-sm gap-1.5">
@@ -238,6 +268,18 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                         </button>
                     </div>
                 </div>
+
+                {/* 상세 조회 아코디언 — 접수팀 필터 */}
+                {isAdvancedOpen && (
+                    <div className="flex items-center gap-6 pt-3 mt-1 border-t border-gray-100 flex-wrap slide-up">
+                        <MultiSelect
+                            label="접수팀"
+                            options={teamOptions}
+                            selected={draftFilters.teams}
+                            onChange={(val) => setDraftFilters({ ...draftFilters, teams: val })}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* 2. 선택실행 (드롭다운) 구역 (사용자 관리 스타일로 통일) */}
