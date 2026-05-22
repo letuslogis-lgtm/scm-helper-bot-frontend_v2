@@ -5,20 +5,20 @@ import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
 import { SearchButton, DateInput } from './SharedUI.jsx';
 
-const COLS = [
-    { key: 'delivery_date', label: '납기일자',  w: '80px'  },
-    { key: 'brand',         label: '브랜드',   w: '70px'  },
-    { key: 'vendor',        label: '공급업체',  w: '120px' },
-    { key: 'item_code',     label: '품목코드',  w: '120px' },
-    { key: 'dept',          label: '확인부서',  w: '90px'  },
-    { key: 'action_status', label: '조치 확인', w: '80px'  },
-    { key: 'shortage_qty',  label: '결품수량',  w: '80px'  },
-    { key: 'jeju',          label: '제주',      sub: '(12시 이전 입고)', w: '55px'  },
-    { key: 'jibang',        label: '지방',      sub: '(12시 이전 입고)', w: '55px'  },
-    { key: 'taekbae',       label: '택배',      sub: '(12시 이전 입고)', w: '55px'  },
-    { key: 'center_move',   label: '센터간이동', sub: '(12시 이전 입고)', w: '80px'  },
-    { key: 'hyunjang',      label: '현장',      sub: '(15시 이전 입고)', w: '55px'  },
-    { key: 'gyeongin',      label: '경인',      sub: '(15시 이전 입고)', w: '55px'  },
+const DEFAULT_COLUMNS = [
+    { key: 'delivery_date', label: '납기일자',  w: 80  },
+    { key: 'brand',         label: '브랜드',   w: 70  },
+    { key: 'vendor',        label: '공급업체',  w: 120 },
+    { key: 'item_code',     label: '품목코드',  w: 120 },
+    { key: 'dept',          label: '확인부서',  w: 90  },
+    { key: 'action_status', label: '조치 확인', w: 80  },
+    { key: 'shortage_qty',  label: '결품수량',  w: 80  },
+    { key: 'jeju',          label: '제주',      sub: '(12시 이전 입고)', w: 55  },
+    { key: 'jibang',        label: '지방',      sub: '(12시 이전 입고)', w: 55  },
+    { key: 'taekbae',       label: '택배',      sub: '(12시 이전 입고)', w: 55  },
+    { key: 'center_move',   label: '센터간이동', sub: '(12시 이전 입고)', w: 80  },
+    { key: 'hyunjang',      label: '현장',      sub: '(15시 이전 입고)', w: 55  },
+    { key: 'gyeongin',      label: '경인',      sub: '(15시 이전 입고)', w: 55  },
 ];
 
 const ACTION_TYPES = ['', '정상 출고', '납기 연기', '당일 출고', '현장 직출', '센터 직출'];
@@ -1121,6 +1121,62 @@ export const WmsShortageList = ({ userProfile }) => {
     const [excludeQc, setExcludeQc]         = useState(false);
     const [vendorDeptMap, setVendorDeptMap]  = useState({});
 
+    // ── 컬럼 너비·순서 상태 ──
+    const [colOrder, setColOrder]   = useState(DEFAULT_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths] = useState(DEFAULT_COLUMNS.map(c => c.w));
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+    const resizingRef  = useRef(null);
+    const dragSrcRef   = useRef(null);
+    const wasDraggedRef = useRef(false);
+
+    // ── localStorage 복원 ──
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(`letus_wms_col_${userProfile.id}`));
+            if (saved?.order?.length === DEFAULT_COLUMNS.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS.length) setColWidths(saved.widths);
+        } catch {}
+    }, [userProfile?.id]);
+
+    // ── localStorage 저장 ──
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        localStorage.setItem(`letus_wms_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths, userProfile?.id]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS.map(c => c.w));
+        if (userProfile?.id) localStorage.removeItem(`letus_wms_col_${userProfile.id}`);
+    };
+
+    // ── 컬럼 리사이즈 핸들러 ──
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    // ── 컬럼 드래그 핸들러 ──
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
+
     const QC_KEYWORDS = ['qcc', '양지재고', '양지 재고'];
     const isQcRow = (detail) => {
         if (!detail) return false;
@@ -1501,32 +1557,39 @@ export const WmsShortageList = ({ userProfile }) => {
         );
     }, [actionModal, rows]);
 
-    const renderCell = (col, row) => {
-        if (col.key === 'action_status') {
-            if (row.action_status === 'done') {
-                return (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-300">
-                        ✓ 완료
-                    </span>
-                );
+    const renderCell = (origIdx, row) => {
+        const key = DEFAULT_COLUMNS[origIdx].key;
+        switch (key) {
+            case 'action_status':
+                if (row.action_status === 'done') {
+                    return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-300">
+                            ✓ 완료
+                        </span>
+                    );
+                }
+                if (row.action_status === 'partial') {
+                    return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-300">
+                            {row.action_done}/{row.action_total}
+                        </span>
+                    );
+                }
+                return <span className="text-gray-300 text-[11px]">-</span>;
+            case 'shortage_qty':
+                return <span className="font-bold text-letusOrange">{row[key] ?? '-'}</span>;
+            case 'jeju':
+            case 'jibang':
+            case 'taekbae':
+            case 'center_move':
+            case 'hyunjang':
+            case 'gyeongin': {
+                const v = row[key];
+                return v ? <span className="font-semibold text-gray-700">{v}</span> : <span className="text-gray-300">-</span>;
             }
-            if (row.action_status === 'partial') {
-                return (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-300">
-                        {row.action_done}/{row.action_total}
-                    </span>
-                );
-            }
-            return <span className="text-gray-300 text-[11px]">-</span>;
+            default:
+                return <span>{row[key] ?? '-'}</span>;
         }
-        if (col.key === 'shortage_qty') {
-            return <span className="font-bold text-letusOrange">{row[col.key] ?? '-'}</span>;
-        }
-        if (['jeju', 'jibang', 'taekbae', 'center_move', 'hyunjang', 'gyeongin'].includes(col.key)) {
-            const v = row[col.key];
-            return v ? <span className="font-semibold text-gray-700">{v}</span> : <span className="text-gray-300">-</span>;
-        }
-        return <span>{row[col.key] ?? '-'}</span>;
     };
 
     return (
@@ -1614,6 +1677,15 @@ export const WmsShortageList = ({ userProfile }) => {
                         {isUploading ? '업로드 중...' : 'WMS 파일 업로드'}
                     </button>
 
+                    <button onClick={resetColSettings}
+                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                        title="컬럼 너비·순서를 기본값으로 초기화">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        칼럼 초기화
+                    </button>
+
                     <div className="relative z-50">
                         <button onClick={() => setIsActionMenuOpen(v => !v)}
                             className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
@@ -1663,8 +1735,8 @@ export const WmsShortageList = ({ userProfile }) => {
 
             {/* ── 테이블 ── */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
-                <div className="overflow-auto flex-1">
-                    <table className="w-full text-left whitespace-nowrap text-[13px]">
+                <div className="overflow-auto flex-1 outline-none">
+                    <table className="w-full text-left whitespace-nowrap text-[13px] table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="p-4 pl-6 w-10 text-center">
@@ -1673,28 +1745,45 @@ export const WmsShortageList = ({ userProfile }) => {
                                         onChange={handleSelectAll}
                                         className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                 </th>
-                                {COLS.map(c => (
-                                    <th key={c.key} style={{ width: c.w, minWidth: c.w }}
-                                        className="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                        onClick={() => requestSort(c.key)}>
-                                        <div className="flex flex-col items-center justify-center gap-0.5">
-                                            <span className="flex items-center">{c.label}{getSortIcon(c.key)}</span>
-                                            {c.sub && <span className="text-[9px] font-normal text-red-500 leading-tight">{c.sub}</span>}
-                                        </div>
-                                    </th>
-                                ))}
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                            onDrop={(e) => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex flex-col items-center justify-center">
+                                                <div className="flex items-center gap-1">
+                                                    <span draggable onDragStart={(e) => handleDragStart(e, visualIdx)} onDragEnd={handleDragEnd}
+                                                        onClick={e => e.stopPropagation()}
+                                                        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                                        title="드래그로 순서 변경">⠿</span>
+                                                    {col.label}
+                                                    {col.key && getSortIcon(col.key)}
+                                                </div>
+                                                {col.sub && <span className="text-[9px] text-gray-400 font-normal">{col.sub}</span>}
+                                            </div>
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-gray-700">
                             {isLoading ? (
-                                <tr><td colSpan={COLS.length + 1} className="py-32 text-center">
+                                <tr><td colSpan={colOrder.length + 1} className="py-32 text-center">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div>
                                         <p className="text-gray-500 font-bold text-[13px]">데이터 조회 중...</p>
                                     </div>
                                 </td></tr>
                             ) : rows.length === 0 ? (
-                                <tr><td colSpan={COLS.length + 1} className="py-32 text-center">
+                                <tr><td colSpan={colOrder.length + 1} className="py-32 text-center">
                                     <div className="flex flex-col items-center gap-3 text-gray-400">
                                         <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1709,18 +1798,17 @@ export const WmsShortageList = ({ userProfile }) => {
                                     return (
                                         <tr
                                             key={row._rowId}
-                                            className={`transition-colors cursor-pointer ${checked ? 'bg-blue-50' : 'hover:bg-blue-50/40'}`}
+                                            className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${checked ? 'bg-blue-50' : ''}`}
                                             onDoubleClick={() => handleRowDoubleClick(row)}
                                         >
-                                            <td className="p-4 pl-6 text-center">
+                                            <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                                 <input type="checkbox" checked={checked}
                                                     onChange={(e) => handleSelectOne(e, row._rowId, i)}
-                                                    onClick={(e) => e.stopPropagation()}
                                                     className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                             </td>
-                                            {COLS.map(c => (
-                                                <td key={c.key} className="px-3 py-2.5 text-center" style={{ width: c.w }}>
-                                                    {renderCell(c, row)}
+                                            {colOrder.map(origIdx => (
+                                                <td key={origIdx} className="px-3 py-2.5 text-center" style={{ width: colWidths[origIdx] }}>
+                                                    {renderCell(origIdx, row)}
                                                 </td>
                                             ))}
                                         </tr>

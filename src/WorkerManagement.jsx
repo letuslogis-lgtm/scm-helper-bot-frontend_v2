@@ -6,6 +6,19 @@ import { BrandTaskSelectModal, WorkerAddModal, WorkerEditModal, WorkerBulkUpload
 
 const supabaseClient = supabase;
 
+const DEFAULT_COLUMNS = [
+    { label: '근무자명',    key: 'name',             w: 120 },
+    { label: '소속 구분',   key: 'company_type',     w: 110 },
+    { label: '지원 여부',   key: 'support_status',   w: 100 },
+    { label: '업체명',      key: 'vendor_name',      w: 130 },
+    { label: '근무지',      key: 'workplace',        w: 120 },
+    { label: '담당 브랜드', key: 'managed_brand',    w: 120 },
+    { label: '업무',        key: 'task',             w: 120 },
+    { label: '근로 형태',   key: 'employment_type',  w: 110 },
+    { label: '연락처',      key: 'phone',            w: 120 },
+    { label: '상태',        key: 'status',           w: 90  },
+];
+
 const WorkerManagement = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [workers, setWorkers] = useState([]);
@@ -33,6 +46,14 @@ const WorkerManagement = () => {
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
+    // 🔥 컬럼 관리 상태
+    const [colOrder, setColOrder] = useState(DEFAULT_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths] = useState(DEFAULT_COLUMNS.map(c => c.w));
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+    const resizingRef = useRef(null);
+    const dragSrcRef = useRef(null);
+    const wasDraggedRef = useRef(false);
+
     const isAllSelected = workers.length > 0 && selectedIds.length === workers.length;
 
     const uniqueVendorList = useMemo(() => {
@@ -42,6 +63,26 @@ const WorkerManagement = () => {
 
     const brandList = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소', '바로스'];
     const taskList = ['총괄 운영', '상/하차', '피킹', '입고', '반품', '연기', 'A/S', '시공관리'];
+
+    // 🔥 localStorage 로드 (마운트 시 1회)
+    useEffect(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('letus_workers_col'));
+            if (saved?.order?.length === DEFAULT_COLUMNS.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS.length) setColWidths(saved.widths);
+        } catch {}
+    }, []);
+
+    // 🔥 localStorage 저장 (colOrder/colWidths 변경 시)
+    useEffect(() => {
+        localStorage.setItem('letus_workers_col', JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS.map(c => c.w));
+        localStorage.removeItem('letus_workers_col');
+    };
 
     // 🚀 수동 조회 함수 (조회하기 버튼 클릭 시 실행)
     const fetchWorkers = async () => {
@@ -98,6 +139,14 @@ const WorkerManagement = () => {
         return sortableItems;
     }, [workers, sortConfig]);
 
+    // 🔥 정렬 아이콘 함수 (SortIcon 컴포넌트 대체)
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return null;
+        if (sortConfig.direction === 'asc') return <span className="ml-1 text-letusBlue font-black">↑</span>;
+        if (sortConfig.direction === 'desc') return <span className="ml-1 text-letusBlue font-black">↓</span>;
+        return null;
+    };
+
     const handleSearch = () => fetchWorkers();
 
     const handleReset = () => {
@@ -105,16 +154,6 @@ const WorkerManagement = () => {
         setFilterSupport(''); setFilterBrand(''); setFilterTask(''); setFilterEmpType(''); setFilterStatus('');
         setSortConfig({ key: null, direction: null });
         fetchWorkers(); // 초기화 후 바로 전체 목록 재조회
-    };
-
-    // 🔥 정렬 아이콘 렌더러 (파란색 화살표)
-    const SortIcon = ({ columnKey }) => {
-        if (sortConfig.key !== columnKey) return null; // 평소엔 아무것도 렌더링 안 함
-        return (
-            <span className="text-blue-500 ml-1 font-extrabold inline-block text-[14px]">
-                {sortConfig.direction === 'asc' ? '↑' : '↓'}
-            </span>
-        );
     };
 
     const handleExportExcel = async () => {
@@ -160,6 +199,90 @@ const WorkerManagement = () => {
 
     const toggleAll = () => setSelectedIds(isAllSelected ? [] : sortedWorkers.map(w => w.id));
     const toggleOne = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+    const handleSelectOne = (e, id) => {
+        if (e.target.type === 'checkbox') return;
+        toggleOne(id);
+    };
+
+    // 🔥 컬럼 리사이즈 핸들러
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    // 🔥 컬럼 드래그 핸들러
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
+
+    // 🔥 셀 렌더러 (origIdx 기준)
+    const renderCell = (origIdx, worker) => {
+        const col = DEFAULT_COLUMNS[origIdx];
+        switch (col.key) {
+            case 'name':
+                return <td key={origIdx} className="p-4 text-center font-black text-gray-800 text-sm">{worker.name}</td>;
+            case 'company_type':
+                return (
+                    <td key={origIdx} className="p-4 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${worker.company_type === '사내협력사' ? 'bg-blue-50 text-letusBlue border border-blue-100' : 'bg-orange-50 text-letusOrange border border-orange-100'}`}>{worker.company_type}</span>
+                    </td>
+                );
+            case 'support_status':
+                return (
+                    <td key={origIdx} className="p-4 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${worker.support_status && worker.support_status !== '미지원' ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>{worker.support_status || '미지원'}</span>
+                    </td>
+                );
+            case 'vendor_name':
+                return <td key={origIdx} className="p-4 text-center font-bold text-gray-600">{worker.vendor_name}</td>;
+            case 'workplace':
+                return <td key={origIdx} className="p-4 text-center font-bold text-gray-600">{worker.workplace || '-'}</td>;
+            case 'managed_brand':
+                return (
+                    <td key={origIdx} className="p-4 text-center text-gray-600 font-medium">
+                        {worker.managed_brand ? worker.managed_brand.split(',').map(b => b.trim()).filter(Boolean).map((b, i) => (
+                            <span key={i} className="inline-block bg-orange-50 text-letusOrange border border-orange-100 px-1.5 py-0.5 rounded text-[10px] font-bold mr-1 mb-1">{b}</span>
+                        )) : '-'}
+                    </td>
+                );
+            case 'task':
+                return (
+                    <td key={origIdx} className="p-4 text-center text-gray-600 font-medium">
+                        {worker.task ? worker.task.split(',').map(t => t.trim()).filter(Boolean).map((t, i) => (
+                            <span key={i} className="inline-block bg-blue-50 text-letusBlue border border-blue-100 px-1.5 py-0.5 rounded text-[10px] font-bold mr-1 mb-1">{t}</span>
+                        )) : '-'}
+                    </td>
+                );
+            case 'employment_type':
+                return <td key={origIdx} className="p-4 text-center text-gray-600">{worker.employment_type}</td>;
+            case 'phone':
+                return <td key={origIdx} className="p-4 text-center font-mono text-gray-500">{worker.phone || '-'}</td>;
+            case 'status':
+                return (
+                    <td key={origIdx} className="p-4 text-center">
+                        <span className={`px-3 py-1 rounded-full font-bold text-[11px] shadow-sm ${worker.status === '재직' ? 'bg-green-100 text-green-700 border border-green-200' : worker.status === '휴직' ? 'bg-yellow-50 text-yellow-600 border border-yellow-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>{worker.status}</span>
+                    </td>
+                );
+            default:
+                return <td key={origIdx} className="p-4 text-center">-</td>;
+        }
+    };
 
     return (
         // 🚩 [수정] 전체 창 높이 고정 유지, 배경색 통일
@@ -253,6 +376,16 @@ const WorkerManagement = () => {
             {/* 2. 선택실행 (드롭다운) 구역 (사용자 관리 스타일로 통일) */}
             <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0">
                 <div className="flex items-center gap-3">
+                    {/* 칼럼 초기화 버튼 */}
+                    <button onClick={resetColSettings}
+                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                        title="컬럼 너비·순서를 기본값으로 초기화">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        칼럼 초기화
+                    </button>
+
                     <div className="relative z-50">
                         <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
                             선택실행 {selectedIds.length > 0 && `(${selectedIds.length})`}
@@ -284,30 +417,45 @@ const WorkerManagement = () => {
 
             {/* 3. 표 구역 */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
-                <div className="p-0 overflow-auto flex-1 custom-scrollbar">
-                    <table className="w-full text-left whitespace-nowrap min-w-max">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
+                    <table className="w-full text-left whitespace-nowrap table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="p-4 pl-6 w-10 text-center"><input type="checkbox" checked={isAllSelected} onChange={toggleAll} className="w-4 h-4 accent-letusBlue cursor-pointer" /></th>
-                                <th className="p-4 w-10 text-center">No</th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('name')}>근무자명<SortIcon columnKey="name" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('company_type')}>소속 구분<SortIcon columnKey="company_type" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('support_status')}>지원 여부<SortIcon columnKey="support_status" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('vendor_name')}>업체명<SortIcon columnKey="vendor_name" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('workplace')}>근무지<SortIcon columnKey="workplace" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('managed_brand')}>담당 브랜드<SortIcon columnKey="managed_brand" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('task')}>업무<SortIcon columnKey="task" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('employment_type')}>근로 형태<SortIcon columnKey="employment_type" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('phone')}>연락처<SortIcon columnKey="phone" /></th>
-                                <th className="p-4 text-center cursor-pointer hover:bg-slate-200/50 transition-colors" onClick={() => requestSort('status')}>상태<SortIcon columnKey="status" /></th>
+                                <th className="p-4 pl-6 w-10 text-center">
+                                    <input type="checkbox" checked={isAllSelected} onChange={toggleAll} className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                                </th>
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                            onDrop={(e) => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                <span draggable onDragStart={(e) => handleDragStart(e, visualIdx)} onDragEnd={handleDragEnd}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                                    title="드래그로 순서 변경">⠿</span>
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         {isLoading ? (
-                            <tbody><tr><td colSpan="12" className="text-center py-32 text-gray-400 font-bold"><div className="flex flex-col items-center gap-3"><div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div><p>데이터를 조회하는 중입니다...</p></div></td></tr></tbody>
+                            <tbody><tr><td colSpan={colOrder.length + 1} className="text-center py-32 text-gray-400 font-bold"><div className="flex flex-col items-center gap-3"><div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div><p>데이터를 조회하는 중입니다...</p></div></td></tr></tbody>
                         ) : sortedWorkers.length === 0 ? (
                             <tbody>
                                 <tr>
-                                    <td colSpan="12" className="p-20 text-center text-gray-400">
+                                    <td colSpan={colOrder.length + 1} className="p-20 text-center text-gray-400">
                                         <svg className="w-16 h-16 mx-auto mb-4 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                                         <p className="font-semibold text-gray-500 mb-1">조건에 맞는 데이터가 없습니다.</p>
                                     </td>
@@ -316,33 +464,14 @@ const WorkerManagement = () => {
                         ) : (
                             <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                                 {sortedWorkers.map((worker, idx) => (
-                                    <tr key={worker.id} className={`transition-colors cursor-pointer ${selectedIds.includes(worker.id) ? 'bg-blue-50/50' : 'hover:bg-blue-50/30'}`} onDoubleClick={() => setEditTarget(worker)}>
-                                        <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(worker.id)} onChange={() => toggleOne(worker.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" /></td>
-                                        <td className="p-4 text-center text-gray-400 font-medium">{idx + 1}</td>
-                                        <td className="p-4 text-center font-black text-gray-800 text-sm">{worker.name}</td>
-                                        <td className="p-4 text-center">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${worker.company_type === '사내협력사' ? 'bg-blue-50 text-letusBlue border border-blue-100' : 'bg-orange-50 text-letusOrange border border-orange-100'}`}>{worker.company_type}</span>
+                                    <tr key={worker.id}
+                                        className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(worker.id) ? 'bg-blue-50' : ''}`}
+                                        onClick={(e) => handleSelectOne(e, worker.id)}
+                                        onDoubleClick={() => setEditTarget(worker)}>
+                                        <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
+                                            <input type="checkbox" checked={selectedIds.includes(worker.id)} onChange={() => toggleOne(worker.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                         </td>
-                                        <td className="p-4 text-center">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${worker.support_status && worker.support_status !== '미지원' ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>{worker.support_status || '미지원'}</span>
-                                        </td>
-                                        <td className="p-4 text-center font-bold text-gray-600">{worker.vendor_name}</td>
-                                        <td className="p-4 text-center font-bold text-gray-600">{worker.workplace || '-'}</td>
-                                        <td className="p-4 text-center text-gray-600 font-medium">
-                                            {worker.managed_brand ? worker.managed_brand.split(',').map(b => b.trim()).filter(Boolean).map((b, i) => (
-                                                <span key={i} className="inline-block bg-orange-50 text-letusOrange border border-orange-100 px-1.5 py-0.5 rounded text-[10px] font-bold mr-1 mb-1">{b}</span>
-                                            )) : '-'}
-                                        </td>
-                                        <td className="p-4 text-center text-gray-600 font-medium">
-                                            {worker.task ? worker.task.split(',').map(t => t.trim()).filter(Boolean).map((t, i) => (
-                                                <span key={i} className="inline-block bg-blue-50 text-letusBlue border border-blue-100 px-1.5 py-0.5 rounded text-[10px] font-bold mr-1 mb-1">{t}</span>
-                                            )) : '-'}
-                                        </td>
-                                        <td className="p-4 text-center text-gray-600">{worker.employment_type}</td>
-                                        <td className="p-4 text-center font-mono text-gray-500">{worker.phone || '-'}</td>
-                                        <td className="p-4 text-center">
-                                            <span className={`px-3 py-1 rounded-full font-bold text-[11px] shadow-sm ${worker.status === '재직' ? 'bg-green-100 text-green-700 border border-green-200' : worker.status === '휴직' ? 'bg-yellow-50 text-yellow-600 border border-yellow-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>{worker.status}</span>
-                                        </td>
+                                        {colOrder.map(origIdx => renderCell(origIdx, worker))}
                                     </tr>
                                 ))}
                             </tbody>

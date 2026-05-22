@@ -5,6 +5,20 @@ import { AttendanceUploadModal } from './AttendanceUploadModal.jsx';
 
 const supabaseClient = supabase;
 
+const DETAIL_COLUMNS = [
+    { label: '근무 일자',              key: 'work_date',        w: 110 },
+    { label: '구분',                   key: 'company_type',     w: 80  },
+    { label: '원 소속 업체',           key: 'vendor_name',      w: 130 },
+    { label: '실 투입 (생산성 기준)',  key: 'worked_vendor',    w: 160 },
+    { label: '근무자명',               key: 'worker_name',      w: 100 },
+    { label: '출근',                   key: 'go_work_time',     w: 90  },
+    { label: '퇴근',                   key: 'leave_work_time',  w: 90  },
+    { label: '정상근무',               key: 'normal_hours',     w: 90  },
+    { label: '연장근무',               key: 'overtime_hours',   w: 90  },
+    { label: '총 시간',                key: 'work_hours',       w: 90  },
+    { label: '특이사항(비고)',         key: 'remark',           w: 150 },
+];
+
 const AttendanceBulkEditModal = ({ selectedIds, onClose, onReload }) => {
   const [workedVendor, setWorkedVendor] = useState('');
   const [remark, setRemark] = useState('');
@@ -97,6 +111,13 @@ const AttendanceManagement = () => {
 
   const [sortConfig, setSortConfig] = useState(null);
 
+  const [colOrder, setColOrder] = useState(DETAIL_COLUMNS.map((_, i) => i));
+  const [colWidths, setColWidths] = useState(DETAIL_COLUMNS.map(c => c.w));
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+  const resizingRef = useRef(null);
+  const dragSrcRef = useRef(null);
+  const wasDraggedRef = useRef(false);
+
   // 날짜 상태
   const [tempStartDate, setTempStartDate] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
   const [tempEndDate, setTempEndDate] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}`);
@@ -124,6 +145,24 @@ const AttendanceManagement = () => {
 
   const [filterType, setFilterType] = useState('D');
   const [chartFilterType, setChartFilterType] = useState('M');
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('letus_attendance_col'));
+      if (saved?.order?.length === DETAIL_COLUMNS.length) setColOrder(saved.order);
+      if (saved?.widths?.length === DETAIL_COLUMNS.length) setColWidths(saved.widths);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('letus_attendance_col', JSON.stringify({ order: colOrder, widths: colWidths }));
+  }, [colOrder, colWidths]);
+
+  const resetColSettings = () => {
+    setColOrder(DETAIL_COLUMNS.map((_, i) => i));
+    setColWidths(DETAIL_COLUMNS.map(c => c.w));
+    localStorage.removeItem('letus_attendance_col');
+  };
 
   React.useEffect(() => {
     const fetchWorkerMaster = async () => {
@@ -276,6 +315,79 @@ const AttendanceManagement = () => {
     let direction = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
+  };
+
+  const handleResizeStart = (e, visualIdx) => {
+    e.preventDefault(); e.stopPropagation();
+    const origIdx = colOrder[visualIdx];
+    resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+    const onMove = (ev) => {
+      const { origIdx, startX, startW } = resizingRef.current;
+      setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+    };
+    const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+  const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+  const handleDragOver = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+  const handleDrop = (e, visualIdx) => {
+    e.preventDefault(); setDragOverIdx(null);
+    if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+    wasDraggedRef.current = true;
+    const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+    setColOrder(newOrder); dragSrcRef.current = null;
+  };
+  const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
+
+  const getSortIcon = (key) => {
+    if (sortConfig?.key !== key) return null;
+    if (sortConfig.direction === 'asc') return <span className="ml-1 text-letusBlue font-black">↑</span>;
+    if (sortConfig.direction === 'desc') return <span className="ml-1 text-letusBlue font-black">↓</span>;
+    return null;
+  };
+
+  const renderCell = (origIdx, row) => {
+    const isDispatched = row.vendor_name !== row.worked_vendor;
+    switch (origIdx) {
+      case 0:
+        return <td key={origIdx} className="p-3 font-mono text-gray-500 text-center" style={{ width: colWidths[origIdx] }}>{row.work_date}</td>;
+      case 1:
+        return (
+          <td key={origIdx} className="p-3 text-center" style={{ width: colWidths[origIdx] }}>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${row.company_type === '사내협력사' ? 'bg-blue-50 text-letusBlue border border-blue-100' : 'bg-orange-50 text-letusOrange border border-orange-100'}`}>
+              {row.company_type}
+            </span>
+          </td>
+        );
+      case 2:
+        return <td key={origIdx} className="p-3 font-bold text-gray-500 border-r border-gray-50 text-center" style={{ width: colWidths[origIdx] }}>{row.vendor_name}</td>;
+      case 3:
+        return (
+          <td key={origIdx} className={`p-3 font-black text-center ${isDispatched ? 'text-red-500 bg-red-50/30' : 'text-gray-800'}`} style={{ width: colWidths[origIdx] }}>
+            <div className="flex justify-center items-center gap-1.5">
+              {isDispatched && <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 shrink-0 tracking-tighter">지원 파견</span>}
+              {row.worked_vendor}
+            </div>
+          </td>
+        );
+      case 4:
+        return <td key={origIdx} className="p-3 font-black text-gray-900 text-center" style={{ width: colWidths[origIdx] }}>{row.worker_name}</td>;
+      case 5:
+        return <td key={origIdx} className="p-3 text-center font-bold text-gray-600" style={{ width: colWidths[origIdx] }}>{row.start_time || '-'}</td>;
+      case 6:
+        return <td key={origIdx} className="p-3 text-center font-bold text-gray-600 border-r border-gray-50" style={{ width: colWidths[origIdx] }}>{row.end_time || '-'}</td>;
+      case 7:
+        return <td key={origIdx} className="p-3 text-center font-bold text-green-600 bg-green-50/20" style={{ width: colWidths[origIdx] }}>{Number(row.normal_hours).toFixed(1)}H</td>;
+      case 8:
+        return <td key={origIdx} className="p-3 text-center font-bold text-orange-500 bg-orange-50/20" style={{ width: colWidths[origIdx] }}>{Number(row.overtime_hours).toFixed(1)}H</td>;
+      case 9:
+        return <td key={origIdx} className="p-3 text-center font-black text-letusBlue border-r border-gray-50 bg-blue-50/20" style={{ width: colWidths[origIdx] }}>{Number(row.work_hours).toFixed(1)}H</td>;
+      case 10:
+        return <td key={origIdx} className={`p-3 truncate max-w-[200px] text-xs ${isDispatched ? 'text-red-500 font-bold' : 'text-gray-500'}`} style={{ width: colWidths[origIdx] }}>{row.remark}</td>;
+      default:
+        return null;
+    }
   };
 
   // 🚩 [핵심] 집계 로직: 뷰 모드에 따라 그룹핑 기준을 완벽하게 스위칭!
@@ -526,6 +638,14 @@ const AttendanceManagement = () => {
                       <button key={btn.id} onClick={() => setFilterType(btn.id)} className={`px-3 h-full text-xs font-bold rounded-md transition-all ${filterType === btn.id ? 'bg-white text-gray-800 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800'}`}>{btn.name}</button>
                     ))}
                   </div>
+                  <button onClick={resetColSettings}
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[38px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="컬럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                  </button>
                   <div className="relative z-50 ml-1">
                     <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="flex items-center text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded px-3 py-1.5 h-[38px] hover:bg-slate-50 min-w-[100px] justify-between shadow-sm transition-all">
                       <span>선택실행 {selectedIds.length > 0 && `(${selectedIds.length})`}</span>
@@ -652,71 +772,59 @@ const AttendanceManagement = () => {
               {activeTab === 'detail' && (
                 <div className="flex flex-col gap-4 mt-2 p-4">
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left whitespace-nowrap">
+                    <div className="overflow-x-auto outline-none">
+                      <table className="w-full text-left whitespace-nowrap table-fixed">
                         <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold sticky top-0 z-10">
                           <tr>
                             <th className="p-4 pl-6 w-10 text-center border-r border-slate-100">
                               <input type="checkbox" checked={selectedIds.length === sortedDetailData.length && sortedDetailData.length > 0} onChange={handleSelectAll} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                             </th>
-                            {[
-                              { key: 'work_date', label: '근무 일자' },
-                              { key: 'company_type', label: '구분' },
-                              { key: 'vendor_name', label: '원 소속 업체', isBorder: true },
-                              { key: 'worked_vendor', label: '실 투입 (생산성 기준)', color: 'text-blue-600' },
-                              { key: 'worker_name', label: '근무자명' },
-                              { key: 'go_work_time', label: '출근' },
-                              { key: 'leave_work_time', label: '퇴근', isBorder: true },
-                              { key: 'normal_hours', label: '정상근무', color: 'text-emerald-600', isBold: true },
-                              { key: 'overtime_hours', label: '연장근무', color: 'text-orange-500', isBold: true },
-                              { key: 'work_hours', label: '총 시간', color: 'text-blue-600', isBorder: true, isBold: true },
-                              { key: 'remark', label: '특이사항(비고)', align: 'left' }
-                            ].map(col => (
-                              <th
-                                key={col.key}
-                                onClick={() => requestSort(col.key)}
-                                className={`p-3 ${col.align === 'left' ? 'text-left' : 'text-center'} cursor-pointer hover:bg-slate-100 transition-colors select-none ${col.isBorder ? 'border-r border-slate-100' : ''} ${col.color || ''} ${col.isBold ? 'font-black' : ''}`}
-                              >
-                                <div className={`flex items-center gap-1 ${col.align === 'left' ? 'justify-start' : 'justify-center'}`}>
-                                  {col.label}
-                                  {sortConfig && sortConfig.key === col.key && (
-                                    <span className="text-blue-500 text-[14px] font-black">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                                  )}
-                                </div>
-                              </th>
-                            ))}
+                            {colOrder.map((origIdx, visualIdx) => {
+                              const col = DETAIL_COLUMNS[origIdx];
+                              return (
+                                <th key={origIdx}
+                                  className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                  style={{ width: colWidths[origIdx] }}
+                                  onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                  onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                  onDrop={(e) => handleDrop(e, visualIdx)}
+                                  onDragLeave={() => setDragOverIdx(null)}
+                                >
+                                  <div className="flex items-center justify-center gap-1">
+                                    <span
+                                      draggable
+                                      onDragStart={(e) => handleDragStart(e, visualIdx)}
+                                      onDragEnd={handleDragEnd}
+                                      onClick={e => e.stopPropagation()}
+                                      className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                      title="드래그로 순서 변경"
+                                    >⠿</span>
+                                    {col.label}
+                                    {col.key && getSortIcon(col.key)}
+                                  </div>
+                                  <div
+                                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                    onMouseDown={(e) => handleResizeStart(e, visualIdx)}
+                                    onClick={e => e.stopPropagation()}
+                                  />
+                                </th>
+                              );
+                            })}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700 bg-white">
                           {sortedDetailData.length === 0 ? (
-                            <tr><td colSpan="12" className="text-center py-10 text-gray-400 font-bold">조건에 맞는 데이터가 없습니다.</td></tr>
+                            <tr><td colSpan={colOrder.length + 1} className="text-center py-10 text-gray-400 font-bold">조건에 맞는 데이터가 없습니다.</td></tr>
                           ) : (
                             sortedDetailData.map((row) => {
                               const isSelected = selectedIds.includes(row.id);
-                              const isDispatched = row.vendor_name !== row.worked_vendor;
                               return (
-                                <tr key={row.id} onClick={(e) => handleSelectOne(e, row.id)} className={`transition-colors cursor-pointer ${isSelected ? 'bg-blue-50' : 'hover:bg-blue-50/30'}`}>
-                                  <td className="p-3 text-center border-r border-gray-50" onClick={e => e.stopPropagation()}>
+                                <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${isSelected ? 'bg-blue-50' : ''}`}
+                                  onClick={(e) => handleSelectOne(e, row.id)}>
+                                  <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                     <input type="checkbox" checked={isSelected} onChange={(e) => handleSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                   </td>
-                                  <td className="p-3 font-mono text-gray-500 text-center">{row.work_date}</td>
-                                  <td className="p-3 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${row.company_type === '사내협력사' ? 'bg-blue-50 text-letusBlue border border-blue-100' : 'bg-orange-50 text-letusOrange border border-orange-100'}`}>
-                                      {row.company_type}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 font-bold text-gray-500 border-r border-gray-50 text-center">{row.vendor_name}</td>
-                                  <td className={`p-3 font-black flex justify-center items-center gap-1.5 ${isDispatched ? 'text-red-500 bg-red-50/30' : 'text-gray-800'}`}>
-                                    {isDispatched && <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 shrink-0 tracking-tighter">지원 파견</span>}
-                                    {row.worked_vendor}
-                                  </td>
-                                  <td className="p-3 font-black text-gray-900 text-center">{row.worker_name}</td>
-                                  <td className="p-3 text-center font-bold text-gray-600">{row.start_time || '-'}</td>
-                                  <td className="p-3 text-center font-bold text-gray-600 border-r border-gray-50">{row.end_time || '-'}</td>
-                                  <td className="p-3 text-center font-bold text-green-600 bg-green-50/20">{Number(row.normal_hours).toFixed(1)}H</td>
-                                  <td className="p-3 text-center font-bold text-orange-500 bg-orange-50/20">{Number(row.overtime_hours).toFixed(1)}H</td>
-                                  <td className="p-3 text-center font-black text-letusBlue border-r border-gray-50 bg-blue-50/20">{Number(row.work_hours).toFixed(1)}H</td>
-                                  <td className={`p-3 truncate max-w-[200px] text-xs ${isDispatched ? 'text-red-500 font-bold' : 'text-gray-500'}`}>{row.remark}</td>
+                                  {colOrder.map(origIdx => renderCell(origIdx, row))}
                                 </tr>
                               );
                             })

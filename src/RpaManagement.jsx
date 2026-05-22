@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabaseClient.js';
 import { CloseIcon, formatDateTime, SearchButton } from './SharedUI.jsx';
 import { RpaRunHistoryModal } from './RpaRunHistoryModal.jsx';
@@ -12,6 +12,20 @@ const CRON_PRESETS = [
     { label: '평일 오전 8시', value: '0 8 * * 1-5' },
     { label: '매시간 정각', value: '0 * * * *' },
     { label: '5분마다', value: '*/5 * * * *' },
+];
+
+// ============================================================
+// 컬럼 기본 정의
+// ============================================================
+const DEFAULT_COLUMNS = [
+    { label: '활성',          key: null,           w: 70  },
+    { label: 'RPA 봇 이름',  key: 'rpa_name',     w: 240 },
+    { label: '설명',          key: null,           w: 220 },
+    { label: '실행 방식',    key: 'trigger_type',  w: 110 },
+    { label: '스케줄 (Cron)', key: 'cron_expr',   w: 150 },
+    { label: '상태',          key: 'status',       w: 110 },
+    { label: '마지막 실행',  key: 'last_run_at',   w: 170 },
+    { label: '액션',          key: null,           w: 180 },
 ];
 
 // rpa_jobs 에 처음 INSERT 할 때의 기본값
@@ -35,6 +49,14 @@ export const RpaManagement = () => {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
+    // 컬럼 순서 & 너비
+    const [colOrder, setColOrder] = useState(DEFAULT_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths] = useState(DEFAULT_COLUMNS.map(c => c.w));
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+    const resizingRef = useRef(null);
+    const dragSrcRef = useRef(null);
+    const wasDraggedRef = useRef(false);
+
     // 모달 (신규/편집 통합)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
@@ -47,6 +69,26 @@ export const RpaManagement = () => {
     const initialFilters = { triggerType: '전체', status: '전체', searchValue: '' };
     const [savedFilters, setSavedFilters] = useState(initialFilters);
     const [draftFilters, setDraftFilters] = useState(initialFilters);
+
+    // localStorage 복원
+    useEffect(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('letus_rpa_col'));
+            if (saved?.order?.length === DEFAULT_COLUMNS.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS.length) setColWidths(saved.widths);
+        } catch {}
+    }, []);
+
+    // localStorage 저장
+    useEffect(() => {
+        localStorage.setItem('letus_rpa_col', JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS.map(c => c.w));
+        localStorage.removeItem('letus_rpa_col');
+    };
 
     useEffect(() => {
         fetchRpaJobs();
@@ -199,6 +241,130 @@ export const RpaManagement = () => {
         if (sortConfig.direction === 'asc') return <span className="ml-1 text-letusBlue font-black">↑</span>;
         if (sortConfig.direction === 'desc') return <span className="ml-1 text-letusBlue font-black">↓</span>;
         return null;
+    };
+
+    // ============================================================
+    // 컬럼 리사이즈 & 드래그 핸들러
+    // ============================================================
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx: oIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[oIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => {
+            resizingRef.current = null;
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    const handleDragStart = (e, visualIdx) => {
+        dragSrcRef.current = visualIdx;
+        wasDraggedRef.current = false;
+        e.dataTransfer.effectAllowed = 'move';
+    };
+    const handleDragOver = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder];
+        const [moved] = newOrder.splice(dragSrcRef.current, 1);
+        newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder);
+        dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => {
+        setDragOverIdx(null);
+        setTimeout(() => { wasDraggedRef.current = false; }, 50);
+    };
+
+    // ============================================================
+    // 셀 렌더러 (origIdx 기준)
+    // ============================================================
+    const renderCell = (origIdx, row) => {
+        switch (origIdx) {
+            case 0: // 활성
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }} onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => handleToggleEnabled(row)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${row.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                            title={row.enabled ? 'ON (자동 실행 활성)' : 'OFF (자동 실행 비활성)'}
+                        >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${row.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                        </button>
+                    </td>
+                );
+            case 1: // RPA 봇 이름
+                return (
+                    <td key={origIdx} className="p-4 font-bold text-gray-800 text-center" style={{ width: colWidths[origIdx] }}>{row.rpa_name}</td>
+                );
+            case 2: // 설명
+                return (
+                    <td key={origIdx} className="p-4 text-gray-500 text-[11.5px] truncate" style={{ width: colWidths[origIdx] }} title={row.description}>{row.description || '-'}</td>
+                );
+            case 3: // 실행 방식
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}>
+                        <span className={`text-[11px] font-bold px-2 py-1 rounded ${row.trigger_type === 'auto' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
+                            {row.trigger_type === 'auto' ? '⏱️ 스케줄' : '🖐️ 수동'}
+                        </span>
+                    </td>
+                );
+            case 4: // 스케줄 (Cron)
+                return (
+                    <td key={origIdx} className="p-4 text-gray-600 text-center font-mono text-xs" style={{ width: colWidths[origIdx] }}>{row.cron_expr || '-'}</td>
+                );
+            case 5: // 상태
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}>
+                        {row.status === 'idle' && <span className="text-gray-500 font-bold">🟢 대기</span>}
+                        {row.status === 'running' && <span className="text-letusBlue font-black animate-pulse">🔄 실행 중</span>}
+                        {row.status === 'error' && <span className="text-red-500 font-bold">🔴 오류</span>}
+                        {!['idle', 'running', 'error'].includes(row.status) && <span className="text-gray-400">-</span>}
+                    </td>
+                );
+            case 6: // 마지막 실행
+                return (
+                    <td key={origIdx} className="p-4 text-gray-500 font-mono text-xs text-center" style={{ width: colWidths[origIdx] }}>{row.last_run_at ? formatDateTime(row.last_run_at) : '-'}</td>
+                );
+            case 7: // 액션
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1.5">
+                            <button
+                                onClick={() => handleRunRpa(row)}
+                                disabled={row.status === 'running'}
+                                className={`text-xs font-bold border px-2.5 py-1.5 rounded transition-colors shadow-sm ${row.status === 'running' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-green-600 border-green-200 hover:bg-green-50'}`}
+                            >
+                                ▶ 실행
+                            </button>
+                            <button
+                                onClick={() => setHistoryTarget(row)}
+                                className="text-xs font-bold border px-2 py-1.5 rounded transition-colors shadow-sm bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                title="실행 이력"
+                            >
+                                📜
+                            </button>
+                            <button
+                                onClick={() => openEditModal(row)}
+                                className="text-xs font-bold border px-2 py-1.5 rounded transition-colors shadow-sm bg-white text-letusBlue border-blue-200 hover:bg-blue-50"
+                                title="편집"
+                            >
+                                ⚙
+                            </button>
+                        </div>
+                    </td>
+                );
+            default:
+                return <td key={origIdx} />;
+        }
     };
 
     // ============================================================
@@ -357,7 +523,15 @@ export const RpaManagement = () => {
             </div>
 
             {/* 2. 선택실행 */}
-            <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0">
+            <div className="flex justify-end items-center gap-2 w-full px-2 z-30 -mt-1 mb-1 shrink-0">
+                <button onClick={resetColSettings}
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="컬럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                </button>
                 <div className="relative">
                     <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
                         선택실행
@@ -379,32 +553,49 @@ export const RpaManagement = () => {
             {/* 3. 테이블 */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
-                    <table className="w-full text-left whitespace-nowrap table-fixed min-w-[1200px]">
+                    <table className="w-full text-left whitespace-nowrap table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="p-4 pl-6 w-10 text-center">
                                     <input type="checkbox" checked={sortedJobs.length > 0 && selectedIds.length === sortedJobs.length} onChange={handleSelectAll} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                 </th>
-                                {[
-                                    { label: '활성', key: null, w: '70px' },
-                                    { label: 'RPA 봇 이름', key: 'rpa_name', w: '240px' },
-                                    { label: '설명', key: null, w: '220px' },
-                                    { label: '실행 방식', key: 'trigger_type', w: '110px' },
-                                    { label: '스케줄 (Cron)', key: 'cron_expr', w: '150px' },
-                                    { label: '상태', key: 'status', w: '110px' },
-                                    { label: '마지막 실행', key: 'last_run_at', w: '170px' },
-                                    { label: '액션', key: null, w: '180px' },
-                                ].map((col, idx) => (
-                                    <th key={idx} className={`p-4 text-center select-none ${col.key ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`} style={{ width: col.w }} onClick={() => col.key && requestSort(col.key)}>
-                                        <div className="flex items-center justify-center">{col.label} {col.key && getSortIcon(col.key)}</div>
-                                    </th>
-                                ))}
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                            onDrop={(e) => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                <span
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, visualIdx)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                                    title="드래그로 순서 변경"
+                                                >⠿</span>
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div
+                                                className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)}
+                                                onClick={e => e.stopPropagation()}
+                                            />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="9" className="py-32 text-center align-middle">
+                                    <td colSpan={colOrder.length + 1} className="py-32 text-center align-middle">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div>
                                             <p className="text-gray-500 font-bold text-[13px]">데이터를 불러오는 중입니다...</p>
@@ -412,69 +603,13 @@ export const RpaManagement = () => {
                                     </td>
                                 </tr>
                             ) : sortedJobs.length === 0 ? (
-                                <tr><td colSpan="9" className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
+                                <tr><td colSpan={colOrder.length + 1} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : sortedJobs.map((row) => (
                                 <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`} onClick={(e) => handleSelectOne(e, row.id)}>
                                     <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                         <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={(e) => handleSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                     </td>
-
-                                    {/* 활성 토글 */}
-                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                                        <button
-                                            onClick={() => handleToggleEnabled(row)}
-                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${row.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
-                                            title={row.enabled ? 'ON (자동 실행 활성)' : 'OFF (자동 실행 비활성)'}
-                                        >
-                                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${row.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
-                                        </button>
-                                    </td>
-
-                                    <td className="p-4 font-bold text-gray-800 text-center">{row.rpa_name}</td>
-                                    <td className="p-4 text-gray-500 text-[11.5px] truncate" title={row.description}>{row.description || '-'}</td>
-
-                                    <td className="p-4 text-center">
-                                        <span className={`text-[11px] font-bold px-2 py-1 rounded ${row.trigger_type === 'auto' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
-                                            {row.trigger_type === 'auto' ? '⏱️ 스케줄' : '🖐️ 수동'}
-                                        </span>
-                                    </td>
-
-                                    <td className="p-4 text-gray-600 text-center font-mono text-xs">{row.cron_expr || '-'}</td>
-
-                                    <td className="p-4 text-center">
-                                        {row.status === 'idle' && <span className="text-gray-500 font-bold">🟢 대기</span>}
-                                        {row.status === 'running' && <span className="text-letusBlue font-black animate-pulse">🔄 실행 중</span>}
-                                        {row.status === 'error' && <span className="text-red-500 font-bold">🔴 오류</span>}
-                                        {!['idle','running','error'].includes(row.status) && <span className="text-gray-400">-</span>}
-                                    </td>
-
-                                    <td className="p-4 text-gray-500 font-mono text-xs text-center">{row.last_run_at ? formatDateTime(row.last_run_at) : '-'}</td>
-
-                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                                        <div className="flex items-center justify-center gap-1.5">
-                                            <button
-                                                onClick={() => handleRunRpa(row)}
-                                                disabled={row.status === 'running'}
-                                                className={`text-xs font-bold border px-2.5 py-1.5 rounded transition-colors shadow-sm ${row.status === 'running' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-green-600 border-green-200 hover:bg-green-50'}`}
-                                            >
-                                                ▶ 실행
-                                            </button>
-                                            <button
-                                                onClick={() => setHistoryTarget(row)}
-                                                className="text-xs font-bold border px-2 py-1.5 rounded transition-colors shadow-sm bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                                                title="실행 이력"
-                                            >
-                                                📜
-                                            </button>
-                                            <button
-                                                onClick={() => openEditModal(row)}
-                                                className="text-xs font-bold border px-2 py-1.5 rounded transition-colors shadow-sm bg-white text-letusBlue border-blue-200 hover:bg-blue-50"
-                                                title="편집"
-                                            >
-                                                ⚙
-                                            </button>
-                                        </div>
-                                    </td>
+                                    {colOrder.map(origIdx => renderCell(origIdx, row))}
                                 </tr>
                             ))}
                         </tbody>

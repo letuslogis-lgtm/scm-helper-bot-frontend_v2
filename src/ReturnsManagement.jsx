@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabaseClient.js';
 import { loadXLSXStyle } from './utils.js';
 import { SearchButton, DateInput } from './SharedUI.jsx';
@@ -612,6 +612,20 @@ const ReturnsBulkEditModal = ({ selectedIds, onClose, onReload }) => {
     );
 };
 
+// ── 컬럼 정의 (체크박스 제외) ──────────────────────────────────────────────────
+const DEFAULT_COLUMNS = [
+    { label: '유형',      key: 'type',            w: 80  },
+    { label: '발생일',    key: 'incident_date',   w: 100 },
+    { label: '발생센터',  key: 'incident_center', w: 120 },
+    { label: '브랜드',    key: 'brand',           w: 90  },
+    { label: '품목코드',  key: 'item_code',       w: 140 },
+    { label: '색상',      key: 'color',           w: 90  },
+    { label: '수량',      key: 'quantity',        w: 80  },
+    { label: '발생 사유', key: 'incident_reason', w: 150 },
+    { label: '진행 단계', key: null,              w: 120 },
+    { label: '완결',      key: 'is_completed',    w: 70  },
+];
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 const ReturnsManagement = ({ userProfile }) => {
     const [items, setItems]                   = useState([]);
@@ -624,6 +638,14 @@ const ReturnsManagement = ({ userProfile }) => {
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [sortConfig, setSortConfig]         = useState({ key: null, direction: 'none' });
 
+    // ── 컬럼 순서/너비 상태 ──
+    const [colOrder, setColOrder]     = useState(DEFAULT_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths]   = useState(DEFAULT_COLUMNS.map(c => c.w));
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+    const resizingRef  = useRef(null);
+    const dragSrcRef   = useRef(null);
+    const wasDraggedRef = useRef(false);
+
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const today = new Date().toISOString().split('T')[0];
     const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', returnCenter: '전체', completed: '전체', type: '전체' };
@@ -635,6 +657,104 @@ const ReturnsManagement = ({ userProfile }) => {
 
     useEffect(() => { fetchWorkplaces(); }, []);
     useEffect(() => { fetchData(); }, [appliedFilters, searchTrigger]);
+
+    // ── localStorage 불러오기 ──
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(`letus_returns_col_${userProfile.id}`));
+            if (saved?.order?.length === DEFAULT_COLUMNS.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS.length) setColWidths(saved.widths);
+        } catch {}
+    }, [userProfile?.id]);
+
+    // ── localStorage 저장 ──
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        localStorage.setItem(`letus_returns_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths, userProfile?.id]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS.map(c => c.w));
+        if (userProfile?.id) localStorage.removeItem(`letus_returns_col_${userProfile.id}`);
+    };
+
+    // ── 컬럼 리사이즈 핸들러 ──
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx: oi, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[oi] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    // ── 컬럼 드래그 핸들러 ──
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
+
+    // ── 셀 렌더러 (origIdx 기준) ──
+    const renderCell = (origIdx, row) => {
+        switch (origIdx) {
+            case 0: // 유형
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}>
+                        {row.type === '선출고'
+                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">선출고</span>
+                            : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">회수품</span>}
+                    </td>
+                );
+            case 1: // 발생일
+                return <td key={origIdx} className="p-4 text-center text-gray-600" style={{ width: colWidths[origIdx] }}>{fmtDate(row.incident_date) || '-'}</td>;
+            case 2: // 발생센터
+                return <td key={origIdx} className="p-4 text-center font-semibold" style={{ width: colWidths[origIdx] }}>{row.incident_center || '-'}</td>;
+            case 3: // 브랜드
+                return <td key={origIdx} className="p-4 text-center text-gray-600" style={{ width: colWidths[origIdx] }}>{row.brand || '-'}</td>;
+            case 4: // 품목코드
+                return <td key={origIdx} className="p-4 text-center font-mono text-gray-500" style={{ width: colWidths[origIdx] }}>{row.item_code || '-'}</td>;
+            case 5: // 색상
+                return <td key={origIdx} className="p-4 text-center text-gray-600" style={{ width: colWidths[origIdx] }}>{row.color || '-'}</td>;
+            case 6: // 수량
+                return <td key={origIdx} className="p-4 text-center font-bold" style={{ width: colWidths[origIdx] }}>{row.quantity != null ? `${row.quantity} EA` : '-'}</td>;
+            case 7: // 발생 사유
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}>
+                        {row.incident_reason
+                            ? <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${REASON_COLORS[row.incident_reason] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{row.incident_reason}</span>
+                            : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 8: // 진행 단계
+                return <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}><StepIndicator row={row} /></td>;
+            case 9: // 완결
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}>
+                        {row.type === '선출고'
+                            ? (row.is_recovered
+                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">회수</span>
+                                : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">미회수</span>)
+                            : (row.is_completed
+                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
+                                : <span className="text-gray-300 text-xs font-bold">N</span>)}
+                    </td>
+                );
+            default:
+                return <td key={origIdx} />;
+        }
+    };
 
     const handleSearchClick = () => { setAppliedFilters({ ...draftFilters }); setSearchTrigger(t => t + 1); setSelectedIds(new Set()); };
 
@@ -743,20 +863,6 @@ const ReturnsManagement = ({ userProfile }) => {
 
     const filterSel = 'border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700 bg-white';
 
-    const COLS = [
-        { isCheckbox: true,  key: null,              w: '40px'  },
-        { label: '유형',      key: 'type',             w: '70px'  },
-        { label: '발생일',    key: 'incident_date',   w: '90px'  },
-        { label: '발생센터',  key: 'incident_center', w: '110px' },
-        { label: '브랜드',    key: 'brand',            w: '80px'  },
-        { label: '품목코드',  key: 'item_code',        w: '130px' },
-        { label: '색상',      key: 'color',            w: '80px'  },
-        { label: '수량',      key: 'quantity',         w: '70px'  },
-        { label: '발생 사유', key: 'incident_reason',  w: '140px' },
-        { label: '진행 단계', key: null,               w: '110px' },
-        { label: '완결',      key: 'is_completed',     w: '60px'  },
-    ];
-
     const selectedArr = Array.from(selectedIds);
 
     return (
@@ -820,7 +926,15 @@ const ReturnsManagement = ({ userProfile }) => {
             </div>
 
             {/* ── 선택실행 드롭박스 ── */}
-            <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0">
+            <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0 gap-2">
+                <button onClick={resetColSettings}
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="컬럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                </button>
                 <div className="relative z-50">
                     <button
                         onClick={() => setIsActionMenuOpen(!isActionMenuOpen)}
@@ -872,48 +986,59 @@ const ReturnsManagement = ({ userProfile }) => {
 
             {/* ── 테이블 ── */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
-                <div className="p-0 overflow-auto flex-1 custom-scrollbar">
-                    <table className="w-full text-left whitespace-nowrap text-[13px]">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
+                    <table className="w-full text-left whitespace-nowrap text-[13px] table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                {COLS.map((col, i) => (
-                                    <th
-                                        key={i}
-                                        className={`p-4 text-center select-none ${col.key ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
-                                        style={{ width: col.w }}
-                                        onClick={() => col.key && requestSort(col.key)}
-                                    >
-                                        {col.isCheckbox ? (
-                                            <input type="checkbox"
-                                                checked={sortedItems.length > 0 && selectedIds.size === sortedItems.length}
-                                                onChange={e => setSelectedIds(e.target.checked ? new Set(sortedItems.map(r => r.id)) : new Set())}
-                                                className="w-4 h-4 cursor-pointer accent-letusBlue"
-                                                onClick={e => e.stopPropagation()}
-                                            />
-                                        ) : (
+                                {/* 체크박스 고정 컬럼 */}
+                                <th className="p-4 text-center select-none" style={{ width: 50 }}>
+                                    <input type="checkbox"
+                                        checked={sortedItems.length > 0 && selectedIds.size === sortedItems.length}
+                                        onChange={e => setSelectedIds(e.target.checked ? new Set(sortedItems.map(r => r.id)) : new Set())}
+                                        className="w-4 h-4 cursor-pointer accent-letusBlue"
+                                    />
+                                </th>
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                            onDrop={(e) => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
                                             <div className="flex items-center justify-center gap-1">
-                                                {col.label}{col.key && getSortIcon(col.key)}
+                                                <span draggable onDragStart={(e) => handleDragStart(e, visualIdx)} onDragEnd={handleDragEnd}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                                    title="드래그로 순서 변경">⠿</span>
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
                                             </div>
-                                        )}
-                                    </th>
-                                ))}
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
-                                <tr><td colSpan={COLS.length} className="py-32 text-center">
+                                <tr><td colSpan={colOrder.length + 1} className="py-32 text-center">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin" />
                                         <p className="text-gray-500 font-bold">데이터 로딩 중...</p>
                                     </div>
                                 </td></tr>
                             ) : sortedItems.length === 0 ? (
-                                <tr><td colSpan={COLS.length} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
+                                <tr><td colSpan={colOrder.length + 1} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : sortedItems.map(row => (
                                 <tr key={row.id}
                                     onClick={() => setActiveRow(row)}
                                     className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.has(row.id) ? 'bg-blue-50/50' : ''} ${row.is_completed ? 'opacity-60' : ''}`}>
-                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
+                                    <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                         <input type="checkbox"
                                             checked={selectedIds.has(row.id)}
                                             onChange={e => setSelectedIds(prev => {
@@ -924,32 +1049,7 @@ const ReturnsManagement = ({ userProfile }) => {
                                             className="w-4 h-4 cursor-pointer accent-letusBlue"
                                         />
                                     </td>
-                                    <td className="p-4 text-center">
-                                        {row.type === '선출고'
-                                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">선출고</span>
-                                            : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">회수품</span>}
-                                    </td>
-                                    <td className="p-4 text-center text-gray-600">{fmtDate(row.incident_date) || '-'}</td>
-                                    <td className="p-4 text-center font-semibold">{row.incident_center || '-'}</td>
-                                    <td className="p-4 text-center text-gray-600">{row.brand || '-'}</td>
-                                    <td className="p-4 text-center font-mono text-gray-500">{row.item_code || '-'}</td>
-                                    <td className="p-4 text-center text-gray-600">{row.color || '-'}</td>
-                                    <td className="p-4 text-center font-bold">{row.quantity != null ? `${row.quantity} EA` : '-'}</td>
-                                    <td className="p-4 text-center">
-                                        {row.incident_reason
-                                            ? <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${REASON_COLORS[row.incident_reason] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>{row.incident_reason}</span>
-                                            : <span className="text-gray-300">-</span>}
-                                    </td>
-                                    <td className="p-4 text-center"><StepIndicator row={row} /></td>
-                                    <td className="p-4 text-center">
-                                        {row.type === '선출고'
-                                            ? (row.is_recovered
-                                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">회수</span>
-                                                : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">미회수</span>)
-                                            : (row.is_completed
-                                                ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">Y</span>
-                                                : <span className="text-gray-300 text-xs font-bold">N</span>)}
-                                    </td>
+                                    {colOrder.map(origIdx => renderCell(origIdx, row))}
                                 </tr>
                             ))}
                         </tbody>

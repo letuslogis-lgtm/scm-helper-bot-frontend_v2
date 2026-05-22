@@ -6,6 +6,17 @@ import { DEFAULT_MENUS } from './menuConfig.jsx';
 import { loadXLSX } from './utils.js';
 import { UserAddModal, UserBulkEditModal, UserBulkUploadModal } from './UserModals.jsx';
 
+const DEFAULT_COLUMNS = [
+    { label: '사용자명',       key: 'name',            w: 130 },
+    { label: '사용자 ID',      key: 'login_id',        w: 180 },
+    { label: '소속 팀',        key: 'team',            w: 130 },
+    { label: '소속 브랜드',    key: 'brands',          w: 130 },
+    { label: '담당 업체/창고', key: 'managed_vendors', w: 160 },
+    { label: '권한 그룹',      key: 'role',            w: 110 },
+    { label: '가입일시',       key: 'created_at',      w: 160 },
+    { label: '상태',           key: 'status',          w: 110 },
+];
+
 const UserManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [users, setUsers] = useState([]);
@@ -21,14 +32,178 @@ const UserManagement = () => {
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
+    // 정렬
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
+
+    // 컬럼 관리
+    const [colOrder, setColOrder] = useState(DEFAULT_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths] = useState(DEFAULT_COLUMNS.map(c => c.w));
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+    const resizingRef = useRef(null);
+    const dragSrcRef = useRef(null);
+    const wasDraggedRef = useRef(false);
+
     const isAllSelected = users.length > 0 && selectedUsers.length === users.length;
+
+    // localStorage 불러오기
+    useEffect(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('letus_users_col'));
+            if (saved?.order?.length === DEFAULT_COLUMNS.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS.length) setColWidths(saved.widths);
+        } catch {}
+    }, []);
+
+    // localStorage 저장
+    useEffect(() => {
+        localStorage.setItem('letus_users_col', JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS.map(c => c.w));
+        localStorage.removeItem('letus_users_col');
+    };
+
+    // 정렬 요청
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key) {
+            if (sortConfig.direction === 'asc') direction = 'desc';
+            else if (sortConfig.direction === 'desc') direction = 'none';
+        }
+        setSortConfig({ key: direction === 'none' ? null : key, direction });
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return null;
+        if (sortConfig.direction === 'asc') return <span className="ml-1 text-letusBlue font-black">↑</span>;
+        if (sortConfig.direction === 'desc') return <span className="ml-1 text-letusBlue font-black">↓</span>;
+        return null;
+    };
+
+    // 정렬 적용
+    const sortedUsers = useMemo(() => {
+        let items = [...users];
+        if (sortConfig.key && sortConfig.direction !== 'none') {
+            items.sort((a, b) => {
+                const aVal = a[sortConfig.key] || '';
+                const bVal = b[sortConfig.key] || '';
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return items;
+    }, [users, sortConfig]);
+
+    // 리사이즈 핸들러
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    // 드래그 핸들러
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
+
+    // 셀 렌더링 (origIdx 기준)
+    const renderCell = (origIdx, user) => {
+        const col = DEFAULT_COLUMNS[origIdx];
+        switch (col.key) {
+            case 'name':
+                return (
+                    <td key={origIdx} className="p-4 font-black text-gray-800 text-sm tracking-tight truncate" style={{ width: colWidths[origIdx] }} title={user.name}>
+                        {user.name}
+                    </td>
+                );
+            case 'login_id':
+                return (
+                    <td key={origIdx} className="p-4 font-bold text-gray-600 truncate" style={{ width: colWidths[origIdx] }} title={user.login_id}>
+                        {user.login_id}
+                    </td>
+                );
+            case 'team':
+                return (
+                    <td key={origIdx} className="p-4 text-gray-600 font-medium truncate" style={{ width: colWidths[origIdx] }} title={user.team || '-'}>
+                        {user.team || '-'}
+                    </td>
+                );
+            case 'brands':
+                return (
+                    <td key={origIdx} className="p-4" style={{ width: colWidths[origIdx] }}>
+                        <div className="flex gap-1.5 flex-wrap">
+                            {user.brands
+                                ? <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-[4px] text-[11px] whitespace-nowrap font-bold shadow-sm">{user.brands}</span>
+                                : <span className="text-gray-400">-</span>
+                            }
+                        </div>
+                    </td>
+                );
+            case 'managed_vendors':
+                return (
+                    <td key={origIdx} className="p-4" style={{ width: colWidths[origIdx] }}>
+                        {(user.managed_vendors || user.managed_brands) ? (
+                            <button
+                                onClick={e => { e.stopPropagation(); setVendorListTarget(user); }}
+                                className="inline-flex items-center gap-1 bg-blue-50 text-letusBlue border border-blue-200 rounded-[4px] px-2 py-1 text-[10px] font-bold hover:bg-blue-100 transition-colors whitespace-nowrap"
+                            >
+                                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+                                상세보기 ({(typeof user.managed_vendors === 'string' ? user.managed_vendors.split(',').filter(Boolean).length : 0) + (typeof user.managed_brands === 'string' ? user.managed_brands.split(',').filter(Boolean).length : 0)})
+                            </button>
+                        ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                        )}
+                    </td>
+                );
+            case 'role':
+                return (
+                    <td key={origIdx} className="p-4" style={{ width: colWidths[origIdx] }}>
+                        <span className={`px-2.5 py-1 rounded-[4px] font-bold text-[11px] ${user.role === '관리자' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'bg-slate-100 text-slate-600'}`}>
+                            {user.role}
+                        </span>
+                    </td>
+                );
+            case 'created_at':
+                return (
+                    <td key={origIdx} className="p-4 text-center text-gray-400 font-bold" style={{ width: colWidths[origIdx] }}>
+                        {formatDateTime(user.created_at)}
+                    </td>
+                );
+            case 'status':
+                return (
+                    <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}>
+                        <span className={`px-3 py-1 rounded-full font-bold text-[11px] shadow-sm ${user.status === '정상' || user.status === '정상 승인' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                            {user.status}
+                        </span>
+                    </td>
+                );
+            default:
+                return <td key={origIdx} className="p-4" style={{ width: colWidths[origIdx] }} />;
+        }
+    };
 
     const handleExportExcel = async () => {
         const targetData = selectedUsers.length > 0 ? users.filter(u => selectedUsers.includes(u.id)) : users;
         if (targetData.length === 0) return alert('추출할 데이터가 없습니다.');
         const XLSX = await loadXLSX();
 
-        // 엑셀 시트에 들어갈 JSON 데이터 배열 생성
         const excelData = targetData.map(row => ({
             '사용자명': row.name || '',
             '아이디': row.login_id || '',
@@ -62,9 +237,6 @@ const UserManagement = () => {
 
     // 🔥 선택 항목 일괄 삭제 기능 (Auth 계정 + Profile 동시 삭제)
     const handleDeleteSelected = async () => {
-        // (참고: userProfile 권한 체크가 필요하다면 주석을 해제해서 쓰세요!)
-        // if (userProfile?.role !== '관리자') return alert('🚨 삭제 권한이 없습니다. 관리자에게 문의하세요.');
-
         if (selectedUsers.length === 0) return alert('삭제할 사용자를 체크해 주세요.');
 
         if (!window.confirm(`선택하신 ${selectedUsers.length}명의 계정을 정말 삭제하시겠습니까?\n시스템 접속 권한이 영구적으로 박탈되며 복구할 수 없습니다.`)) return;
@@ -76,8 +248,8 @@ const UserManagement = () => {
             ));
 
             alert(`🗑️ ${selectedUsers.length}명의 사용자 계정이 완벽하게 삭제되었습니다.`);
-            setSelectedUsers([]); // 🚩 체크박스 초기화
-            fetchUsers(); // 🚩 사용자 목록 새로고침
+            setSelectedUsers([]);
+            fetchUsers();
         } catch (err) {
             alert('사용자 삭제 중 오류 발생: ' + err.message);
         } finally {
@@ -119,7 +291,6 @@ const UserManagement = () => {
     }, []);
 
     return (
-        // 🚩 문제 1 해결: h-[calc(100vh-140px)] -> h-[calc(100vh-64px)] 로 늘리고, min-h-[600px] 제거하여 화면 꽉 채움!
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)]">
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex items-center z-30 shrink-0">
                 <div className="flex items-center gap-5 w-full flex-wrap">
@@ -172,6 +343,16 @@ const UserManagement = () => {
 
             <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0">
                 <div className="flex items-center gap-3">
+                    {/* 칼럼 초기화 버튼 */}
+                    <button onClick={resetColSettings}
+                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                        title="컬럼 너비·순서를 기본값으로 초기화">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        칼럼 초기화
+                    </button>
+
                     <div className="relative">
                         <button
                             onClick={() => setIsActionMenuOpen(!isActionMenuOpen)}
@@ -226,34 +407,57 @@ const UserManagement = () => {
                 </div>
             </div>
 
-            {/* 🚩 문제 1 해결: 표 컨테이너에 flex-1 을 주어 남은 공간을 꽉 채우도록 만듦! */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20">
-                {/* 🚩 문제 2 해결: 표 안쪽 스크롤 영역 설정 (h-[600px] 고정값 제거) */}
-                <div className="p-0 overflow-auto flex-1 custom-scrollbar">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
                     <table className="w-full text-left table-fixed">
-                        {/* 🚩 문제 2 해결: <thead>에 bg-slate-50 을 줘서 글자 겹침 방지 (투명도 /70 제거) */}
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="p-4 pl-6 w-10 text-center">
+                                {/* 고정: 체크박스 */}
+                                <th className="p-4 pl-6 w-10 text-center shrink-0">
                                     <input type="checkbox" checked={isAllSelected} onChange={toggleAll} className="w-4 h-4 accent-letusBlue cursor-pointer" title="전체 선택" />
                                 </th>
-                                <th className="p-4 w-12 text-center">No</th>
-                                <th className="p-4 w-[11%]">사용자명</th>
-                                <th className="p-4 w-[12%]">사용자 ID</th>
-                                <th className="p-4 w-[11%]">소속 팀</th>
-                                <th className="p-4 w-[14%]">소속 브랜드</th>
-                                <th className="p-4 w-[16%]">담당 업체/창고</th>
-                                <th className="p-4 w-[8%]">권한 그룹</th>
-                                <th className="p-4 w-[14%] text-center">가입일시</th>
-                                <th className="p-4 w-[8%] text-center">상태</th>
+                                {/* 고정: No */}
+                                <th className="p-4 text-center w-12">No</th>
+                                {/* 동적 컬럼 */}
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative p-4 text-center select-none transition-colors hover:bg-gray-100 cursor-pointer ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                            onDrop={(e) => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                <span
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, visualIdx)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                                    title="드래그로 순서 변경"
+                                                >⠿</span>
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div
+                                                className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)}
+                                                onClick={e => e.stopPropagation()}
+                                            />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         {isLoading ? (
-                            <TableSkeleton rowCount={8} colCount={10} />
-                        ) : users.length === 0 ? (
+                            <TableSkeleton rowCount={8} colCount={colOrder.length + 2} />
+                        ) : sortedUsers.length === 0 ? (
                             <tbody>
                                 <tr>
-                                    <td colSpan="10" className="p-10 text-center text-gray-400">
+                                    <td colSpan={colOrder.length + 2} className="p-10 text-center text-gray-400">
                                         <svg className="w-16 h-16 mx-auto mb-4 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                                         <p className="font-semibold text-gray-500 mb-1">등록된 사용자가 없습니다.</p>
                                         <p className="text-sm">상단의 [사용자 추가] 버튼을 눌러 첫 계정을 생성하세요.</p>
@@ -262,51 +466,17 @@ const UserManagement = () => {
                             </tbody>
                         ) : (
                             <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
-                                {users.map((user, idx) => (
+                                {sortedUsers.map((user, idx) => (
                                     <tr key={user.id}
-                                        className={`transition-colors cursor-pointer ${selectedUsers.includes(user.id) ? 'bg-blue-50' : 'hover:bg-blue-50/30'}`}
+                                        className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedUsers.includes(user.id) ? 'bg-blue-50' : ''}`}
                                         onDoubleClick={() => setEditTarget(user)}
                                         title="더블클릭하면 정보를 수정할 수 있습니다"
                                     >
-                                        <td className="p-4 pl-6 text-center">
+                                        <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                             <input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={() => toggleOne(user.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" onClick={e => e.stopPropagation()} />
                                         </td>
                                         <td className="p-4 text-center text-gray-400 font-medium">{idx + 1}</td>
-                                        <td className="p-4 font-black text-gray-800 text-sm tracking-tight truncate" title={user.name}>{user.name}</td>
-                                        <td className="p-4 font-bold text-gray-600 truncate" title={user.login_id}>{user.login_id}</td>
-                                        <td className="p-4 text-gray-600 font-medium truncate" title={user.team || '-'}>{user.team || '-'}</td>
-                                        <td className="p-4">
-                                            <div className="flex gap-1.5 flex-wrap">
-                                                {user.brands
-                                                    ? <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-[4px] text-[11px] whitespace-nowrap font-bold shadow-sm">{user.brands}</span>
-                                                    : <span className="text-gray-400">-</span>
-                                                }
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            {(user.managed_vendors || user.managed_brands) ? (
-                                                <button
-                                                    onClick={e => { e.stopPropagation(); setVendorListTarget(user); }}
-                                                    className="inline-flex items-center gap-1 bg-blue-50 text-letusBlue border border-blue-200 rounded-[4px] px-2 py-1 text-[10px] font-bold hover:bg-blue-100 transition-colors whitespace-nowrap"
-                                                >
-                                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
-                                                    상세보기 ({(typeof user.managed_vendors === 'string' ? user.managed_vendors.split(',').filter(Boolean).length : 0) + (typeof user.managed_brands === 'string' ? user.managed_brands.split(',').filter(Boolean).length : 0)})
-                                                </button>
-                                            ) : (
-                                                <span className="text-gray-400 text-xs">-</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4">
-                                            <span className={`px-2.5 py-1 rounded-[4px] font-bold text-[11px] ${user.role === '관리자' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'bg-slate-100 text-slate-600'}`}>
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-center text-gray-400 font-bold">{formatDateTime(user.created_at)}</td>
-                                        <td className="p-4 text-center">
-                                            <span className={`px-3 py-1 rounded-full font-bold text-[11px] shadow-sm ${user.status === '정상' || user.status === '정상 승인' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-                                                {user.status}
-                                            </span>
-                                        </td>
+                                        {colOrder.map(origIdx => renderCell(origIdx, user))}
                                     </tr>
                                 ))}
                             </tbody>

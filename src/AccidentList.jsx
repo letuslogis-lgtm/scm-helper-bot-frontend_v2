@@ -4,6 +4,35 @@ import { loadXLSXStyle } from './utils.js';
 import { CloseIcon, SearchButton, DateInput } from './SharedUI.jsx';
 import { AccidentModal, AccidentBulkEditModal, AccidentUploadModal } from './AccidentModals.jsx';
 
+const NORMAL_COLUMNS = [
+    { label: '서비스예약일',   key: 'service_date',     w: 110 },
+    { label: '브랜드',         key: 'brand',            w: 90  },
+    { label: '서비스센터',     key: 'service_center',   w: 90  },
+    { label: '시공/AS',        key: 'service_type',     w: 80  },
+    { label: '수주번호',       key: 'order_no',         w: 150 },
+    { label: '수주건명',       key: 'order_name',       w: 300 },
+    { label: '품목코드',       key: 'item_code',        w: 180 },
+    { label: '수량',           key: 'issue_qty',        w: 70  },
+    { label: '처리상태',       key: 'status',           w: 120 },
+    { label: '귀책부서',       key: 'responsible_dept', w: 120 },
+    { label: '확인 결과',      key: 'action_result',    w: 130 },
+    { label: '납기지연판별',   key: 'is_delayed',       w: 110 },
+];
+
+const AI_COLUMNS = [
+    { label: '서비스예약일',          key: 'service_date',      w: 110 },
+    { label: '브랜드',                key: 'brand',             w: 90  },
+    { label: '서비스센터',            key: 'service_center',    w: 90  },
+    { label: '시공/AS',               key: 'service_type',      w: 80  },
+    { label: '수주번호',              key: 'order_no',          w: 150 },
+    { label: '수주건명',              key: 'order_name',        w: 300 },
+    { label: '품목코드',              key: 'item_code',         w: 180 },
+    { label: '수량',                  key: 'issue_qty',         w: 70  },
+    { label: '처리상태',              key: 'status',            w: 120 },
+    { label: '귀책부서',              key: 'responsible_dept',  w: 120 },
+    { label: '🤖 AI 사고 원인 분석', key: 'ai_analyzed_cause', w: 240 },
+];
+
 const AccidentList = ({ userProfile, initialFilter }) => {
     const [items, setItems] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -13,6 +42,14 @@ const AccidentList = ({ userProfile, initialFilter }) => {
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
     const [isAiView, setIsAiView] = useState(false); // AI 분석 뷰 토글 상태
+
+    // 컬럼 너비·순서·드래그 상태
+    const [colOrder, setColOrder] = useState(NORMAL_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths] = useState(NORMAL_COLUMNS.map(c => c.w));
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+    const resizingRef = useRef(null);
+    const dragSrcRef = useRef(null);
+    const wasDraggedRef = useRef(false);
 
     // 🔥 신규: 누락되었던 모달 오픈용 상태값 추가
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -33,6 +70,34 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         };
         fetchTargetRow();
     }, []);
+
+    // isAiView 변경 시 해당 뷰의 localStorage에서 컬럼 설정 로드
+    useEffect(() => {
+        const cols = isAiView ? AI_COLUMNS : NORMAL_COLUMNS;
+        const lsKey = isAiView ? `letus_accident_ai_col_${userProfile?.id}` : `letus_accident_col_${userProfile?.id}`;
+        if (!userProfile?.id) {
+            setColOrder(cols.map((_, i) => i));
+            setColWidths(cols.map(c => c.w));
+            return;
+        }
+        try {
+            const saved = JSON.parse(localStorage.getItem(lsKey));
+            if (saved?.order?.length === cols.length) setColOrder(saved.order);
+            else setColOrder(cols.map((_, i) => i));
+            if (saved?.widths?.length === cols.length) setColWidths(saved.widths);
+            else setColWidths(cols.map(c => c.w));
+        } catch {
+            setColOrder(cols.map((_, i) => i));
+            setColWidths(cols.map(c => c.w));
+        }
+    }, [isAiView, userProfile?.id]);
+
+    // 컬럼 설정 변경 시 localStorage 저장
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        const lsKey = isAiView ? `letus_accident_ai_col_${userProfile.id}` : `letus_accident_col_${userProfile.id}`;
+        localStorage.setItem(lsKey, JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths, userProfile?.id, isAiView]);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -133,6 +198,135 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         }
         return sortableItems;
     }, [items, sortConfig]);
+
+    const activeColumns = isAiView ? AI_COLUMNS : NORMAL_COLUMNS;
+
+    const resetColSettings = () => {
+        const cols = isAiView ? AI_COLUMNS : NORMAL_COLUMNS;
+        setColOrder(cols.map((_, i) => i));
+        setColWidths(cols.map(c => c.w));
+        if (userProfile?.id) {
+            const lsKey = isAiView ? `letus_accident_ai_col_${userProfile.id}` : `letus_accident_col_${userProfile.id}`;
+            localStorage.removeItem(lsKey);
+        }
+    };
+
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
+
+    const renderCell = (origIdx, row) => {
+        const col = activeColumns[origIdx];
+        switch (col.key) {
+            case 'service_date':
+                return <td key={origIdx} className="p-4 text-center text-gray-700">{row.service_date}</td>;
+            case 'brand':
+                return <td key={origIdx} className="p-4 text-center font-semibold">{row.brand}</td>;
+            case 'service_center':
+                return <td key={origIdx} className="p-4 text-center text-gray-600">{row.service_center}</td>;
+            case 'service_type':
+                return (
+                    <td key={origIdx} className="p-4 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${row.service_type === '시공' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
+                            {row.service_type}
+                        </span>
+                    </td>
+                );
+            case 'order_no':
+                return <td key={origIdx} className="p-4 text-center font-mono text-gray-500">{row.order_no}</td>;
+            case 'order_name':
+                return <td key={origIdx} className="p-4 font-bold text-gray-800 text-sm tracking-tight truncate max-w-[300px]" title={row.order_name}>{row.order_name}</td>;
+            case 'item_code':
+                return <td key={origIdx} className="p-4 font-bold text-gray-600 truncate">{row.item_code}</td>;
+            case 'issue_qty':
+                return <td key={origIdx} className="p-4 text-center font-bold">{row.issue_qty}</td>;
+            case 'status':
+                return (
+                    <td key={origIdx} className="p-4 text-center">
+                        <span className={`px-2 py-1 rounded text-[11px] font-bold ${row.status === '등록 완료' ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-600 border border-red-100 animate-pulse'}`}>
+                            {row.status}
+                        </span>
+                    </td>
+                );
+            case 'responsible_dept':
+                return <td key={origIdx} className="p-4 text-center font-bold text-letusBlue">{row.responsible_dept || '-'}</td>;
+            case 'action_result':
+                return <td key={origIdx} className="p-4 text-center text-gray-600">{row.action_result}</td>;
+            case 'is_delayed':
+                return (
+                    <td key={origIdx} className={`p-4 font-black text-center ${row.is_delayed !== '-' ? 'text-red-500' : 'text-gray-400'}`}>
+                        {row.is_delayed}
+                    </td>
+                );
+            case 'ai_analyzed_cause':
+                return (
+                    <td key={origIdx} className="py-3 px-4 text-center bg-purple-50/20">
+                        {row.ai_analyzed_cause ? (
+                            <div className="flex flex-col items-center gap-0.5 group relative">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="px-3 py-0.5 rounded-full font-black text-[11px] bg-purple-100 text-purple-700 border border-purple-200 shadow-sm inline-block">
+                                        {row.ai_analyzed_cause}
+                                    </span>
+                                    {row.ai_cause_detail && (
+                                        <span className="text-[10px] font-bold text-purple-500 tracking-tight whitespace-nowrap">
+                                            {row.ai_cause_detail}
+                                            {row.ai_confidence === 'low' && (
+                                                <span className="ml-1 text-amber-500" title="신뢰도 낮음 — 재분석 권장">⚠</span>
+                                            )}
+                                            {row.ai_confidence === 'human' && (
+                                                <span className="ml-1 text-slate-500" title="관리자가 직접 보정한 결과입니다">⚙️</span>
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
+                                {row.ai_cause_summary && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-64 p-3 bg-slate-800 text-white text-[11px] rounded-lg shadow-xl pointer-events-none">
+                                        <div className="font-bold text-purple-200 mb-1">🤖 AI 상세 분석</div>
+                                        <div className="text-white mb-2">{row.ai_cause_summary}</div>
+                                        {row.ai_keywords && row.ai_keywords.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                                {row.ai_keywords.map((kw, i) => (
+                                                    <span key={i} className="px-1.5 py-0.5 bg-purple-500/30 rounded text-[10px]">
+                                                        #{kw}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="mt-1.5 pt-1.5 border-t border-slate-600 text-[10px] text-slate-300">
+                                            신뢰도: {row.ai_confidence === 'high' ? '🟢 높음' : row.ai_confidence === 'medium' ? '🟡 보통' : row.ai_confidence === 'low' ? '🔴 낮음' : row.ai_confidence === 'human' ? '⚙️ 관리자 보정' : '-'}
+                                        </div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-slate-800"></div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <span className="text-[11px] font-bold text-slate-400 italic">대기중...</span>
+                        )}
+                    </td>
+                );
+            default:
+                return null;
+        }
+    };
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -708,6 +902,15 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     </button>
                 )}
 
+                <button onClick={resetColSettings}
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="컬럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                </button>
+
                 <div className="relative z-50">
                     <button
                         onClick={() => setIsActionMenuOpen(!isActionMenuOpen)}
@@ -772,12 +975,10 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
             {/* 🚩 문제 1 해결: 표 컨테이너에 flex-1 을 주어 남은 공간을 꽉 채우도록 만듦! */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
-                <div className="p-0 overflow-auto flex-1 custom-scrollbar">
-                    {/* 🚩 1. table-fixed와 min-w-[1420px] 제거 (사용자 관리 메뉴와 동일한 뼈대로 복원) */}
-                    <table className="w-full text-left whitespace-nowrap text-[13px]">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
+                    <table className="w-full text-left whitespace-nowrap table-fixed text-[13px]">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                {/* 🚩 2. 사용자 관리와 토씨 하나 안 틀린 동일한 클래스 적용 + 절대 너비 60px 고정! */}
                                 <th className="p-4 pl-6 w-10 text-center">
                                     <input
                                         type="checkbox"
@@ -786,55 +987,43 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                         className="w-4 h-4 cursor-pointer accent-letusBlue"
                                     />
                                 </th>
-                                {[
-                                    { label: '서비스예약일', key: 'service_date', w: '110px' },
-                                    { label: '브랜드', key: 'brand', w: '90px' },
-                                    { label: '서비스센터', key: 'service_center', w: '90px' },
-                                    { label: '시공/AS', key: 'service_type', w: '80px' },
-                                    { label: '수주번호', key: 'order_no', w: '150px' },
-                                    { label: '수주건명', key: 'order_name', w: '300px' },
-                                    { label: '품목코드', key: 'item_code', w: '180px' },
-                                    { label: '수량', key: 'issue_qty', w: '70px' },
-                                    { label: '처리상태', key: 'status', w: '120px' },
-                                    { label: '귀책부서', key: 'responsible_dept', w: '120px' },
-                                    ...(isAiView
-                                        ? [
-                                            { label: '🤖 AI 사고 원인 분석', key: 'ai_analyzed_cause', w: '240px' },
-                                            { label: '', key: null, w: '0px' } // 👻 1. 유령 컬럼 투입! (칸 개수 맞추기용)
-                                        ]
-                                        : [
-                                            { label: '확인 결과', key: 'action_result', w: '130px' },
-                                            { label: '납기지연판별', key: 'is_delayed', w: '110px' }
-                                        ]
-                                    )
-                                ].map((col, idx) => (
-                                    <th
-                                        key={idx}
-                                        className={`${col.w === '0px' ? 'p-0 border-none' : 'p-4'} text-center select-none ${col.key ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
-                                        style={{ width: col.w }}
-                                        onClick={() => col.key && requestSort(col.key)}
-                                    >
-                                        <div className="flex items-center justify-center gap-1">
-                                            {col.label} {col.key && getSortIcon(col.key)}
-                                        </div>
-                                    </th>
-                                ))}
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = activeColumns[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                            onDrop={(e) => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                <span draggable onDragStart={(e) => handleDragStart(e, visualIdx)} onDragEnd={handleDragEnd}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                                    title="드래그로 순서 변경">⠿</span>
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
-                                <tr><td colSpan="13" className="py-32 text-center"><div className="flex flex-col items-center gap-3"><div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div><p className="text-gray-500 font-bold">데이터 로딩 중...</p></div></td></tr>
+                                <tr><td colSpan={colOrder.length + 1} className="py-32 text-center"><div className="flex flex-col items-center gap-3"><div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div><p className="text-gray-500 font-bold">데이터 로딩 중...</p></div></td></tr>
                             ) : sortedItems.length === 0 ? (
-                                <tr><td colSpan="13" className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
+                                <tr><td colSpan={colOrder.length + 1} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : (
                                 <>
                                     {sortedItems.slice(0, 300).map(row => (
-                                        <tr
-                                            key={row.id}
-                                            onDoubleClick={() => { window.getSelection()?.removeAllRanges(); setActiveRow(row); }}
-                                            className={`cursor-pointer transition-colors ${selectedIds.includes(row.id) ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-blue-50/30'}`}
-                                        >
-                                            {/* 🚩 바디 셀에서도 w-10 제거 (헤더의 60px을 그대로 따라가며 완벽한 칼각 유지) */}
+                                        <tr key={row.id}
+                                            className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`}
+                                            onDoubleClick={() => { window.getSelection()?.removeAllRanges(); setActiveRow(row); }}>
                                             <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"
@@ -843,90 +1032,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                                     className="w-4 h-4 cursor-pointer accent-letusBlue"
                                                 />
                                             </td>
-                                            <td className="p-4 text-center text-gray-700">{row.service_date}</td>
-                                            <td className="p-4 text-center font-semibold">{row.brand}</td>
-                                            <td className="p-4 text-center text-gray-600">{row.service_center}</td>
-                                            <td className="p-4 text-center">
-                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${row.service_type === '시공' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
-                                                    {row.service_type}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-center font-mono text-gray-500">{row.order_no}</td>
-                                            <td className="p-4 font-bold text-gray-800 text-sm tracking-tight truncate max-w-[300px]" title={row.order_name}>
-                                                {row.order_name}
-                                            </td>
-                                            <td className="p-4 font-bold text-gray-600 truncate">{row.item_code}</td>
-                                            <td className="p-4 text-center font-bold">{row.issue_qty}</td>
-                                            <td className="p-4 text-center">
-                                                <span className={`px-2 py-1 rounded text-[11px] font-bold ${row.status === '등록 완료' ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-600 border border-red-100 animate-pulse'}`}>
-                                                    {row.status}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-center font-bold text-letusBlue">{row.responsible_dept || '-'}</td>
-                                            {!isAiView ? (
-                                                <>
-                                                    <td className="p-4 text-center text-gray-600">{row.action_result}</td>
-                                                    <td className={`p-4 font-black text-center ${row.is_delayed !== '-' ? 'text-red-500' : 'text-gray-400'}`}>
-                                                        {row.is_delayed}
-                                                    </td>
-                                                </>
-                                            ) : (
-                                                // 🚩 React 에러 방지: 두 개의 td를 묶어주는 투명 보따리(<>) 추가!
-                                                <>
-                                                    <td className="py-3 px-4 text-center bg-purple-50/20">
-                                                        {row.ai_analyzed_cause ? (
-                                                            <div className="flex flex-col items-center gap-0.5 group relative">
-                                                                {/* 🔄 대분류 + 소분류를 가로로 배치 */}
-                                                                <div className="flex items-center gap-1.5">
-                                                                    {/* 대분류 배지 */}
-                                                                    <span className="px-3 py-0.5 rounded-full font-black text-[11px] bg-purple-100 text-purple-700 border border-purple-200 shadow-sm inline-block">
-                                                                        {row.ai_analyzed_cause}
-                                                                    </span>
-
-                                                                    {/* 소분류 (대분류 오른쪽에 표시) */}
-                                                                    {row.ai_cause_detail && (
-                                                                        <span className="text-[10px] font-bold text-purple-500 tracking-tight whitespace-nowrap">
-                                                                            {row.ai_cause_detail}
-                                                                            {row.ai_confidence === 'low' && (
-                                                                                <span className="ml-1 text-amber-500" title="신뢰도 낮음 — 재분석 권장">⚠</span>
-                                                                            )}
-                                                                            {row.ai_confidence === 'human' && (
-                                                                                <span className="ml-1 text-slate-500" title="관리자가 직접 보정한 결과입니다">⚙️</span>
-                                                                            )}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* 상세 서술 툴팁 (hover 시 노출) */}
-                                                                {row.ai_cause_summary && (
-                                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-64 p-3 bg-slate-800 text-white text-[11px] rounded-lg shadow-xl pointer-events-none">
-                                                                        <div className="font-bold text-purple-200 mb-1">🤖 AI 상세 분석</div>
-                                                                        <div className="text-white mb-2">{row.ai_cause_summary}</div>
-                                                                        {row.ai_keywords && row.ai_keywords.length > 0 && (
-                                                                            <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                {row.ai_keywords.map((kw, i) => (
-                                                                                    <span key={i} className="px-1.5 py-0.5 bg-purple-500/30 rounded text-[10px]">
-                                                                                        #{kw}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                        <div className="mt-1.5 pt-1.5 border-t border-slate-600 text-[10px] text-slate-300">
-                                                                            신뢰도: {row.ai_confidence === 'high' ? '🟢 높음' : row.ai_confidence === 'medium' ? '🟡 보통' : row.ai_confidence === 'low' ? '🔴 낮음' : row.ai_confidence === 'human' ? '⚙️ 관리자 보정' : '-'}
-                                                                        </div>
-                                                                        {/* 툴팁 꼬리 */}
-                                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-slate-800"></div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-[11px] font-bold text-slate-400 italic">대기중...</span>
-                                                        )}
-                                                    </td>
-                                                    {/* 👻 3. 유령 컬럼 투입 (에러 없이 작동!) */}
-                                                    <td className="p-0 border-none w-0"></td>
-                                                </>
-                                            )}
+                                            {colOrder.map(origIdx => renderCell(origIdx, row))}
                                         </tr>
                                     ))}
                                 </>
