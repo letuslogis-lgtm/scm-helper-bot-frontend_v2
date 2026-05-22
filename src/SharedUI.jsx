@@ -478,6 +478,7 @@ export { UserEditModal };
 // --- 날짜 입력 공통 컴포넌트 (커스텀 달력) ---
 const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
     const containerRef = useRef(null);
     const pad = n => String(n).padStart(2, '0');
     const today = new Date();
@@ -488,6 +489,15 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
 
     const handleOpen = () => {
         if (value) { setViewYear(parseInt(value.slice(0,4))); setViewMonth(parseInt(value.slice(5,7))-1); }
+        if (!isOpen && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const popupW = 224;
+            const left = rect.left + rect.width / 2 - popupW / 2;
+            setPopupPos({
+                top: rect.bottom + 4,
+                left: Math.max(4, Math.min(left, window.innerWidth - popupW - 4)),
+            });
+        }
         setIsOpen(o => !o);
     };
 
@@ -512,7 +522,7 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
         : `border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] w-[110px] focus:outline-none focus:border-letusOrange cursor-pointer text-gray-700`;
 
     return (
-        <div ref={containerRef} className="relative inline-block">
+        <div ref={containerRef} className="inline-block">
             <input
                 type="text"
                 readOnly
@@ -522,7 +532,7 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
                 className={`${inputBase} ${className}`}
             />
             {isOpen && (
-                <div className="absolute top-full left-0 mt-1 z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[224px] select-none overflow-hidden">
+                <div style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[224px] select-none overflow-hidden">
                     {/* 헤더 */}
                     <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
                         <button onClick={prevMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">‹</button>
@@ -581,6 +591,7 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
     const [isOpen, setIsOpen] = useState(false);
     const [selecting, setSelecting] = useState('start');
     const [hoverDate, setHoverDate] = useState(null);
+    const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
     const containerRef = useRef(null);
 
     const pad = n => String(n).padStart(2, '0');
@@ -598,6 +609,15 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
         if (!isOpen) {
             if (startDate) { setViewYear(parseInt(startDate.slice(0,4))); setViewMonth(parseInt(startDate.slice(5,7))-1); }
             setSelecting('start');
+            if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                const popupW = 256;
+                const left = rect.left;
+                setPopupPos({
+                    top: rect.bottom + 4,
+                    left: Math.max(4, Math.min(left, window.innerWidth - popupW - 4)),
+                });
+            }
         }
         setIsOpen(o => !o);
     };
@@ -665,7 +685,7 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
         : startDate || '';
 
     return (
-        <div ref={containerRef} className={`relative inline-block ${className}`}>
+        <div ref={containerRef} className={`inline-block ${className}`}>
             {variant === 'ghost' ? (
                 <span
                     onClick={handleOpen}
@@ -688,7 +708,7 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
             )}
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-1 z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[256px] select-none overflow-hidden">
+                <div style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[256px] select-none overflow-hidden">
                     {/* 헤더 */}
                     <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
                         <button onClick={prevMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">‹</button>
