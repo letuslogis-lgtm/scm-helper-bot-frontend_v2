@@ -122,6 +122,30 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
         setAiResult(null);
         try {
             const base64 = await compressImage(photos[0].file);
+
+            // 스캔 이미지 Storage 업로드 (학습 데이터용)
+            let imageUrl = null;
+            try {
+                const byteCharacters = atob(base64);
+                const byteArray = new Uint8Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteArray[i] = byteCharacters.charCodeAt(i);
+                }
+                const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+                const { error: uploadError } = await supabase.storage
+                    .from('barcode-scans')
+                    .upload(filename, blob, { contentType: 'image/jpeg' });
+                if (!uploadError) {
+                    const { data: urlData } = supabase.storage
+                        .from('barcode-scans')
+                        .getPublicUrl(filename);
+                    imageUrl = urlData?.publicUrl || null;
+                }
+            } catch (uploadErr) {
+                console.warn('바코드 이미지 업로드 실패 (분석은 계속):', uploadErr);
+            }
+
             const { data, error } = await supabase.functions.invoke('analyze-barcode', {
                 body: { image: base64, mimeType: 'image/jpeg' },
             });
@@ -154,6 +178,7 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                     : (data?.message || '바코드 인식 실패'),
                 ai_confidence: data?.product_code ? 'high' : 'low',
                 low_confidence_reason: data?.product_code ? null : (data?.message || '인식 불가'),
+                image_url: imageUrl,
             }).then(({ error }) => {
                 if (error) console.warn('바코드 로그 저장 실패:', error.message);
             });

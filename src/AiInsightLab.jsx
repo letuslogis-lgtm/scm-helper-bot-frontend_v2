@@ -453,6 +453,10 @@ export const AiInsightLab = () => {
                                         </td>
                                         <td className="p-4 text-center font-mono text-xs text-gray-500">{formatDateTime(row.created_at)}</td>
                                         <td className="p-4 whitespace-normal text-left max-w-[340px] border-l border-gray-50 bg-gray-50/20">
+                                            {row.image_url && (
+                                                <img src={row.image_url} alt="스캔 이미지" className="w-16 h-16 object-cover rounded border border-gray-200 mb-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                                                    onClick={(e) => { e.stopPropagation(); window.open(row.image_url, '_blank'); }} title="클릭 시 원본 보기" />
+                                            )}
                                             <div className="text-[11.5px] leading-snug text-slate-700">{row.original_text || '-'}</div>
                                         </td>
                                         <td className="p-4 text-center">
@@ -494,6 +498,14 @@ export const AiInsightLab = () => {
                             <button onClick={() => setActiveRow(null)} className="p-1 text-gray-400 hover:text-gray-600"><CloseIcon /></button>
                         </div>
                         <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                            {activeRow.image_url && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">스캔 이미지</label>
+                                    <a href={activeRow.image_url} target="_blank" rel="noreferrer" title="클릭 시 원본 보기">
+                                        <img src={activeRow.image_url} alt="스캔 이미지" className="max-h-[180px] rounded-lg border border-gray-200 object-contain hover:opacity-90 transition-opacity cursor-pointer" />
+                                    </a>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-1">원본 텍스트 (판단 대상)</label>
                                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[120px] overflow-y-auto custom-scrollbar">

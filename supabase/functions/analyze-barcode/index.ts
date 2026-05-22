@@ -64,6 +64,44 @@ Deno.serve(async (req) => {
     const { image, mimeType } = await req.json()
     if (!image) return json({ message: '이미지가 제공되지 않았습니다.' }, 400)
 
+    // ── Few-shot: 관리자 검토 완료된 바코드 이미지 사례 로드 ──────────────
+    const fewShotContents: any[] = []
+    try {
+      const { data: fewShotLogs } = await admin
+        .from('ai_analysis_logs')
+        .select('ai_analyzed_cause, corrected_cause, image_url')
+        .eq('source_menu', 'MobileBarcode')
+        .eq('is_reviewed', true)
+        .not('image_url', 'is', null)
+        .not('corrected_cause', 'is', null)
+        .order('reviewed_at', { ascending: false })
+        .limit(3)
+
+      for (const log of fewShotLogs ?? []) {
+        try {
+          const imgRes = await fetch(log.image_url)
+          if (!imgRes.ok) continue
+          const imgBuffer = await imgRes.arrayBuffer()
+          const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)))
+          fewShotContents.push({
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: 'image/jpeg', data: imgBase64 } },
+              { text: '이 물류 라벨의 품목코드를 추출하세요. JSON 형식으로만 응답하세요.' },
+            ],
+          })
+          fewShotContents.push({
+            role: 'model',
+            parts: [{ text: `{"product_code": "${log.corrected_cause}", "barcode_type": "text_label"}` }],
+          })
+        } catch {
+          // 개별 이미지 로드 실패 시 건너뜀
+        }
+      }
+    } catch {
+      // few-shot 로드 실패 시 무시하고 계속 진행
+    }
+
     const prompt = `당신은 최고 수준의 물류 SCM 라벨 판독기입니다. 첨부된 사진을 분석하여 오직 JSON 형식으로만 응답하세요.
 바코드가 가장 명확하게 보이는 부분을 찾아 아래 규칙대로 판독하세요.
 
@@ -78,18 +116,25 @@ Deno.serve(async (req) => {
 오직 아래 JSON 형식으로만 응답하세요:
 {"product_code": "추출된코드 또는 null", "barcode_type": "code128 | qr | ean13 | text_label | unknown"}`
 
+    // few-shot 사례 + 실제 분석 요청을 multi-turn contents로 구성
+    const contents = [
+      ...fewShotContents,
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: mimeType || 'image/jpeg', data: image } },
+          { text: prompt },
+        ],
+      },
+    ]
+
     const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inlineData: { mimeType: mimeType || 'image/jpeg', data: image } },
-              { text: prompt },
-            ],
-          }],
+          contents,
           generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } },
         }),
       }
