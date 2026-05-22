@@ -481,6 +481,7 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
     const [isOpen, setIsOpen] = useState(false);
     const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
     const containerRef = useRef(null);
+    const popupRef = useRef(null);
     const pad = n => String(n).padStart(2, '0');
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
@@ -504,7 +505,11 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
 
     useEffect(() => {
         if (!isOpen) return;
-        const onDown = (e) => { if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false); };
+        const onDown = (e) => {
+            if (containerRef.current?.contains(e.target)) return;
+            if (popupRef.current?.contains(e.target)) return;
+            setIsOpen(false);
+        };
         document.addEventListener('mousedown', onDown);
         return () => document.removeEventListener('mousedown', onDown);
     }, [isOpen]);
@@ -533,7 +538,7 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
                 className={`${inputBase} ${className}`}
             />
             {isOpen && createPortal(
-                <div style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[224px] select-none overflow-hidden">
+                <div ref={popupRef} style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[224px] select-none overflow-hidden">
                     {/* 헤더 */}
                     <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
                         <button onClick={prevMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">‹</button>
@@ -595,6 +600,7 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
     const [hoverDate, setHoverDate] = useState(null);
     const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
     const containerRef = useRef(null);
+    const popupRef = useRef(null);
 
     const pad = n => String(n).padStart(2, '0');
     const today = new Date();
@@ -627,10 +633,10 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
     useEffect(() => {
         if (!isOpen) return;
         const onDown = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
-                setIsOpen(false);
-                setHoverDate(null);
-            }
+            if (containerRef.current?.contains(e.target)) return;
+            if (popupRef.current?.contains(e.target)) return;
+            setIsOpen(false);
+            setHoverDate(null);
         };
         document.addEventListener('mousedown', onDown);
         return () => document.removeEventListener('mousedown', onDown);
@@ -710,7 +716,7 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
             )}
 
             {isOpen && createPortal(
-                <div style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[256px] select-none overflow-hidden">
+                <div ref={popupRef} style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[256px] select-none overflow-hidden">
                     {/* 헤더 */}
                     <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
                         <button onClick={prevMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">‹</button>
