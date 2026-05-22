@@ -8,6 +8,21 @@ import { loadXLSX } from './utils.js';
 
 // SharedUI에서 가져옴
 
+const DEFAULT_COLUMNS = [
+    { label: '접수번호',   key: 'reception_no',  w: 200 },
+    { label: '소속 브랜드', key: 'brand',          w: 100 },
+    { label: '품목코드',   key: 'product_code',   w: 150 },
+    { label: '유형',      key: 'issue_type',      w: 160 },
+    { label: '접수자',    key: 'reporter',        w: 90  },
+    { label: '공급업체',   key: 'vendor',          w: 120 },
+    { label: '처리상태',   key: 'status',          w: 100 },
+    { label: '알림톡',    key: 'is_notified',     w: 80  },
+    { label: '요청내용',   key: null,              w: 110 },
+    { label: '처리 내용',  key: null,              w: 110 },
+    { label: '최종 처리자', key: 'final_handler',  w: 120 },
+    { label: '최종 처리일시', key: 'resolved_at',  w: 150 },
+];
+
 // --- 특이사항 리스트 (IssueList) 🌟 화면 고정 & 내부 스크롤 완벽 적용 ---
 const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, setSavedFilters, userProfile }) => {
     const [activeModalRow, setActiveModalRow] = useState(null);
@@ -20,6 +35,82 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
     const [reporterTeamMap, setReporterTeamMap] = useState({});
+
+    // 컬럼 너비 & 순서 (localStorage 사용자별 저장)
+    const [colOrder, setColOrder] = useState(DEFAULT_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths] = useState(DEFAULT_COLUMNS.map(c => c.w));
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+    const resizingRef = useRef(null);
+    const dragSrcRef = useRef(null);
+    const wasDraggedRef = useRef(false);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(`letus_col_${userProfile.id}`));
+            if (saved?.order?.length === DEFAULT_COLUMNS.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS.length) setColWidths(saved.widths);
+        } catch {}
+    }, [userProfile?.id]);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        localStorage.setItem(`letus_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths, userProfile?.id]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS.map(c => c.w));
+        if (userProfile?.id) localStorage.removeItem(`letus_col_${userProfile.id}`);
+    };
+
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+
+    const handleDragStart = (e, visualIdx) => {
+        dragSrcRef.current = visualIdx; wasDraggedRef.current = false;
+        e.dataTransfer.effectAllowed = 'move';
+    };
+    const handleDragOver = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder];
+        const [moved] = newOrder.splice(dragSrcRef.current, 1);
+        newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder);
+        dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
+
+    const renderCell = (origIdx, row) => {
+        switch (origIdx) {
+            case 0:  return <td key={origIdx} className="p-4 font-bold text-gray-800 text-center">{row.reception_no}</td>;
+            case 1:  return <td key={origIdx} className="p-4 font-semibold text-gray-700 text-center">{row.brand}</td>;
+            case 2:  return <td key={origIdx} className="p-4 text-gray-600 truncate text-center" title={row.product_code}>{row.product_code}</td>;
+            case 3:  return <td key={origIdx} className="p-4 text-center"><CategoryBadge category={row.issue_type} /></td>;
+            case 4:  return <td key={origIdx} className="p-4 text-gray-600 text-center">{row.reporter || '물류담당자'}</td>;
+            case 5:  return <td key={origIdx} className="p-4 text-gray-700 font-semibold text-center">{row.vendor || '-'}</td>;
+            case 6:  return <td key={origIdx} className="p-4 text-center"><StatusBadge status={row.status} category={row.issue_type} /></td>;
+            case 7:  return <td key={origIdx} className="p-4 text-center">{row.is_notified ? (<div className="flex justify-center"><span className="flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-600 border border-blue-200 rounded-full shadow-sm" title={`전송완료: ${formatDateTime(row.feedback_sent_at)}`}><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></span></div>) : <span className="text-gray-300 font-bold">-</span>}</td>;
+            case 8:  return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}><button onClick={() => setActiveModalRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${row.status === '조치대기' ? 'bg-gray-50 text-gray-500' : 'bg-white text-letusBlue border-blue-200 hover:bg-blue-50'}`}>{row.status === '조치대기' ? '요청등록' : '요청확인'}</button></td>;
+            case 9:  return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>{['처리 중', '조치완료'].includes(row.status) ? (<button onClick={() => setActiveHandleRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${row.status === '조치완료' ? 'bg-white text-green-600 border-green-200 hover:bg-green-50' : 'bg-yellow-50 text-yellow-600 border-yellow-300 hover:bg-yellow-100'}`}>{row.status === '조치완료' ? '조치 확인' : '조치 등록'}</button>) : <span className="text-gray-300">-</span>}</td>;
+            case 10: return <td key={origIdx} className="p-4 text-gray-600 font-medium text-center">{row.final_handler || '-'}</td>;
+            case 11: return <td key={origIdx} className="p-4 text-gray-500 font-mono text-xs text-center">{formatDateTime(row.resolved_at)}</td>;
+            default: return null;
+        }
+    };
 
     useEffect(() => { setDraftFilters({ ...savedFilters }); }, [savedFilters]);
 
@@ -292,6 +383,10 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
             {/* 2. 선택실행 (드롭다운) 구역 (사용자 관리 스타일로 통일) */}
             <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0">
                 <div className="flex items-center gap-3">
+                    <button onClick={resetColSettings} className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors" title="컬럼 너비·순서를 기본값으로 초기화">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        칼럼 초기화
+                    </button>
                     <div className="relative">
                         <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
                             선택실행
@@ -323,23 +418,50 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
             {/* 3. 표 구역 */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
-                    <table className="w-full text-left whitespace-nowrap table-fixed min-w-[1480px]">
+                    <table className="w-full text-left whitespace-nowrap table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="p-4 pl-6 w-10 text-center">
+                                <th className="p-4 pl-6 w-10 text-center shrink-0">
                                     <input type="checkbox" checked={sortedIssues.length > 0 && selectedIds.length === sortedIssues.length} onChange={handleSelectAll} className="w-4 h-4 accent-letusBlue cursor-pointer" title="전체 선택" />
                                 </th>
-                                {[{ label: '접수번호', key: 'reception_no', w: '200px' }, { label: '소속 브랜드', key: 'brand', w: '100px' }, { label: '품목코드', key: 'product_code', w: 'auto' }, { label: '유형', key: 'issue_type', w: '160px' }, { label: '접수자', key: 'reporter', w: '90px' }, { label: '공급업체', key: 'vendor', w: '120px' }, { label: '처리상태', key: 'status', w: '100px' }, { label: '알림톡', key: 'is_notified', w: '80px' }, { label: '요청내용', key: null, w: '110px' }, { label: '처리 내용', key: null, w: '110px' }, { label: '최종 처리자', key: 'final_handler', w: '120px' }, { label: '최종 처리일시', key: 'resolved_at', w: '150px' }].map((col, idx) => (
-                                    <th key={idx} className={`p-4 text-center select-none ${col.key ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`} style={{ width: col.w }} onClick={() => col.key && requestSort(col.key)}>
-                                        <div className="flex items-center justify-center">{col.label} {col.key && getSortIcon(col.key)}</div>
-                                    </th>
-                                ))}
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS[origIdx];
+                                    return (
+                                        <th
+                                            key={origIdx}
+                                            className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragOver={(e) => handleDragOver(e, visualIdx)}
+                                            onDrop={(e) => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                <span
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, visualIdx)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
+                                                    title="드래그로 순서 변경"
+                                                >⠿</span>
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div
+                                                className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)}
+                                                onClick={e => e.stopPropagation()}
+                                            />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="13" className="py-32 text-center align-middle">
+                                    <td colSpan={colOrder.length + 1} className="py-32 text-center align-middle">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div>
                                             <p className="text-gray-500 font-bold text-[13px]">데이터를 불러오는 중입니다...</p>
@@ -347,24 +469,13 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                                     </td>
                                 </tr>
                             ) : sortedIssues.length === 0 ? (
-                                <tr><td colSpan="13" className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
+                                <tr><td colSpan={colOrder.length + 1} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : sortedIssues.map((row) => (
                                 <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`} onClick={(e) => handleSelectOne(e, row.id)}>
                                     <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                         <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={(e) => handleSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
                                     </td>
-                                    <td className="p-4 font-bold text-gray-800 text-center">{row.reception_no}</td>
-                                    <td className="p-4 font-semibold text-gray-700 text-center">{row.brand}</td>
-                                    <td className="p-4 text-gray-600 truncate text-center" title={row.product_code}>{row.product_code}</td>
-                                    <td className="p-4 text-center"><CategoryBadge category={row.issue_type} /></td>
-                                    <td className="p-4 text-gray-600 text-center">{row.reporter || '물류담당자'}</td>
-                                    <td className="p-4 text-gray-700 font-semibold text-center">{row.vendor || '-'}</td>
-                                    <td className="p-4 text-center"><StatusBadge status={row.status} category={row.issue_type} /></td>
-                                    <td className="p-4 text-center">{row.is_notified ? (<div className="flex justify-center"><span className="flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-600 border border-blue-200 rounded-full shadow-sm" title={`전송완료: ${formatDateTime(row.feedback_sent_at)}`}><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></span></div>) : <span className="text-gray-300 font-bold">-</span>}</td>
-                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}><button onClick={() => setActiveModalRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${row.status === '조치대기' ? 'bg-gray-50 text-gray-500' : 'bg-white text-letusBlue border-blue-200 hover:bg-blue-50'}`}>{row.status === '조치대기' ? '요청등록' : '요청확인'}</button></td>
-                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}>{['처리 중', '조치완료'].includes(row.status) ? (<button onClick={() => setActiveHandleRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${row.status === '조치완료' ? 'bg-white text-green-600 border-green-200 hover:bg-green-50' : 'bg-yellow-50 text-yellow-600 border-yellow-300 hover:bg-yellow-100'}`}>{row.status === '조치완료' ? '조치 확인' : '조치 등록'}</button>) : <span className="text-gray-300">-</span>}</td>
-                                    <td className="p-4 text-gray-600 font-medium text-center">{row.final_handler || '-'}</td>
-                                    <td className="p-4 text-gray-500 font-mono text-xs text-center">{formatDateTime(row.resolved_at)}</td>
+                                    {colOrder.map(origIdx => renderCell(origIdx, row))}
                                 </tr>
                             ))}
                         </tbody>
