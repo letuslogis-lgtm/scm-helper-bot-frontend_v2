@@ -87,6 +87,7 @@ const formatDateTime = (isoString) => {
 const ImageSlider = ({ imageUrlString }) => {
     const urls = imageUrlString ? imageUrlString.split(',').map(s => s.trim()).filter(Boolean) : [];
     const [currentIndex, setCurrentIndex] = React.useState(0);
+    const [lightboxOpen, setLightboxOpen] = React.useState(false);
 
     const prev = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.max(0, i - 1)); };
     const next = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.min(urls.length - 1, i + 1)); };
@@ -95,6 +96,17 @@ const ImageSlider = ({ imageUrlString }) => {
         if (e.key === 'ArrowLeft') prev();
         if (e.key === 'ArrowRight') next();
     };
+
+    React.useEffect(() => {
+        if (!lightboxOpen) return;
+        const handler = (e) => {
+            if (e.key === 'ArrowLeft') setCurrentIndex(i => Math.max(0, i - 1));
+            if (e.key === 'ArrowRight') setCurrentIndex(i => Math.min(urls.length - 1, i + 1));
+            if (e.key === 'Escape') setLightboxOpen(false);
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [lightboxOpen, urls.length]);
 
     if (urls.length === 0) {
         return (
@@ -114,7 +126,8 @@ const ImageSlider = ({ imageUrlString }) => {
                 <img
                     src={urls[currentIndex]}
                     alt={`현장사진 ${currentIndex + 1}`}
-                    className="w-full h-full object-contain transition-opacity duration-300"
+                    className="w-full h-full object-contain transition-opacity duration-300 cursor-zoom-in"
+                    onClick={() => setLightboxOpen(true)}
                 />
 
                 {urls.length > 1 && (
@@ -151,6 +164,50 @@ const ImageSlider = ({ imageUrlString }) => {
                             className={`w-1.5 h-1.5 rounded-full outline-none transition-all ${idx === currentIndex ? 'bg-letusBlue scale-125' : 'bg-gray-300 hover:bg-gray-400'}`}
                         />
                     ))}
+                </div>
+            )}
+
+            {lightboxOpen && (
+                <div
+                    className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
+                    onClick={() => setLightboxOpen(false)}
+                >
+                    <button
+                        className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-colors"
+                        onClick={() => setLightboxOpen(false)}
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+
+                    <img
+                        src={urls[currentIndex]}
+                        alt={`현장사진 ${currentIndex + 1}`}
+                        className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl"
+                        onClick={e => e.stopPropagation()}
+                    />
+
+                    {urls.length > 1 && (
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white text-sm font-bold bg-black/50 px-4 py-1.5 rounded-full">
+                            {currentIndex + 1} / {urls.length}
+                        </div>
+                    )}
+
+                    {urls.length > 1 && currentIndex > 0 && (
+                        <button
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center transition-colors"
+                            onClick={e => { e.stopPropagation(); setCurrentIndex(i => Math.max(0, i - 1)); }}
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                    )}
+                    {urls.length > 1 && currentIndex < urls.length - 1 && (
+                        <button
+                            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center transition-colors"
+                            onClick={e => { e.stopPropagation(); setCurrentIndex(i => Math.min(urls.length - 1, i + 1)); }}
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    )}
                 </div>
             )}
         </div>
