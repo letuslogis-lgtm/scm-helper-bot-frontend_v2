@@ -205,6 +205,19 @@ const autoResize = (el) => {
  el.style.height = el.scrollHeight + 'px';
 };
 
+// 편집 거리 계산 (바코드 유사 코드 추천용)
+function levenshtein(a, b) {
+ const m = a.length, n = b.length;
+ const dp = Array.from({ length: m + 1 }, (_, i) => [i]);
+ for (let j = 0; j <= n; j++) dp[0][j] = j;
+ for (let i = 1; i <= m; i++)
+  for (let j = 1; j <= n; j++)
+   dp[i][j] = a[i - 1] === b[j - 1]
+    ? dp[i - 1][j - 1]
+    : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+ return dp[m][n];
+}
+
 const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) => {
  const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
  const [relayText, setRelayText] = useState(row.relay_content || '');
@@ -212,6 +225,43 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  const relayRef = React.useRef(null);
  const purchaseRef = React.useRef(null);
  React.useEffect(() => { autoResize(relayRef.current); autoResize(purchaseRef.current); }, []);
+
+ // 바코드 오류 유사 코드 추천
+ const [codeSuggestions, setCodeSuggestions] = useState([]);
+ const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+ const [confirmedCode, setConfirmedCode] = useState(null);
+
+ React.useEffect(() => {
+  if (row.issue_type !== '바코드 오류' || !row.product_code || !row.brand) return;
+  const scanned = row.product_code.trim().toUpperCase();
+  setSuggestionsLoading(true);
+  supabase.from('products')
+   .select('item_code, item_name, item_color')
+   .eq('brand_category', row.brand)
+   .then(({ data }) => {
+    if (!data) return;
+    const candidates = data
+     .map(p => ({ ...p, dist: levenshtein(scanned, (p.item_code || '').toUpperCase()) }))
+     .filter(p => p.dist > 0 && p.dist <= 2)
+     .sort((a, b) => a.dist - b.dist)
+     .slice(0, 3);
+    setCodeSuggestions(candidates);
+   })
+   .finally(() => setSuggestionsLoading(false));
+ }, [row.id]);
+
+ const handleSelectCode = async (code) => {
+  try {
+   const { error } = await supabase.from('logistics_issues')
+    .update({ product_code: code })
+    .eq('id', row.id);
+   if (error) throw error;
+   setConfirmedCode(code);
+   setCodeSuggestions([]);
+  } catch {
+   alert('코드 업데이트 중 오류가 발생했습니다.');
+  }
+ };
  const isAdmin = userProfile?.role !== '사용자';
  const isWaiting = row.status === '조치대기';
  const isProcessing = row.status === '처리 중';
@@ -296,6 +346,40 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {row.request_content || '(내용 없음)'}
  </div>
  </div>
+ )}
+
+ {/* 바코드 오류 — 유사 코드 추천 */}
+ {row.issue_type === '바코드 오류' && (
+  <div className="flex flex-col">
+   <h4 className="text-sm font-bold text-gray-700 mb-2">🔍 유사 코드 추천</h4>
+   <div className="text-xs text-gray-500 mb-2">
+    스캔된 코드: <span className="font-mono font-bold text-gray-800">{row.product_code || '(없음)'}</span>
+    {confirmedCode && (
+     <span className="ml-2 text-green-600 font-bold">→ {confirmedCode} ✅ 수정됨</span>
+    )}
+   </div>
+   {suggestionsLoading ? (
+    <div className="text-xs text-gray-400 py-1 animate-pulse">유사 코드 검색 중...</div>
+   ) : codeSuggestions.length > 0 ? (
+    <div className="flex flex-col gap-1.5">
+     {codeSuggestions.map((s) => (
+      <button
+       key={s.item_code}
+       onClick={() => handleSelectCode(s.item_code)}
+       className="flex items-center justify-between bg-amber-50 border border-amber-200 hover:bg-amber-100 active:bg-amber-200 rounded-lg px-3 py-2 text-sm transition-colors text-left"
+      >
+       <div className="flex flex-col">
+        <span className="font-mono font-bold text-gray-800">{s.item_code}</span>
+        <span className="text-xs text-gray-500">{s.item_name || s.item_color || ''}</span>
+       </div>
+       <span className="text-xs text-amber-600 font-bold ml-2 shrink-0 bg-amber-100 px-2 py-0.5 rounded-full">{s.dist}자 차이</span>
+      </button>
+     ))}
+    </div>
+   ) : !confirmedCode ? (
+    <div className="text-xs text-gray-400 py-1">유사한 코드를 찾지 못했습니다.</div>
+   ) : null}
+  </div>
  )}
 
  {/* 이관 메시지 — 관리자 입력 / 이관팀에 표시 */}
