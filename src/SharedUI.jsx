@@ -577,7 +577,7 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
     );
 };
 
-const DateRangeInput = ({ startDate, endDate, onChange, className = '' }) => {
+const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', className = '' }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selecting, setSelecting] = useState('start');
     const [hoverDate, setHoverDate] = useState(null);
@@ -666,17 +666,26 @@ const DateRangeInput = ({ startDate, endDate, onChange, className = '' }) => {
 
     return (
         <div ref={containerRef} className={`relative inline-block ${className}`}>
-            <div
-                onClick={handleOpen}
-                className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] flex items-center gap-1.5 cursor-pointer text-gray-700 bg-white hover:border-gray-300 min-w-[210px]"
-            >
-                <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className={displayValue ? 'text-gray-700' : 'text-gray-400'}>
+            {variant === 'ghost' ? (
+                <span
+                    onClick={handleOpen}
+                    className={`bg-transparent text-xs text-gray-700 font-bold cursor-pointer px-1 whitespace-nowrap ${className}`}
+                >
                     {displayValue || '날짜 범위 선택'}
                 </span>
-            </div>
+            ) : (
+                <div
+                    onClick={handleOpen}
+                    className={`border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] flex items-center gap-1.5 cursor-pointer text-gray-700 bg-white hover:border-gray-300 min-w-[210px] ${className}`}
+                >
+                    <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className={displayValue ? 'text-gray-700' : 'text-gray-400'}>
+                        {displayValue || '날짜 범위 선택'}
+                    </span>
+                </div>
+            )}
 
             {isOpen && (
                 <div className="absolute top-full left-0 mt-1 z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[256px] select-none overflow-hidden">

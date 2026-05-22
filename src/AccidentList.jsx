@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
 import { loadXLSXStyle } from './utils.js';
-import { CloseIcon, SearchButton, DateInput } from './SharedUI.jsx';
+import { CloseIcon, SearchButton, DateRangeInput } from './SharedUI.jsx';
 import { AccidentModal, AccidentBulkEditModal, AccidentUploadModal } from './AccidentModals.jsx';
 
 const NORMAL_COLUMNS = [
@@ -814,11 +814,11 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">서비스예약일</label>
-                        <div className="flex items-center">
-                            <DateInput value={draftFilters.startDate} onChange={v => setDraftFilters({ ...draftFilters, startDate: v })} />
-                            <span className="mx-1 text-gray-400 text-xs font-bold">~</span>
-                            <DateInput value={draftFilters.endDate} onChange={v => setDraftFilters({ ...draftFilters, endDate: v })} />
-                        </div>
+                        <DateRangeInput
+                            startDate={draftFilters.startDate}
+                            endDate={draftFilters.endDate}
+                            onChange={(s, e) => setDraftFilters({ ...draftFilters, startDate: s, endDate: e })}
+                        />
                     </div>
 
                     <div className="flex items-center shrink-0">

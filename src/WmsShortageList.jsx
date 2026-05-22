@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts';
 import { loadXLSX } from './utils.js';
 import { supabase } from './supabaseClient.js';
-import { SearchButton, DateInput } from './SharedUI.jsx';
+import { SearchButton, DateRangeInput } from './SharedUI.jsx';
 
 const DEFAULT_COLUMNS = [
     { key: 'delivery_date', label: '납기일자',  w: 80  },
@@ -1600,11 +1600,11 @@ export const WmsShortageList = ({ userProfile }) => {
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">납기 일자</label>
-                        <div className="flex items-center">
-                            <DateInput value={draft.startDate} onChange={v => setD('startDate', v)} />
-                            <span className="mx-1 text-gray-400 text-xs font-bold">~</span>
-                            <DateInput value={draft.endDate} onChange={v => setD('endDate', v)} />
-                        </div>
+                        <DateRangeInput
+                            startDate={draft.startDate}
+                            endDate={draft.endDate}
+                            onChange={(s, e) => setDraft(p => ({ ...p, startDate: s, endDate: e }))}
+                        />
                     </div>
 
                     <MultiSelect label="브랜드" options={BRANDS} selected={draft.brands} onChange={v => setD('brands', v)} />

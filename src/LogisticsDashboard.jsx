@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { TableSkeleton, CATEGORY_COLORS, BRAND_COLORS, StatusBadge, CategoryBadge, DateInput } from './SharedUI.jsx';
+import { TableSkeleton, CATEGORY_COLORS, BRAND_COLORS, StatusBadge, CategoryBadge, DateRangeInput } from './SharedUI.jsx';
 
 
 
@@ -293,9 +293,12 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                         {/* 사용자 지정 시 나타나는 달력 폼 */}
                         {filterType === 'CUSTOM' && (
                             <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 animate-fade-in shadow-sm">
-                                <DateInput value={customDate.start} onChange={v => setCustomDate({ ...customDate, start: v })} variant="ghost" />
-                                <span className="text-gray-400 text-xs mx-1">~</span>
-                                <DateInput value={customDate.end} onChange={v => setCustomDate({ ...customDate, end: v })} variant="ghost" />
+                                <DateRangeInput
+                                    startDate={customDate.start}
+                                    endDate={customDate.end}
+                                    onChange={(s, e) => setCustomDate({ start: s, end: e })}
+                                    variant="ghost"
+                                />
                             </div>
                         )}
 
