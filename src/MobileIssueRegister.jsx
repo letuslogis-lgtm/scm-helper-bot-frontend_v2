@@ -195,14 +195,15 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
         if (!issueType) return alert('이슈 유형을 선택해주세요.');
         setIsSubmitting(true);
         try {
-            const photoPayload = await Promise.all(
-                photos.map(async (p) => ({ base64: await compressImage(p.file), mimeType: 'image/jpeg' }))
-            );
+            const [photoPayload, photoHqPayload] = await Promise.all([
+                Promise.all(photos.map(async (p) => ({ base64: await compressImage(p.file, 1024, 0.6), mimeType: 'image/jpeg' }))),
+                Promise.all(photos.map(async (p) => ({ base64: await compressImage(p.file, 1920, 0.85), mimeType: 'image/jpeg' }))),
+            ]);
             await invokeFunction('submit-mobile-issue', {
                 brand, issue_type: issueType,
                 product_code: productCode || null,
                 vendor: vendor || null,
-                detail, photos: photoPayload,
+                detail, photos: photoPayload, photos_hq: photoHqPayload,
             });
             setSubmitted(true);
         } catch (err) {

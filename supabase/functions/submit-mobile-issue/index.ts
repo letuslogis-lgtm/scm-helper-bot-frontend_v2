@@ -54,7 +54,8 @@ const ISSUE_TYPES = new Set([
 ])
 
 const MAX_PHOTOS = 5
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024 // 개당 2MB (클라이언트가 압축한 후 보내므로 충분)
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024     // AI용 개당 2MB
+const MAX_PHOTO_BYTES_HQ = 6 * 1024 * 1024 // HQ용 개당 6MB (1920px/0.85)
 const MAX_DETAIL_LEN = 5000
 
 function json(body: unknown, status = 200) {
@@ -126,6 +127,9 @@ Deno.serve(async (req) => {
     const photos = Array.isArray(body.photos)
       ? (body.photos as Array<{ base64?: string; mimeType?: string }>)
       : []
+    const photosHq = Array.isArray(body.photos_hq)
+      ? (body.photos_hq as Array<{ base64?: string; mimeType?: string }>)
+      : []
 
     // ---- 2) 화이트리스트 + 길이 검증 ----
     if (!BRANDS.has(brand)) return json({ error: `Invalid brand: ${brand}` }, 400)
@@ -137,38 +141,58 @@ Deno.serve(async (req) => {
       return json({ error: `too many photos (max ${MAX_PHOTOS})` }, 400)
     }
 
-    // ---- 3) 사진 업로드 ----
-    const photoUrls: string[] = []
-    for (let i = 0; i < photos.length; i++) {
-      const photo = photos[i]
-      if (!photo?.base64) continue
+    // ---- 3) 사진 업로드 (AI용 + HQ용) ----
+    const uploadPhotos = async (
+      list: Array<{ base64?: string; mimeType?: string }>,
+      folder: string,
+      maxBytes: number,
+      label: string,
+    ): Promise<string[]> => {
+      const urls: string[] = []
+      for (let i = 0; i < list.length; i++) {
+        const photo = list[i]
+        if (!photo?.base64) continue
 
-      let bytes: Uint8Array
-      try {
-        bytes = base64ToBytes(photo.base64)
-      } catch {
-        return json({ error: `photo[${i}]: invalid base64` }, 400)
+        let bytes: Uint8Array
+        try {
+          bytes = base64ToBytes(photo.base64)
+        } catch {
+          throw new Error(`${label}[${i}]: invalid base64`)
+        }
+        if (bytes.byteLength > maxBytes) {
+          throw new Error(`${label}[${i}]: too large (max ${maxBytes} bytes)`)
+        }
+
+        const mime = photo.mimeType ?? 'image/jpeg'
+        const ext = mime.includes('/') ? mime.split('/')[1] : 'jpg'
+        const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext.toLowerCase()) ? ext : 'jpg'
+        const filePath = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${safeExt}`
+
+        const { error: uploadErr } = await admin.storage
+          .from('issue_images')
+          .upload(filePath, bytes, { contentType: mime, upsert: false })
+
+        if (uploadErr) {
+          console.error(`[submit-mobile-issue] ${label} upload failed:`, uploadErr.message)
+          throw new Error(`Upload failed: ${uploadErr.message}`)
+        }
+
+        const { data: urlData } = admin.storage.from('issue_images').getPublicUrl(filePath)
+        urls.push(urlData.publicUrl)
       }
-      if (bytes.byteLength > MAX_PHOTO_BYTES) {
-        return json({ error: `photo[${i}]: too large (max ${MAX_PHOTO_BYTES} bytes)` }, 400)
-      }
+      return urls
+    }
 
-      const mime = photo.mimeType ?? 'image/jpeg'
-      const ext = mime.includes('/') ? mime.split('/')[1] : 'jpg'
-      const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext.toLowerCase()) ? ext : 'jpg'
-      const filePath = `mobile/${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${safeExt}`
-
-      const { error: uploadErr } = await admin.storage
-        .from('issue_images')
-        .upload(filePath, bytes, { contentType: mime, upsert: false })
-
-      if (uploadErr) {
-        console.error('[submit-mobile-issue] upload failed:', uploadErr.message)
-        return json({ error: `Upload failed: ${uploadErr.message}` }, 500)
-      }
-
-      const { data: urlData } = admin.storage.from('issue_images').getPublicUrl(filePath)
-      photoUrls.push(urlData.publicUrl)
+    let photoUrls: string[] = []
+    let photoHqUrls: string[] = []
+    try {
+      ;[photoUrls, photoHqUrls] = await Promise.all([
+        uploadPhotos(photos, 'mobile', MAX_PHOTO_BYTES, 'photo'),
+        uploadPhotos(photosHq, 'mobile_hq', MAX_PHOTO_BYTES_HQ, 'photo_hq'),
+      ])
+    } catch (uploadEx) {
+      const msg = uploadEx instanceof Error ? uploadEx.message : 'Upload error'
+      return json({ error: msg }, msg.includes('too large') || msg.includes('invalid base64') ? 400 : 500)
     }
 
     // ---- 4) logistics_issues INSERT ----
@@ -185,6 +209,7 @@ Deno.serve(async (req) => {
         reporter: reporterName,
         status: '조치대기',
         image_url: photoUrls.length > 0 ? photoUrls.join(',') : null,
+        image_url_hq: photoHqUrls.length > 0 ? photoHqUrls.join(',') : null,
         created_at: new Date().toISOString(),
       }])
       .select('id')

@@ -284,7 +284,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
  <div className="flex flex-col">
  <h4 className="text-sm font-bold text-gray-700 mb-2">📸 현장 사진</h4>
- <ImageSlider imageUrlString={row.image_url} />
+ <ImageSlider imageUrlString={row.image_url} imageUrlHqString={row.image_url_hq} />
  </div>
 
  <div className="flex flex-col space-y-4">
@@ -413,7 +413,7 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
  <div className="flex flex-col">
  <h4 className="text-sm font-bold text-gray-700 mb-2">📸 현장 사진</h4>
- <ImageSlider imageUrlString={row.image_url} />
+ <ImageSlider imageUrlString={row.image_url} imageUrlHqString={row.image_url_hq} />
  </div>
 
  <div className="flex flex-col space-y-4">

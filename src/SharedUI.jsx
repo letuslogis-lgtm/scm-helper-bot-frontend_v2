@@ -84,8 +84,9 @@ const formatDateTime = (isoString) => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-const ImageSlider = ({ imageUrlString }) => {
+const ImageSlider = ({ imageUrlString, imageUrlHqString }) => {
     const urls = imageUrlString ? imageUrlString.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const hqUrls = imageUrlHqString ? imageUrlHqString.split(',').map(s => s.trim()).filter(Boolean) : [];
     const [currentIndex, setCurrentIndex] = React.useState(0);
     const [lightboxOpen, setLightboxOpen] = React.useState(false);
 
@@ -180,7 +181,7 @@ const ImageSlider = ({ imageUrlString }) => {
                     </button>
 
                     <img
-                        src={urls[currentIndex]}
+                        src={hqUrls[currentIndex] || urls[currentIndex]}
                         alt={`현장사진 ${currentIndex + 1}`}
                         className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl"
                         onClick={e => e.stopPropagation()}
