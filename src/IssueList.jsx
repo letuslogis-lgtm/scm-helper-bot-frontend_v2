@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
-import { StatusBadge, CategoryBadge, formatDateTime, SearchButton, DateInput } from './SharedUI.jsx';
+import { StatusBadge, CategoryBadge, formatDateTime, SearchButton, DateRangeInput } from './SharedUI.jsx';
 import { RequestModal, HandleModal } from './SupportCenter.jsx';
 import { loadXLSX } from './utils.js';
 
@@ -320,12 +320,11 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">등록일자</label>
-                        <div className="flex items-center">
-                            {/* 🚩 [수정] 인풋 포커스 색상과 높이(h-[30px]) 통일 */}
-                            <DateInput value={draftFilters.startDate} onChange={v => setDraftFilters({ ...draftFilters, startDate: v })} />
-                            <span className="mx-1 text-gray-400 text-xs font-bold">~</span>
-                            <DateInput value={draftFilters.endDate} onChange={v => setDraftFilters({ ...draftFilters, endDate: v })} />
-                        </div>
+                        <DateRangeInput
+                            startDate={draftFilters.startDate}
+                            endDate={draftFilters.endDate}
+                            onChange={(start, end) => setDraftFilters({ ...draftFilters, startDate: start, endDate: end })}
+                        />
                     </div>
 
                     <MultiSelect label="처리상태" options={['조치대기', '처리 중', '조치완료']} selected={draftFilters.status} onChange={(val) => setDraftFilters({ ...draftFilters, status: val })} />
