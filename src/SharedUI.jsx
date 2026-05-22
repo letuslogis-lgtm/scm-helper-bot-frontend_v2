@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase, invokeFunction } from './supabaseClient.js';
 import { VendorSearchModal } from './CommonComponents.jsx';
 import { MenuPermissionModal } from './CommonComponents.jsx';
@@ -531,7 +532,7 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
                 onClick={handleOpen}
                 className={`${inputBase} ${className}`}
             />
-            {isOpen && (
+            {isOpen && createPortal(
                 <div style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[224px] select-none overflow-hidden">
                     {/* 헤더 */}
                     <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
@@ -581,7 +582,8 @@ const DateInput = ({ value, onChange, variant = 'outlined', className = '' }) =>
                         <button onClick={() => { onChange(''); setIsOpen(false); }} className="text-[11px] text-gray-400 hover:text-gray-600 font-bold">지우기</button>
                         <button onClick={() => { onChange(todayStr); setIsOpen(false); }} className="text-[11px] text-letusOrange hover:opacity-70 font-bold">오늘</button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
@@ -707,7 +709,7 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
                 </div>
             )}
 
-            {isOpen && (
+            {isOpen && createPortal(
                 <div style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }} className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[256px] select-none overflow-hidden">
                     {/* 헤더 */}
                     <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
@@ -795,7 +797,8 @@ const DateRangeInput = ({ startDate, endDate, onChange, variant = 'outlined', cl
                         <button onClick={() => { onChange(todayStr, todayStr); setIsOpen(false); setHoverDate(null); setSelecting('start'); }}
                             className="text-[11px] text-letusOrange hover:opacity-70 font-bold">오늘</button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
