@@ -243,10 +243,13 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
 
                 {/* 1. 사진 촬영 */}
                 <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-                    <h3 className="text-slate-700 font-bold text-sm mb-3 flex items-center gap-2">
+                    <h3 className="text-slate-700 font-bold text-sm mb-1.5 flex items-center gap-2">
                         <span className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center text-sm">📸</span>
                         현장 사진
                     </h3>
+                    <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 leading-relaxed">
+                        💡 바코드가 선명하게 보이는 <span className="font-bold">근접 사진</span>을 포함해주세요. 전체 사진만 있으면 AI가 코드를 인식하지 못할 수 있습니다.
+                    </p>
                     <div className="grid grid-cols-3 gap-2.5">
                         {photos.map((p, idx) => (
                             <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200">
