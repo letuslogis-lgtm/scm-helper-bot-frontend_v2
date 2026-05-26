@@ -436,10 +436,6 @@ const WorkerManagement = () => {
                                             onDragLeave={() => setDragOverIdx(null)}
                                         >
                                             <div className="flex items-center justify-center gap-1">
-                                                <span draggable onDragStart={(e) => handleDragStart(e, visualIdx)} onDragEnd={handleDragEnd}
-                                                    onClick={e => e.stopPropagation()}
-                                                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
-                                                    title="드래그로 순서 변경">⠿</span>
                                                 {col.label}
                                                 {col.key && getSortIcon(col.key)}
                                             </div>
