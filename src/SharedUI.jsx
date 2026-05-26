@@ -90,6 +90,8 @@ const ImageSlider = ({ imageUrlString, imageUrlHqString }) => {
     const hqUrls = imageUrlHqString ? imageUrlHqString.split(',').map(s => s.trim()).filter(Boolean) : [];
     const [currentIndex, setCurrentIndex] = React.useState(0);
     const [lightboxOpen, setLightboxOpen] = React.useState(false);
+    const [rotation, setRotation] = React.useState(0);
+    React.useEffect(() => { setRotation(0); }, [currentIndex]);
 
     const prev = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.max(0, i - 1)); };
     const next = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.min(urls.length - 1, i + 1)); };
@@ -184,9 +186,26 @@ const ImageSlider = ({ imageUrlString, imageUrlHqString }) => {
                     <img
                         src={hqUrls[currentIndex] || urls[currentIndex]}
                         alt={`현장사진 ${currentIndex + 1}`}
-                        className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl"
+                        className="object-contain rounded shadow-2xl transition-transform duration-300"
+                        style={{
+                            transform: `rotate(${rotation}deg)`,
+                            maxHeight: rotation % 180 === 0 ? '90vh' : '90vw',
+                            maxWidth:  rotation % 180 === 0 ? '90vw' : '90vh',
+                        }}
                         onClick={e => e.stopPropagation()}
                     />
+
+                    {/* 회전 버튼 */}
+                    <button
+                        className="absolute bottom-6 right-6 w-10 h-10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-colors"
+                        title="90° 회전"
+                        onClick={e => { e.stopPropagation(); setRotation(r => (r + 90) % 360); }}
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 20v-5h-.581m-15.357-2A8.001 8.001 0 0019.419 15m0 0H15" />
+                        </svg>
+                    </button>
 
                     {urls.length > 1 && (
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white text-sm font-bold bg-black/50 px-4 py-1.5 rounded-full">

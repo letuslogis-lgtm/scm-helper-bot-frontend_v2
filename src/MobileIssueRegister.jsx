@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, invokeFunction } from './supabaseClient.js';
+import exifr from 'exifr';
 
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
 const ISSUE_TYPE_GROUPS = [
@@ -60,7 +61,9 @@ export const MobileIssueRegister = () => {
     const [detail, setDetail] = useState('');
 
     const [photos, setPhotos] = useState([]);
-    const fileRef = useRef(null);
+    const [showPhotoSheet, setShowPhotoSheet] = useState(false);
+    const cameraRef = useRef(null);
+    const galleryRef = useRef(null);
 
 const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
@@ -101,15 +104,30 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
         setAiResult(null);
     };
 
-    const compressImage = (file, maxWidth = 1024, quality = 0.6) => {
+    const compressImage = async (file, maxWidth = 1024, quality = 0.6) => {
+        let orientation = 1;
+        try { orientation = await exifr.orientation(file) || 1; } catch {}
+
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
+                const W = img.width, H = img.height;
+                const ratio = Math.min(maxWidth / W, maxWidth / H, 1);
+                const sw = W * ratio, sh = H * ratio;
+                const needsSwap = orientation === 6 || orientation === 8;
+
                 const canvas = document.createElement('canvas');
-                const ratio = Math.min(maxWidth / img.width, maxWidth / img.height, 1);
-                canvas.width = img.width * ratio;
-                canvas.height = img.height * ratio;
-                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.width  = needsSwap ? sh : sw;
+                canvas.height = needsSwap ? sw : sh;
+
+                const ctx = canvas.getContext('2d');
+                ctx.save();
+                if (orientation === 6) { ctx.translate(canvas.width, 0);          ctx.rotate(Math.PI / 2);  }
+                else if (orientation === 8) { ctx.translate(0, canvas.height);    ctx.rotate(-Math.PI / 2); }
+                else if (orientation === 3) { ctx.translate(canvas.width, canvas.height); ctx.rotate(Math.PI); }
+                ctx.drawImage(img, 0, 0, sw, sh);
+                ctx.restore();
+
                 resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
             };
             img.src = URL.createObjectURL(file);
@@ -288,7 +306,7 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                         ))}
                         {photos.length < 5 && (
                             <button
-                                onClick={() => fileRef.current?.click()}
+                                onClick={() => setShowPhotoSheet(true)}
                                 className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1 text-slate-400 active:bg-slate-50 transition-colors"
                             >
                                 <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -299,7 +317,44 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                             </button>
                         )}
                     </div>
-                    <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple onChange={handlePhotoCapture} className="hidden" />
+                    <input ref={cameraRef}  type="file" accept="image/*" capture="environment" multiple onChange={handlePhotoCapture} className="hidden" />
+                    <input ref={galleryRef} type="file" accept="image/*"                       multiple onChange={handlePhotoCapture} className="hidden" />
+
+                    {/* 사진 추가 액션시트 */}
+                    {showPhotoSheet && (
+                        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowPhotoSheet(false)}>
+                            <div className="w-full bg-white rounded-t-2xl p-4 pb-10 shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+                                <p className="text-sm font-bold text-gray-700 mb-3 text-center">사진 추가 방법 선택</p>
+                                <button
+                                    onClick={() => { cameraRef.current?.click(); setShowPhotoSheet(false); }}
+                                    className="w-full py-4 flex items-center gap-4 hover:bg-gray-50 rounded-xl px-4 transition-colors"
+                                >
+                                    <span className="text-2xl">📷</span>
+                                    <div className="text-left">
+                                        <div className="font-bold text-gray-800 text-sm">카메라로 찍기</div>
+                                        <div className="text-xs text-gray-400 mt-0.5">지금 바로 촬영합니다</div>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => { galleryRef.current?.click(); setShowPhotoSheet(false); }}
+                                    className="w-full py-4 flex items-center gap-4 hover:bg-gray-50 rounded-xl px-4 transition-colors"
+                                >
+                                    <span className="text-2xl">🖼️</span>
+                                    <div className="text-left">
+                                        <div className="font-bold text-gray-800 text-sm">갤러리에서 선택</div>
+                                        <div className="text-xs text-gray-400 mt-0.5">저장된 사진을 선택합니다</div>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => setShowPhotoSheet(false)}
+                                    className="w-full py-3 mt-2 text-sm font-bold text-gray-400 hover:bg-gray-50 rounded-xl transition-colors"
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {photos.length > 0 && (
                         <button
