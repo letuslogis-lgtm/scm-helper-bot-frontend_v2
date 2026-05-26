@@ -827,22 +827,32 @@ const DeptReplyModal = ({ row, onClose, onReload }) => {
      </div>
      <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><CloseIcon /></button>
     </div>
-    <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
-     <div>
-      <h4 className="text-sm font-bold text-gray-700 mb-2">📋 이관 요청 내용</h4>
-      <div className="w-full border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-600 min-h-[60px]">
-       {row.relay_content || '(내용 없음)'}
+    <div className="p-5 overflow-y-auto max-h-[70vh]">
+     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      {/* 왼쪽: 현장 사진 */}
+      <div className="flex flex-col">
+       <h4 className="text-sm font-bold text-gray-700 mb-2">📸 현장 사진</h4>
+       <ImageSlider imageUrlString={row.image_url} imageUrlHqString={row.image_url_hq} />
       </div>
-     </div>
-     <div>
-      <h4 className="text-sm font-bold text-purple-600 mb-2">✏️ 회신 내용</h4>
-      <textarea
-       ref={replyRef}
-       value={replyText}
-       onChange={e => { setReplyText(e.target.value); autoResize(e.target); }}
-       placeholder="이관 요청에 대한 확인 및 처리 내용을 입력해주세요."
-       className="w-full border border-purple-300 bg-purple-50 rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[100px]"
-      />
+      {/* 오른쪽: 이관 요청 내용 + 회신 입력 */}
+      <div className="flex flex-col gap-4">
+       <div>
+        <h4 className="text-sm font-bold text-gray-700 mb-2">📋 이관 요청 내용</h4>
+        <div className="w-full border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-600 min-h-[60px]">
+         {row.relay_content || '(내용 없음)'}
+        </div>
+       </div>
+       <div>
+        <h4 className="text-sm font-bold text-purple-600 mb-2">✏️ 회신 내용</h4>
+        <textarea
+         ref={replyRef}
+         value={replyText}
+         onChange={e => { setReplyText(e.target.value); autoResize(e.target); }}
+         placeholder="이관 요청에 대한 확인 및 처리 내용을 입력해주세요."
+         className="w-full border border-purple-300 bg-purple-50 rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[100px]"
+        />
+       </div>
+      </div>
      </div>
     </div>
     <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">

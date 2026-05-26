@@ -343,7 +343,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                         />
                     </div>
 
-                    <MultiSelect label="처리상태" options={['조치대기', '처리 중', '조치완료']} selected={draftFilters.status} onChange={(val) => setDraftFilters({ ...draftFilters, status: val })} />
+                    <MultiSelect label="처리상태" options={['조치대기', '처리 중', '이관부서 확인', '조치완료']} selected={draftFilters.status} onChange={(val) => setDraftFilters({ ...draftFilters, status: val })} />
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">검색어</label>
