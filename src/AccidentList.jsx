@@ -991,9 +991,12 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                     const col = activeColumns[origIdx];
                                     return (
                                         <th key={origIdx}
-                                            className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                             style={{ width: colWidths[origIdx] }}
+                                            draggable
                                             onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragStart={(e) => handleDragStart(e, visualIdx)}
+                                            onDragEnd={handleDragEnd}
                                             onDragOver={(e) => handleDragOver(e, visualIdx)}
                                             onDrop={(e) => handleDrop(e, visualIdx)}
                                             onDragLeave={() => setDragOverIdx(null)}
