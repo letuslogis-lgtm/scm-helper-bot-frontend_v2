@@ -27,6 +27,10 @@ import argparse
 import os
 import sys
 import tempfile
+
+# Windows CP949 환경에서 이모지/유니코드 출력 오류 방지
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from datetime import datetime, date, timedelta
 from pathlib import Path
 

@@ -19,10 +19,16 @@ erp_scraper_v2.py  (v2.4.2 - Stealth 모드 + 타임아웃 재조정)
 ===============================================================================
 """
 
+import io
 import json
 import os
+import sys
 from datetime import datetime, date, timedelta
 from pathlib import Path
+
+# Windows CP949 환경에서 이모지/유니코드 출력 오류 방지
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
