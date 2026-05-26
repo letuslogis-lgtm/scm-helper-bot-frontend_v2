@@ -16,15 +16,21 @@ export const useIssues = (session, userProfile) => {
         try {
             let query = supabase.from('logistics_issues').select('*').order('id', { ascending: false });
             if (userProfile?.role === '사용자') {
-                if (userProfile?.team) {
-                    // 팀이 있으면 해당 팀에 이관된 건만 조회
-                    query = query.eq('assigned_team', userProfile.team);
-                } else {
-                    // 사용자인데 팀 미지정 → 빈 목록 (전체 노출 방지)
+                const managedBrands = typeof userProfile.managed_brands === 'string'
+                    ? userProfile.managed_brands.split(',').map(v => v.trim()).filter(Boolean)
+                    : [];
+                const managedVendors = typeof userProfile.managed_vendors === 'string'
+                    ? userProfile.managed_vendors.split(',').map(v => v.trim()).filter(Boolean)
+                    : [];
+
+                if (managedBrands.length === 0 && managedVendors.length === 0) {
+                    // 담당 브랜드·업체 미지정 → 빈 목록 (전체 노출 방지)
                     setIssues([]);
                     setIsLoading(false);
                     return;
                 }
+                if (managedBrands.length > 0)  query = query.in('brand', managedBrands);
+                if (managedVendors.length > 0) query = query.in('vendor', managedVendors);
             }
             const { data, error } = await query;
             if (error) throw error;
