@@ -243,8 +243,8 @@ def run(ctx):
         # 4. SSO URL 조합
         # ---------------------------------------------------------------
         build_result = page.evaluate(SSO_URL_BUILDER_JS, ERP_KOREA_SYSCD)
-        ctx.log(f"  ↳ success: {build_result.get('success')}")
-        ctx.log(f"  ↳ debug  : {build_result.get('debug')}")
+        ctx.log(f"  >> success: {build_result.get('success')}")
+        ctx.log(f"  >> debug  : {build_result.get('debug')}")
 
         if not build_result.get("success"):
             _dump_debug(page, ctx, tag="sso_url_build_failed")
@@ -262,7 +262,7 @@ def run(ctx):
         page.goto(final_url, wait_until="domcontentloaded", timeout=TIMEOUT_GOTO_MS)
         page.wait_for_timeout(3000)
         ctx.log(f"[{_elapsed(t0)}] 도착 URL: {page.url}")
-        ctx.log(f"  ↳ 페이지 타이틀: '{page.title()}'")
+        ctx.log(f"  >> 페이지 타이틀: '{page.title()}'")
 
         # 🔴 에러 페이지 즉시 감지 (더 이상 긴 타임아웃으로 낭비하지 않음)
         body_text = page.locator("body").inner_text(timeout=5000)
@@ -704,18 +704,18 @@ def _dump_debug(page, ctx, tag: str):
     try:
         path = ctx.output_dir / f"{tag}.png"
         page.screenshot(path=str(path), full_page=True)
-        ctx.log(f"  ↳ 스크린샷: {path.name}")
+        ctx.log(f"  >> 스크린샷: {path.name}")
     except Exception as e:
-        ctx.log(f"  ↳ 스크린샷 실패: {e}")
+        ctx.log(f"  >> 스크린샷 실패: {e}")
     try:
         path = ctx.output_dir / f"{tag}.html"
         path.write_text(page.content(), encoding="utf-8")
-        ctx.log(f"  ↳ HTML: {path.name}")
+        ctx.log(f"  >> HTML: {path.name}")
     except Exception as e:
-        ctx.log(f"  ↳ HTML 실패: {e}")
+        ctx.log(f"  >> HTML 실패: {e}")
     try:
-        ctx.log(f"  ↳ URL: {page.url}")
-        ctx.log(f"  ↳ Title: '{page.title()}'")
+        ctx.log(f"  >> URL: {page.url}")
+        ctx.log(f"  >> Title: '{page.title()}'")
     except Exception:
         pass
 
