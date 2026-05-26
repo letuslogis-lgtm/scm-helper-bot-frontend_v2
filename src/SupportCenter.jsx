@@ -427,12 +427,39 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  );
 };
 
+const HANDLE_ISSUE_TYPES = [
+    '계획 없음/누락', '수량 부족 (계획>실물)', '과입고 (계획<실물)', '미입고',
+    '파손·불량', '바코드 오류', '포장 불량·혼적', '표기·규격 미흡',
+    '반송품 처리', '오반품·오입고',
+    '전산-실물 불일치', 'WMS·전산 오류', '기타 특이사항',
+];
+
 const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  const [actionText, setActionText] = useState(row.action_content || '');
+ const [issueType, setIssueType] = useState(row.issue_type || '');
  const [isSaving, setIsSaving] = useState(false);
  const isDone = row.status === '조치완료';
  const actionRef = React.useRef(null);
  React.useEffect(() => { autoResize(actionRef.current); }, []);
+
+ // 아코디언: 상태값 기준 기본 열림 결정
+ const hasRelay = !!row.relay_content;
+ const hasReply = !!row.purchase_response;
+ const [openS1, setOpenS1] = useState(!hasRelay);                        // ① 접수내용: relay 없을 때만 기본 열림
+ const [openS2, setOpenS2] = useState(hasRelay && !hasReply);             // ② 이관메시지: relay 있고 회신 없을 때
+ const [openS3, setOpenS3] = useState(hasReply);                          // ③ 유관부서 회신: 회신 있을 때
+
+ const AccordionSection = ({ label, isOpen, onToggle, labelColor = 'text-gray-700', children }) => (
+  <div className="border border-gray-200 rounded-lg overflow-hidden">
+   <button onClick={onToggle} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+    <h4 className={`text-sm font-bold ${labelColor}`}>{label}</h4>
+    <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+   </button>
+   {isOpen && <div className="p-3">{children}</div>}
+  </div>
+ );
 
  const handleComplete = async () => {
  setIsSaving(true);
@@ -440,6 +467,7 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  const nowIso = new Date().toISOString();
  const { error } = await supabase.from('logistics_issues').update({
  action_content: actionText,
+ issue_type: issueType,
  status: '조치완료',
  final_handler: userProfile?.name || '관리자',
  resolved_at: nowIso,
@@ -470,37 +498,49 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  <ImageSlider imageUrlString={row.image_url} imageUrlHqString={row.image_url_hq} />
  </div>
 
- <div className="flex flex-col space-y-4">
- {/* 이관 케이스: relay_content 표시 / 직접 조치: request_content 표시 */}
- <div>
- <h4 className="text-sm font-bold text-gray-700 mb-2">
- {row.relay_content ? '① 이관 메시지' : '① 접수 내용'}
- </h4>
- <div className="w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-600 min-h-[50px]">
- {row.relay_content || row.request_content || '(내용 없음)'}
- </div>
- </div>
+ <div className="flex flex-col space-y-3">
+  {/* ① 접수 내용 — 아코디언 */}
+  <AccordionSection label="① 접수 내용" isOpen={openS1} onToggle={() => setOpenS1(v => !v)}>
+   <p className="text-sm text-gray-600">{row.request_content || '(내용 없음)'}</p>
+  </AccordionSection>
 
- {row.purchase_response && (
- <div>
- <h4 className="text-sm font-bold text-purple-600 mb-2">③ 유관부서 회신 내용</h4>
- <div className="w-full border border-purple-100 bg-purple-50 rounded-lg p-3 text-sm text-purple-800 min-h-[50px]">
- {row.purchase_response}
- </div>
- </div>
- )}
+  {/* ② 이관 메시지 — relay 있을 때만 표시 */}
+  {hasRelay && (
+   <AccordionSection label="② 이관 메시지" isOpen={openS2} onToggle={() => setOpenS2(v => !v)}>
+    <p className="text-sm text-blue-800">{row.relay_content}</p>
+   </AccordionSection>
+  )}
 
- <div>
- <h4 className="text-sm font-bold text-green-600 mb-2">④ 담당자 조치 내용</h4>
- <textarea
- ref={actionRef}
- value={actionText}
- onChange={e => { setActionText(e.target.value); autoResize(e.target); }}
- disabled={isDone}
- placeholder="현장 작업자에게 전달할 조치 결과를 입력해주세요."
- className={`w-full border rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden transition-shadow min-h-[100px] ${isDone ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'}`}
- />
- </div>
+  {/* ③ 유관부서 회신 — 회신 있을 때만 표시 */}
+  {hasReply && (
+   <AccordionSection label="③ 유관부서 회신 내용" isOpen={openS3} onToggle={() => setOpenS3(v => !v)} labelColor="text-purple-600">
+    <p className="text-sm text-purple-800">{row.purchase_response}</p>
+   </AccordionSection>
+  )}
+
+  {/* ④ 이슈 유형 확정 + 조치 내용 입력 */}
+  <div className="flex flex-col gap-2">
+   <h4 className="text-sm font-bold text-green-600">④ 담당자 조치 내용</h4>
+   <div>
+    <p className="text-xs text-gray-500 mb-1">이슈 유형 확정</p>
+    <select
+     value={issueType}
+     onChange={e => setIssueType(e.target.value)}
+     disabled={isDone}
+     className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 outline-none ${isDone ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'}`}
+    >
+     {HANDLE_ISSUE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+    </select>
+   </div>
+   <textarea
+    ref={actionRef}
+    value={actionText}
+    onChange={e => { setActionText(e.target.value); autoResize(e.target); }}
+    disabled={isDone}
+    placeholder="현장 작업자에게 전달할 조치 결과를 입력해주세요."
+    className={`w-full border rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden transition-shadow min-h-[100px] ${isDone ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500'}`}
+   />
+  </div>
  </div>
  </div>
 
