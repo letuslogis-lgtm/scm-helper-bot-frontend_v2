@@ -53,6 +53,7 @@ const StatusBadge = ({ status, category }) => {
     let bg = '', text = '', icon = null;
     if (status === '조치대기') { bg = 'bg-red-50 border-red-200'; text = 'text-red-500'; }
     if (status === '처리 중') { bg = 'bg-yellow-50 border-yellow-300'; text = 'text-yellow-600'; }
+    if (status === '이관부서 확인') { bg = 'bg-purple-50 border-purple-200'; text = 'text-purple-600'; }
     if (status === '조치완료') { bg = 'bg-green-50 border-green-200'; text = 'text-green-600'; }
     if (status === '피드백완료') {
         bg = 'bg-blue-50 border-blue-200';

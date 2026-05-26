@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from './supabaseClient.js';
 import { StatusBadge, CategoryBadge, formatDateTime, SearchButton, DateRangeInput } from './SharedUI.jsx';
-import { RequestModal, HandleModal } from './SupportCenter.jsx';
+import { RequestModal, HandleModal, DeptReplyModal } from './SupportCenter.jsx';
 import { loadXLSX } from './utils.js';
 
 
@@ -27,6 +27,7 @@ const DEFAULT_COLUMNS = [
 const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, setSavedFilters, userProfile }) => {
     const [activeModalRow, setActiveModalRow] = useState(null);
     const [activeHandleRow, setActiveHandleRow] = useState(null);
+    const [activeDeptReplyRow, setActiveDeptReplyRow] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isSendingFeedback, setIsSendingFeedback] = useState(false);
@@ -105,7 +106,22 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
             case 6:  return <td key={origIdx} className="p-4 text-center"><StatusBadge status={row.status} category={row.issue_type} /></td>;
             case 7:  return <td key={origIdx} className="p-4 text-center">{row.is_notified ? (<div className="flex justify-center"><span className="flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-600 border border-blue-200 rounded-full shadow-sm" title={`전송완료: ${formatDateTime(row.feedback_sent_at)}`}><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></span></div>) : <span className="text-gray-300 font-bold">-</span>}</td>;
             case 8:  return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>{userProfile?.role === '사용자' ? <span className="text-xs font-bold border px-3 py-1.5 rounded w-[76px] inline-block text-center bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed">{row.status === '조치대기' ? '요청등록' : '요청확인'}</span> : <button onClick={() => setActiveModalRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${row.status === '조치대기' ? 'bg-gray-50 text-gray-500' : 'bg-white text-letusBlue border-blue-200 hover:bg-blue-50'}`}>{row.status === '조치대기' ? '요청등록' : '요청확인'}</button>}</td>;
-            case 9:  return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>{['처리 중', '조치완료'].includes(row.status) ? (<button onClick={() => setActiveHandleRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${row.status === '조치완료' ? 'bg-white text-green-600 border-green-200 hover:bg-green-50' : 'bg-yellow-50 text-yellow-600 border-yellow-300 hover:bg-yellow-100'}`}>{row.status === '조치완료' ? '조치 확인' : '조치 등록'}</button>) : <span className="text-gray-300">-</span>}</td>;
+            case 9: {
+                const isAdmin = userProfile?.role !== '사용자';
+                if (isAdmin) {
+                    const adminBtnMap = {
+                        '처리 중':      { label: '조치 등록', cls: 'bg-yellow-50 text-yellow-600 border-yellow-300 hover:bg-yellow-100' },
+                        '이관부서 확인': { label: '회신 확인', cls: 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' },
+                        '조치완료':     { label: '조치 확인', cls: 'bg-white text-green-600 border-green-200 hover:bg-green-50' },
+                    };
+                    const btn = adminBtnMap[row.status];
+                    return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>{btn ? <button onClick={() => setActiveHandleRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${btn.cls}`}>{btn.label}</button> : <span className="text-gray-300">-</span>}</td>;
+                } else {
+                    if (row.status === '처리 중') return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}><button onClick={() => setActiveDeptReplyRow(row)} className="text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] bg-blue-50 text-letusBlue border-blue-200 hover:bg-blue-100">회신 등록</button></td>;
+                    if (row.status === '이관부서 확인') return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}><span className="text-xs font-bold border px-3 py-1.5 rounded w-[76px] inline-block text-center bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed">회신완료</span></td>;
+                    return <td key={origIdx} className="p-4 text-center"><span className="text-gray-300">-</span></td>;
+                }
+            }
             case 10: return <td key={origIdx} className="p-4 text-gray-600 font-medium text-center">{row.final_handler || '-'}</td>;
             case 11: return <td key={origIdx} className="p-4 text-gray-500 font-mono text-xs text-center">{formatDateTime(row.resolved_at)}</td>;
             default: return null;
@@ -470,6 +486,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
 
             {activeModalRow && <RequestModal row={activeModalRow} onClose={() => setActiveModalRow(null)} onReload={onReload} userProfile={userProfile} onDirectHandle={(updatedRow) => { setActiveModalRow(null); setActiveHandleRow(updatedRow); }} />}
             {activeHandleRow && <HandleModal row={activeHandleRow} onClose={() => setActiveHandleRow(null)} onReload={onReload} userProfile={userProfile} />}
+            {activeDeptReplyRow && <DeptReplyModal row={activeDeptReplyRow} onClose={() => setActiveDeptReplyRow(null)} onReload={onReload} />}
         </div>
     );
 };

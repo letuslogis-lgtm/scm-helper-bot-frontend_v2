@@ -219,12 +219,10 @@ function levenshtein(a, b) {
 }
 
 const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) => {
- const [purchaseText, setPurchaseText] = useState(row.purchase_response || '');
  const [relayText, setRelayText] = useState(row.relay_content || '');
  const [isSaving, setIsSaving] = useState(false);
  const relayRef = React.useRef(null);
- const purchaseRef = React.useRef(null);
- React.useEffect(() => { autoResize(relayRef.current); autoResize(purchaseRef.current); }, []);
+ React.useEffect(() => { autoResize(relayRef.current); }, []);
 
  // 바코드 오류 유사 코드 추천
  const [codeSuggestions, setCodeSuggestions] = useState([]);
@@ -293,17 +291,6 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
  };
 
- const handlePurchaseConfirm = async () => {
- if (!purchaseText.trim()) return alert('구매/생산 확인 내용을 입력해주세요.');
- setIsSaving(true);
- try {
- const { error } = await supabase.from('logistics_issues').update({
- purchase_response: purchaseText,
- }).eq('id', row.id);
- if (error) throw error;
- await onReload(); onClose();
- } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
- };
 
  const stepStyle = (active, done) =>
  active ? 'text-orange-500 font-black' : done ? 'text-green-500 font-bold' : 'text-gray-300';
@@ -401,22 +388,12 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  )}
  </div>
 
- {(isProcessing || isDone) && (
+ {row.purchase_response && (
  <div className="flex flex-col">
- <h4 className="text-sm font-bold text-blue-600 mb-2">③ 구매/생산 확인 내용</h4>
- {isDone || hasPurchaseResponse ? (
- <div className="w-full border border-blue-100 bg-blue-50 rounded-lg p-3 text-sm text-blue-800 min-h-[60px]">
- {row.purchase_response || '(내용 없음)'}
+ <h4 className="text-sm font-bold text-purple-600 mb-2">③ 유관부서 회신 내용</h4>
+ <div className="w-full border border-purple-100 bg-purple-50 rounded-lg p-3 text-sm text-purple-800 min-h-[60px]">
+ {row.purchase_response}
  </div>
- ) : (
- <textarea
- ref={purchaseRef}
- value={purchaseText}
- onChange={e => { setPurchaseText(e.target.value); autoResize(e.target); }}
- placeholder="구매/생산팀 확인 내용을 입력해주세요."
- className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
- />
- )}
  </div>
  )}
  </div>
@@ -426,11 +403,10 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center gap-2">
  <div>
  {isDone && <span className="text-gray-500 font-bold text-sm">✅ 조치가 완료되어 수정할 수 없습니다.</span>}
- {isProcessing && hasPurchaseResponse && <span className="text-blue-500 font-bold text-sm">✅ 구매/생산 확인이 완료되었습니다.</span>}
  </div>
  <div className="flex gap-2">
  <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-sm font-bold rounded hover:bg-gray-100 transition-colors bg-white">
- {isDone || (isProcessing && hasPurchaseResponse) ? '닫기' : '취소'}
+ {isDone ? '닫기' : '취소'}
  </button>
  {isWaiting && isAdmin && (
  <>
@@ -443,12 +419,6 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {isSaving ? '처리 중...' : '② 이관'}
  </button>
  </>
- )}
- {isProcessing && !hasPurchaseResponse && isAdmin && (
- <button onClick={handlePurchaseConfirm} disabled={isSaving || !purchaseText.trim()}
- className={`px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold rounded shadow transition-colors ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}>
- {isSaving ? '저장 중...' : '③ 구매/생산 확인 완료'}
- </button>
  )}
  </div>
  </div>
@@ -489,7 +459,7 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
  <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl slide-up border border-gray-100 overflow-hidden flex flex-col">
  <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
- <h3 className="font-bold text-gray-900">현장 특이사항 조치 등록 ({row.reception_no})</h3>
+ <h3 className="font-bold text-gray-900">{row.status === '이관부서 확인' ? '회신 확인 및 조치 등록' : '현장 특이사항 조치 등록'} ({row.reception_no})</h3>
  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><CloseIcon /></button>
  </div>
 
@@ -513,8 +483,8 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
 
  {row.purchase_response && (
  <div>
- <h4 className="text-sm font-bold text-blue-600 mb-2">③ 구매/생산 확인 내용</h4>
- <div className="w-full border border-blue-100 bg-blue-50 rounded-lg p-3 text-sm text-blue-800 min-h-[50px]">
+ <h4 className="text-sm font-bold text-purple-600 mb-2">③ 유관부서 회신 내용</h4>
+ <div className="w-full border border-purple-100 bg-purple-50 rounded-lg p-3 text-sm text-purple-800 min-h-[50px]">
  {row.purchase_response}
  </div>
  </div>
@@ -827,9 +797,70 @@ const SupportCenter = ({ userProfile }) => {
  );
 };
 
+const DeptReplyModal = ({ row, onClose, onReload }) => {
+ const [replyText, setReplyText] = useState('');
+ const [isSaving, setIsSaving] = useState(false);
+ const replyRef = React.useRef(null);
+ React.useEffect(() => { autoResize(replyRef.current); }, []);
+
+ const handleSubmit = async () => {
+  if (!replyText.trim()) return alert('회신 내용을 입력해주세요.');
+  setIsSaving(true);
+  try {
+   const { error } = await supabase.from('logistics_issues').update({
+    purchase_response: replyText,
+    status: '이관부서 확인',
+   }).eq('id', row.id);
+   if (error) throw error;
+   await onReload(); onClose();
+  } catch (e) { alert('저장 중 오류가 발생했습니다.'); } finally { setIsSaving(false); }
+ };
+
+ return (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+   <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
+   <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-2xl slide-up border border-gray-100 overflow-hidden flex flex-col">
+    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+     <div>
+      <h3 className="font-bold text-gray-900">회신 등록 ({row.reception_no})</h3>
+      <p className="text-xs text-gray-400 mt-0.5">물류 관리자에게 회신 내용을 전달합니다</p>
+     </div>
+     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><CloseIcon /></button>
+    </div>
+    <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+     <div>
+      <h4 className="text-sm font-bold text-gray-700 mb-2">📋 이관 요청 내용</h4>
+      <div className="w-full border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-600 min-h-[60px]">
+       {row.relay_content || '(내용 없음)'}
+      </div>
+     </div>
+     <div>
+      <h4 className="text-sm font-bold text-purple-600 mb-2">✏️ 회신 내용</h4>
+      <textarea
+       ref={replyRef}
+       value={replyText}
+       onChange={e => { setReplyText(e.target.value); autoResize(e.target); }}
+       placeholder="이관 요청에 대한 확인 및 처리 내용을 입력해주세요."
+       className="w-full border border-purple-300 bg-purple-50 rounded-lg p-3 text-sm text-gray-800 outline-none overflow-hidden focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-h-[100px]"
+      />
+     </div>
+    </div>
+    <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+     <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 text-sm font-bold rounded hover:bg-gray-100 bg-white">취소</button>
+     <button onClick={handleSubmit} disabled={isSaving || !replyText.trim()}
+      className={`px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-bold rounded shadow transition-colors ${(isSaving || !replyText.trim()) ? 'opacity-60 cursor-not-allowed' : ''}`}>
+      {isSaving ? '저장 중...' : '회신 전달'}
+     </button>
+    </div>
+   </div>
+  </div>
+ );
+};
+
 // 🌟 전역 등록
 export { SuggestionModal };
 export { FaqAddModal };
 export { RequestModal };
 export { HandleModal };
+export { DeptReplyModal };
 export { SupportCenter };
