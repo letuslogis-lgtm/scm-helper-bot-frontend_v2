@@ -582,10 +582,20 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                         radius={idx === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                                         maxBarSize={20} animationDuration={1000} />
                                 ))}
+                                {/* 결품 라인 흰색 아웃라인 — 바 차트와 겹칠 때 시인성 확보 */}
+                                {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map(b => (
+                                    <Line key={`line_outline_${b}`} yAxisId="right" type="monotone" dataKey={`shortage_${b}`}
+                                        stroke="#ffffff" strokeWidth={5} strokeOpacity={0.85}
+                                        dot={false} activeDot={false}
+                                        legendType="none" name={`__outline_${b}`}
+                                        animationDuration={1000} />
+                                ))}
+                                {/* 결품 라인 본체 */}
                                 {(selectedBrands.length > 0 ? selectedBrands : TREND_BRANDS).map(b => (
                                     <Line key={`line_${b}`} yAxisId="right" type="monotone" dataKey={`shortage_${b}`}
-                                        name={`[결품] ${b}`} stroke={TREND_COLORS[b]} strokeWidth={3}
-                                        dot={{ r: 4, strokeWidth: 1 }} activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
+                                        name={`[결품] ${b}`} stroke={TREND_COLORS[b]} strokeWidth={2.5}
+                                        dot={{ r: 4, fill: '#fff', stroke: TREND_COLORS[b], strokeWidth: 2 }}
+                                        activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
                                         animationDuration={1000} />
                                 ))}
                             </ComposedChart>
