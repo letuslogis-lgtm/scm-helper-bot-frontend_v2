@@ -141,6 +141,32 @@ const AppContent = () => {
     );
 };
 
+// 메인 메뉴 래퍼: adminMode 상태를 이 컴포넌트 안에서 관리해 React Router 캐시 문제 우회
+const MobileMenuHome = ({ userProfile, handleLogout, adminPendingCount, completedNotiCount, returnsNotiCount, isAdmin }) => {
+    const [adminMode, setAdminMode] = React.useState(true);
+    const toggleMode = React.useCallback(() => setAdminMode(prev => !prev), []);
+
+    if (isAdmin && adminMode) {
+        return (
+            <MobileAdminMenu
+                userProfile={userProfile}
+                handleLogout={handleLogout}
+                pendingCount={adminPendingCount}
+                onLogoClick={toggleMode}
+            />
+        );
+    }
+    return (
+        <MobileMenuScreen
+            userProfile={userProfile}
+            handleLogout={handleLogout}
+            completedNotiCount={completedNotiCount}
+            returnsNotiCount={returnsNotiCount}
+            onLogoClick={isAdmin ? toggleMode : undefined}
+        />
+    );
+};
+
 const ProtectedMobileRoute = () => {
     const { session, authLoading, userProfile, handleLogout } = useAuth();
     const [completedNotiCount, setCompletedNotiCount] = React.useState(0);
@@ -225,20 +251,16 @@ const ProtectedMobileRoute = () => {
     if (!session) return <MobileLoginView />;
     return (
         <Routes>
-            {/* ── 메인 메뉴: 역할에 따라 분기 ── */}
+            {/* ── 메인 메뉴: MobileMenuHome이 adminMode 상태를 직접 관리 ── */}
             <Route index element={
-                isAdmin
-                    ? <MobileAdminMenu
-                        userProfile={userProfile}
-                        handleLogout={handleLogout}
-                        pendingCount={adminPendingCount}
-                      />
-                    : <MobileMenuScreen
-                        userProfile={userProfile}
-                        handleLogout={handleLogout}
-                        completedNotiCount={completedNotiCount}
-                        returnsNotiCount={returnsNotiCount}
-                      />
+                <MobileMenuHome
+                    userProfile={userProfile}
+                    handleLogout={handleLogout}
+                    adminPendingCount={adminPendingCount}
+                    completedNotiCount={completedNotiCount}
+                    returnsNotiCount={returnsNotiCount}
+                    isAdmin={isAdmin}
+                />
             } />
             {/* ── 관리자 전용 라우트 ── */}
             <Route path="admin/issues" element={<MobileAdminIssueList userProfile={userProfile} />} />
