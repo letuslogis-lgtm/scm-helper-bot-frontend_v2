@@ -106,7 +106,10 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     const compressImage = async (file, maxWidth = 1024, quality = 0.6) => {
         let orientation = 1;
-        try { orientation = await exifr.orientation(file) || 1; } catch {}
+        try {
+            const meta = await exifr.parse(file, { tiff: true, xmp: false, icc: false, iptc: false, jfif: false, pick: ['Orientation'] });
+            orientation = meta?.Orientation ?? 1;
+        } catch {}
 
         return new Promise((resolve) => {
             const img = new Image();

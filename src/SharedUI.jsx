@@ -198,14 +198,15 @@ const ImageSlider = ({ imageUrlString, imageUrlHqString }) => {
 
                     {/* 회전 버튼 */}
                     <button
-                        className="absolute bottom-6 right-6 w-10 h-10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-colors"
+                        className="absolute bottom-6 right-6 flex items-center gap-1.5 bg-black/60 hover:bg-black/80 text-white text-xs font-bold px-3 py-2 rounded-full transition-colors border border-white/30"
                         title="90° 회전"
                         onClick={e => { e.stopPropagation(); setRotation(r => (r + 90) % 360); }}
                     >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 20v-5h-.581m-15.357-2A8.001 8.001 0 0019.419 15m0 0H15" />
                         </svg>
+                        회전
                     </button>
 
                     {urls.length > 1 && (
