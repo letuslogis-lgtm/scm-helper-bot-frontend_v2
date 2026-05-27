@@ -34,6 +34,8 @@ import { MobileMenuScreen } from './MobileMenuScreen.jsx';
 import { MobileMyIssues } from './MobileMyIssues.jsx';
 import { MobileNotice } from './MobileNotice.jsx';
 import { MobileLoginView } from './MobileLoginView.jsx';
+import { MobileAdminMenu } from './MobileAdminMenu.jsx';
+import { MobileAdminIssueList } from './MobileAdminIssueList.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 import { useAuth } from './hooks/useAuth.jsx';
@@ -143,6 +145,41 @@ const ProtectedMobileRoute = () => {
     const { session, authLoading, userProfile, handleLogout } = useAuth();
     const [completedNotiCount, setCompletedNotiCount] = React.useState(0);
     const [returnsNotiCount, setReturnsNotiCount] = React.useState(0);
+    const [adminPendingCount, setAdminPendingCount] = React.useState(0);
+
+    const isAdmin = userProfile?.role === '관리자';
+
+    // 관리자: 미처리(조치대기) 건수 실시간 추적
+    React.useEffect(() => {
+        if (!isAdmin || !userProfile?.id) return;
+
+        // 초기 건수 조회
+        supabase.from('logistics_issues')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', '조치대기')
+            .then(({ count }) => setAdminPendingCount(count || 0));
+
+        // 실시간 구독
+        const channel = supabase.channel('admin_pending_count')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_issues' },
+                (payload) => {
+                    const newStatus = payload.new?.status;
+                    const oldStatus = payload.old?.status;
+                    if (payload.eventType === 'INSERT' && newStatus === '조치대기') {
+                        setAdminPendingCount(prev => prev + 1);
+                    } else if (payload.eventType === 'UPDATE') {
+                        if (oldStatus === '조치대기' && newStatus !== '조치대기') {
+                            setAdminPendingCount(prev => Math.max(0, prev - 1));
+                        } else if (oldStatus !== '조치대기' && newStatus === '조치대기') {
+                            setAdminPendingCount(prev => prev + 1);
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
+    }, [isAdmin, userProfile?.id]);
 
     React.useEffect(() => {
         if (!userProfile?.name) return;
@@ -188,14 +225,24 @@ const ProtectedMobileRoute = () => {
     if (!session) return <MobileLoginView />;
     return (
         <Routes>
+            {/* ── 메인 메뉴: 역할에 따라 분기 ── */}
             <Route index element={
-                <MobileMenuScreen
-                    userProfile={userProfile}
-                    handleLogout={handleLogout}
-                    completedNotiCount={completedNotiCount}
-                    returnsNotiCount={returnsNotiCount}
-                />
+                isAdmin
+                    ? <MobileAdminMenu
+                        userProfile={userProfile}
+                        handleLogout={handleLogout}
+                        pendingCount={adminPendingCount}
+                      />
+                    : <MobileMenuScreen
+                        userProfile={userProfile}
+                        handleLogout={handleLogout}
+                        completedNotiCount={completedNotiCount}
+                        returnsNotiCount={returnsNotiCount}
+                      />
             } />
+            {/* ── 관리자 전용 라우트 ── */}
+            <Route path="admin/issues" element={<MobileAdminIssueList userProfile={userProfile} />} />
+            {/* ── 작업자 라우트 (공지는 관리자도 접근 가능) ── */}
             <Route path="register" element={<MobileIssueRegister />} />
             <Route path="returns" element={<MobileReturnsRegister userProfile={userProfile} />} />
             <Route path="pre-delivery" element={<MobilePreDeliveryManage userProfile={userProfile} />} />
