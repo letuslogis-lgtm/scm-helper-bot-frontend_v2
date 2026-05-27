@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient.js';
+import { MobileDateRangeSheet } from './MobileUI.jsx';
 
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
 const ISSUE_TYPE_GROUPS = [
@@ -32,90 +33,6 @@ const daysAgo = (n) => {
     return d.toISOString().split('T')[0];
 };
 
-const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
-    const [start, setStart] = useState(dateRange.start);
-    const [end, setEnd] = useState(dateRange.end);
-    const endDateRef = useRef(null);
-
-    const handleStartChange = (e) => {
-        setStart(e.target.value);
-        setTimeout(() => endDateRef.current?.focus(), 100);
-    };
-
-    return (
-        <>
-            <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl">
-                <div className="flex justify-center pt-3 pb-1">
-                    <div className="w-10 h-1 rounded-full bg-slate-200" />
-                </div>
-                <div className="px-5 pb-10 pt-3 space-y-4">
-                    <p className="text-slate-800 font-black text-base">조회 기간 설정</p>
-
-                    <div className="flex gap-3 items-center">
-                        <div className="flex-1">
-                            <label className="text-[11px] font-bold text-slate-400 mb-1.5 block">시작일</label>
-                            <input
-                                type="date"
-                                value={start}
-                                max={end || today()}
-                                onChange={handleStartChange}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue"
-                            />
-                        </div>
-                        <span className="text-slate-300 font-bold mt-5">~</span>
-                        <div className="flex-1">
-                            <label className="text-[11px] font-bold text-slate-400 mb-1.5 block">종료일</label>
-                            <input
-                                ref={endDateRef}
-                                type="date"
-                                value={end}
-                                min={start}
-                                max={today()}
-                                onChange={e => setEnd(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue"
-                            />
-                        </div>
-                    </div>
-
-                    {/* 빠른 선택 */}
-                    <div className="flex gap-2">
-                        {[
-                            { label: '오늘',    s: today(),      e: today() },
-                            { label: '3일',     s: daysAgo(3),   e: today() },
-                            { label: '이번 달', s: (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; })(), e: today() },
-                            { label: '한 달',   s: daysAgo(30),  e: today() },
-                        ].map(({ label, s, e }) => (
-                            <button
-                                key={label}
-                                onClick={() => { setStart(s); setEnd(e); }}
-                                className="flex-1 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold active:bg-slate-200 transition-colors"
-                            >
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="flex gap-2.5">
-                        <button
-                            onClick={() => onApply({ start: '', end: '' })}
-                            className="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-500 font-bold text-sm active:bg-slate-200 transition-colors"
-                        >
-                            전체 기간
-                        </button>
-                        <button
-                            onClick={() => onApply({ start, end })}
-                            disabled={!start || !end}
-                            className="flex-[2] py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors disabled:bg-slate-200 disabled:text-slate-400"
-                        >
-                            조회
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
 
 const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, userProfile }) => {
     if (!issue) return null;
@@ -762,8 +679,8 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
             </div>
 
             {showDateSheet && (
-                <DateFilterSheet
-                    dateRange={dateRange}
+                <MobileDateRangeSheet
+                    value={dateRange}
                     onApply={handleDateApply}
                     onClose={() => setShowDateSheet(false)}
                 />
