@@ -93,9 +93,9 @@ Deno.serve(async (req) => {
         `🚨 *새 입고 특이사항이 등록되었습니다*`,
         `• 접수번호: ${record.reception_no || '-'}`,
         `• 브랜드: ${record.brand || '-'}`,
-        `• 품목코드: ${record.item_code || '-'}`,
+        `• 품목코드: ${record.product_code || '-'}`,
         `• 등록자: ${record.reporter || '-'}`,
-        `• 내용: ${record.issue_content || record.content || '-'}`,
+        `• 내용: ${record.request_content || '-'}`,
         `\n_LETUS LOGIS에서 확인하세요._`,
       ].join('\n')
 
