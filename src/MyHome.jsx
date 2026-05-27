@@ -63,7 +63,7 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                 const myBrands = userProfile.managed_brands ? userProfile.managed_brands.split(',').map(s => s.trim()) : [];
                 const myVendors = userProfile.managed_vendors ? userProfile.managed_vendors.split(',').map(s => s.trim()) : [];
 
-                let issueQuery = supabase.from('logistics_issues').select('id', { count: 'exact' }).in('status', ['조치대기', '처리 중']);
+                let issueQuery = supabase.from('logistics_issues').select('id', { count: 'exact' }).in('status', ['조치대기', '이관 중', '처리 중', '이관부서 확인']);
                 if (userProfile.role !== '관리자') {
                     if (myBrands.length > 0 && !myBrands.includes('전체')) issueQuery = issueQuery.in('brand', myBrands);
                     if (myVendors.length > 0) issueQuery = issueQuery.in('vendor', myVendors);

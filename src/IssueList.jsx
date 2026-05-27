@@ -110,14 +110,15 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                 const isAdmin = userProfile?.role !== '사용자';
                 if (isAdmin) {
                     const adminBtnMap = {
+                        '이관 중':      { label: '이관 중', cls: 'bg-orange-50 text-orange-500 border-orange-200 cursor-not-allowed opacity-60', disabled: true },
                         '처리 중':      { label: '조치 등록', cls: 'bg-yellow-50 text-yellow-600 border-yellow-300 hover:bg-yellow-100' },
                         '이관부서 확인': { label: '회신 확인', cls: 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' },
                         '조치완료':     { label: '조치 확인', cls: 'bg-white text-green-600 border-green-200 hover:bg-green-50' },
                     };
                     const btn = adminBtnMap[row.status];
-                    return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>{btn ? <button onClick={() => setActiveHandleRow(row)} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${btn.cls}`}>{btn.label}</button> : <span className="text-gray-300">-</span>}</td>;
+                    return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>{btn ? <button onClick={() => !btn.disabled && setActiveHandleRow(row)} disabled={!!btn.disabled} className={`text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] ${btn.cls}`}>{btn.label}</button> : <span className="text-gray-300">-</span>}</td>;
                 } else {
-                    if (row.status === '처리 중') return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}><button onClick={() => setActiveDeptReplyRow(row)} className="text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] bg-blue-50 text-letusBlue border-blue-200 hover:bg-blue-100">회신 등록</button></td>;
+                    if (row.status === '이관 중') return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}><button onClick={() => setActiveDeptReplyRow(row)} className="text-xs font-bold border px-3 py-1.5 rounded transition-colors shadow-sm w-[76px] bg-blue-50 text-letusBlue border-blue-200 hover:bg-blue-100">회신 등록</button></td>;
                     if (row.status === '이관부서 확인') return <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}><span className="text-xs font-bold border px-3 py-1.5 rounded w-[76px] inline-block text-center bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed">회신완료</span></td>;
                     return <td key={origIdx} className="p-4 text-center"><span className="text-gray-300">-</span></td>;
                 }
@@ -343,7 +344,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                         />
                     </div>
 
-                    <MultiSelect label="처리상태" options={['조치대기', '처리 중', '이관부서 확인', '조치완료']} selected={draftFilters.status} onChange={(val) => setDraftFilters({ ...draftFilters, status: val })} />
+                    <MultiSelect label="처리상태" options={['조치대기', '이관 중', '처리 중', '이관부서 확인', '조치완료']} selected={draftFilters.status} onChange={(val) => setDraftFilters({ ...draftFilters, status: val })} />
 
                     <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">검색어</label>

@@ -42,7 +42,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
 
             if (currentStatus === '조치대기' && userProfile?.role?.includes('관리자') && (userBrands.includes('전체') || userBrands.includes(newData.brand))) {
                 shouldAlert = true; message = `[신규] ${newData.brand} 브랜드의 새로운 이슈가 접수되었습니다. (${newData.reception_no})`;
-            } else if (currentStatus === '처리 중' && userVendors.includes(newData.vendor)) {
+            } else if (currentStatus === '이관 중' && userVendors.includes(newData.vendor)) {
                 shouldAlert = true; message = `[이관] 관리 중인 ${newData.vendor} 업체로 이슈가 이관되었습니다. (${newData.reception_no})`;
             } else if (currentStatus === '조치완료' && userProfile?.role?.includes('관리자') && (userBrands.includes('전체') || userBrands.includes(newData.brand))) {
                 shouldAlert = true; message = `[조치완료] ${newData.brand} 브랜드의 이슈 조치가 완료되었습니다. (${newData.reception_no})`;

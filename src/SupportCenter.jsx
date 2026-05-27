@@ -262,6 +262,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  };
  const isAdmin = userProfile?.role !== '사용자';
  const isWaiting = row.status === '조치대기';
+ const isRelaying = row.status === '이관 중';
  const isProcessing = row.status === '처리 중';
  const isDone = row.status === '조치완료';
  const hasPurchaseResponse = !!(row.purchase_response);
@@ -272,7 +273,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  try {
  const { error } = await supabase.from('logistics_issues').update({
  relay_content: relayText,
- status: '처리 중',
+ status: '이관 중',
  }).eq('id', row.id);
  if (error) throw error;
  await onReload(); onClose();
@@ -305,11 +306,11 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  <div className="flex items-center gap-1 mt-1 text-[11px]">
  <span className={stepStyle(isWaiting, !isWaiting)}>① 접수</span>
  <span className="text-gray-300">›</span>
- <span className={stepStyle(isProcessing && !hasPurchaseResponse, !isWaiting)}>② 이관</span>
+ <span className={stepStyle(isRelaying, hasPurchaseResponse || isDone)}>② 이관</span>
  <span className="text-gray-300">›</span>
- <span className={stepStyle(isProcessing && !hasPurchaseResponse, hasPurchaseResponse || isDone)}>③ 구매/생산 확인</span>
+ <span className={stepStyle(hasPurchaseResponse && !isDone, isDone)}>③ 구매/생산 확인</span>
  <span className="text-gray-300">›</span>
- <span className={stepStyle(false, isDone)}>④ 담당자 조치</span>
+ <span className={stepStyle(isProcessing, isDone)}>④ 담당자 조치</span>
  <span className="text-gray-300">›</span>
  <span className={stepStyle(false, row.is_notified)}>⑤ 피드백</span>
  </div>

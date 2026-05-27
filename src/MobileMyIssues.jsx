@@ -14,11 +14,12 @@ const ISSUE_TYPE_GROUPS = [
 
 const STATUS_STYLE = {
     '조치대기': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+    '이관 중':  'bg-orange-50 text-orange-600 border-orange-200',
     '처리 중':  'bg-blue-50 text-blue-600 border-blue-200',
     '조치완료': 'bg-green-50 text-green-600 border-green-200',
 };
 
-const TABS = ['전체', '조치대기', '처리 중', '조치완료'];
+const TABS = ['전체', '조치대기', '이관 중', '처리 중', '조치완료'];
 
 const formatDate = (dt) => {
     const d = new Date(dt);
@@ -104,11 +105,20 @@ const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, userProfile }) =>
                         </>
                     )}
 
+                    {issue.status === '이관 중' && (
+                        <>
+                            <div className="h-px bg-slate-100" />
+                            <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3">
+                                <p className="text-orange-600 text-sm font-bold">담당 부서에 이관되었습니다</p>
+                                <p className="text-orange-400 text-xs mt-0.5">담당 부서 확인 후 조치가 진행됩니다.</p>
+                            </div>
+                        </>
+                    )}
                     {issue.status === '처리 중' && (
                         <>
                             <div className="h-px bg-slate-100" />
                             <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-                                <p className="text-blue-600 text-sm font-bold">담당자가 처리 중입니다</p>
+                                <p className="text-blue-600 text-sm font-bold">담당자가 직접 처리 중입니다</p>
                                 <p className="text-blue-400 text-xs mt-0.5">조치가 완료되면 알림을 보내드립니다.</p>
                             </div>
                         </>

@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient.js';
 import { MobileDateRangeSheet } from './MobileUI.jsx';
 
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소'];
-const STATUS_TABS = ['전체', '조치대기', '처리 중', '조치완료'];
+const STATUS_TABS = ['전체', '조치대기', '이관 중', '처리 중', '조치완료'];
 const ISSUE_TYPES = [
     '계획 없음/누락', '수량 부족 (계획>실물)', '과입고 (계획<실물)', '미입고',
     '파손·불량', '바코드 오류', '포장 불량·혼적', '표기·규격 미흡',
@@ -14,6 +14,7 @@ const ISSUE_TYPES = [
 
 const STATUS_STYLE = {
     '조치대기': 'bg-amber-50 text-amber-600 border-amber-200',
+    '이관 중':  'bg-orange-50 text-orange-600 border-orange-200',
     '처리 중':  'bg-blue-50 text-blue-600 border-blue-200',
     '조치완료': 'bg-green-50 text-green-600 border-green-200',
 };
@@ -49,6 +50,7 @@ const IssueDetailSheet = ({ issue, onClose, onReload, userProfile }) => {
     const [currentImg, setCurrentImg] = useState(0);
 
     const isWaiting = issue.status === '조치대기';
+    const isRelaying = issue.status === '이관 중';
     const isProcessing = issue.status === '처리 중';
     const isDone = issue.status === '조치완료';
     const imageUrls = parseImageUrls(issue.image_url);
@@ -59,7 +61,7 @@ const IssueDetailSheet = ({ issue, onClose, onReload, userProfile }) => {
         try {
             const { error } = await supabase.from('logistics_issues').update({
                 relay_content: relayText,
-                status: '처리 중',
+                status: '이관 중',
             }).eq('id', issue.id);
             if (error) throw error;
             await onReload();
@@ -257,6 +259,11 @@ const IssueDetailSheet = ({ issue, onClose, onReload, userProfile }) => {
                                         직접 조치
                                     </button>
                                 </>
+                            )}
+                            {isRelaying && (
+                                <div className="w-full py-3.5 rounded-xl bg-orange-50 text-orange-600 border border-orange-200 font-bold text-sm text-center">
+                                    이관 중 — 담당 부서 회신 대기
+                                </div>
                             )}
                             {isProcessing && (
                                 <button onClick={() => setMode('action')}

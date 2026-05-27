@@ -158,7 +158,7 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
     dashboardIssues.forEach(issue => {
         if (brandStatsDetails[issue.brand]) {
             if (issue.status === '조치대기') brandStatsDetails[issue.brand].pending += 1;
-            if (issue.status === '처리 중') brandStatsDetails[issue.brand].processing += 1;
+            if (issue.status === '이관 중' || issue.status === '처리 중') brandStatsDetails[issue.brand].processing += 1;
             if (issue.status === '조치완료') brandStatsDetails[issue.brand].completed += 1;
         }
     });
@@ -343,8 +343,8 @@ const Dashboard = ({ onNavigateToList, onDrillDown, issues = [], isLoading = fal
                                     <span className="text-red-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '조치대기', startDate, endDate }); }}>{stats.pending}</span>
                                 </div>
                                 <div style={{ width: '18%' }} className="flex justify-between items-center px-3 py-2.5">
-                                    <span className="text-gray-400 font-medium whitespace-nowrap text-xs">처리 중</span>
-                                    <span className="text-yellow-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '처리 중', startDate, endDate }); }}>{stats.processing}</span>
+                                    <span className="text-gray-400 font-medium whitespace-nowrap text-xs">이관·처리 중</span>
+                                    <span className="text-yellow-500 font-bold text-sm cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); onDrillDown({ brand, status: '전체', startDate, endDate }); }}>{stats.processing}</span>
                                 </div>
                                 <div style={{ width: '18%' }} className="flex justify-between items-center px-3 py-2.5">
                                     <span className="text-gray-400 font-medium whitespace-nowrap text-xs">조치완료</span>
