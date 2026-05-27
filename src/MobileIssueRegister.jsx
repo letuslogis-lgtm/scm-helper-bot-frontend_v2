@@ -65,8 +65,9 @@ export const MobileIssueRegister = () => {
     const cameraRef = useRef(null);
     const galleryRef = useRef(null);
 
-const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
+    const [scanStep, setScanStep] = useState(null); // 'barcode' | 'ai' | null
 
     const [openGroups, setOpenGroups] = useState(new Set());
 
@@ -152,26 +153,66 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
         if (photos.length === 0) return alert('사진을 먼저 촬영해주세요.');
         setIsAnalyzing(true);
         setAiResult(null);
+        setScanStep(null);
+
         try {
-            const base64 = await compressImage(photos[0].file);
+            const file = photos[0].file;
+
+            // ── 1차: 네이티브 바코드 인식 (BarcodeDetector API) ──
+            if ('BarcodeDetector' in window) {
+                setScanStep('barcode');
+                try {
+                    const detector = new window.BarcodeDetector({
+                        formats: [
+                            'code_128', 'code_39', 'code_93', 'codabar',
+                            'ean_13', 'ean_8', 'upc_a', 'upc_e',
+                            'itf', 'pdf417', 'qr_code', 'data_matrix',
+                        ],
+                    });
+                    const bitmap = await createImageBitmap(file);
+                    const barcodes = await detector.detect(bitmap);
+                    bitmap.close();
+
+                    if (barcodes.length > 0) {
+                        let rawCode = barcodes[0].rawValue.trim();
+                        const fmt = barcodes[0].format;
+
+                        // 색상 suffix가 없으면 products 테이블에서 조회
+                        if (!rawCode.includes('-')) {
+                            const { data: pd } = await supabase
+                                .from('products')
+                                .select('item_color, brand')
+                                .eq('item_code', rawCode)
+                                .single();
+                            if (pd?.item_color) rawCode = `${rawCode}-${pd.item_color}`;
+                            if (pd?.brand && !brand) setBrand(pd.brand);
+                        }
+                        setProductCode(rawCode);
+                        setAiResult({ success: true, code: rawCode, description: `바코드 직접 인식 (${fmt})`, method: 'barcode' });
+                        return; // 성공 → AI 생략
+                    }
+                } catch (barcodeErr) {
+                    console.warn('BarcodeDetector 실패, AI로 전환:', barcodeErr);
+                }
+            }
+
+            // ── 2차: AI 텍스트 인식 (폴백) ──
+            setScanStep('ai');
+            const base64 = await compressImage(file);
 
             // 스캔 이미지 Storage 업로드 (학습 데이터용)
             let imageUrl = null;
             try {
                 const byteCharacters = atob(base64);
                 const byteArray = new Uint8Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteArray[i] = byteCharacters.charCodeAt(i);
-                }
+                for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
                 const blob = new Blob([byteArray], { type: 'image/jpeg' });
                 const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
                 const { error: uploadError } = await supabase.storage
                     .from('barcode-scans')
                     .upload(filename, blob, { contentType: 'image/jpeg' });
                 if (!uploadError) {
-                    const { data: urlData } = supabase.storage
-                        .from('barcode-scans')
-                        .getPublicUrl(filename);
+                    const { data: urlData } = supabase.storage.from('barcode-scans').getPublicUrl(filename);
                     imageUrl = urlData?.publicUrl || null;
                 }
             } catch (uploadErr) {
@@ -182,9 +223,9 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                 body: { image: base64, mimeType: 'image/jpeg' },
             });
             if (error) throw error;
+
             if (data?.product_code) {
                 let fullCode = data.product_code;
-                // 색상 suffix가 없으면 products 테이블에서 조회해 합침
                 if (!fullCode.includes('-')) {
                     const { data: pd } = await supabase
                         .from('products')
@@ -196,10 +237,11 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                 setProductCode(fullCode);
                 if (data.brand) setBrand(data.brand);
                 if (data.vendor) setVendor(data.vendor);
-                setAiResult({ success: true, code: fullCode, description: data.description || '' });
+                setAiResult({ success: true, code: fullCode, description: data.description || '', method: 'ai' });
             } else {
                 setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
             }
+
             supabase.from('ai_analysis_logs').insert({
                 source_menu: 'MobileBarcode',
                 original_text: `바코드 스캔 | 브랜드: ${brand || '미선택'} | 이슈: ${issueType || '미선택'}`,
@@ -214,11 +256,13 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
             }).then(({ error }) => {
                 if (error) console.warn('바코드 로그 저장 실패:', error.message);
             });
+
         } catch (err) {
-            console.error('AI 바코드 분석 실패:', err);
+            console.error('바코드 분석 실패:', err);
             setAiResult({ success: false, message: '분석 중 오류가 발생했습니다.' });
         } finally {
             setIsAnalyzing(false);
+            setScanStep(null);
         }
     };
 
@@ -377,16 +421,24 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
                             className={`w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm ${isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-letusBlue hover:bg-blue-800 active:scale-[0.98] text-white'}`}
                         >
                             {isAnalyzing ? (
-                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>AI 분석 중...</>
-                            ) : <>🤖 AI 바코드 인식</>}
+                                <>
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                    {scanStep === 'barcode' ? '바코드 스캔 중...' : 'AI 분석 중...'}
+                                </>
+                            ) : <>🔍 바코드 · AI 인식</>}
                         </button>
                     )}
 
                     {aiResult && (
                         <div className={`mt-3 p-3 rounded-xl text-sm font-bold border ${aiResult.success ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                             {aiResult.success ? (
-                                <>✅ 인식 완료: <span className="text-slate-800">{aiResult.code}</span>
-                                {aiResult.description && <p className="text-xs text-green-600 mt-1 font-medium">{aiResult.description}</p>}</>
+                                <>
+                                    {aiResult.method === 'barcode' ? '📷' : '🤖'} 인식 완료:{' '}
+                                    <span className="text-slate-800">{aiResult.code}</span>
+                                    {aiResult.description && (
+                                        <p className="text-xs text-green-600 mt-1 font-medium">{aiResult.description}</p>
+                                    )}
+                                </>
                             ) : (
                                 <>⚠️ {aiResult.message}</>
                             )}
