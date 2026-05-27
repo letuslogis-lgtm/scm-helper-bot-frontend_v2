@@ -36,7 +36,6 @@ import { MobileNotice } from './MobileNotice.jsx';
 import { MobileLoginView } from './MobileLoginView.jsx';
 import { MobileAdminMenu } from './MobileAdminMenu.jsx';
 import { MobileAdminIssueList } from './MobileAdminIssueList.jsx';
-import { MobileBarcodeTest } from './MobileBarcodeTest.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 import { useAuth } from './hooks/useAuth.jsx';
@@ -265,7 +264,6 @@ const ProtectedMobileRoute = () => {
             } />
             {/* ── 관리자 전용 라우트 ── */}
             <Route path="admin/issues" element={<MobileAdminIssueList userProfile={userProfile} />} />
-            <Route path="admin/barcode-test" element={<MobileBarcodeTest />} />
             {/* ── 작업자 라우트 (공지는 관리자도 접근 가능) ── */}
             <Route path="register" element={<MobileIssueRegister />} />
             <Route path="returns" element={<MobileReturnsRegister userProfile={userProfile} />} />

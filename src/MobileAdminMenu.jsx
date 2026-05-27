@@ -99,20 +99,6 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
                 },
             ],
         },
-        {
-            label: '개발 · 테스트',
-            items: [
-                {
-                    id: 'barcode-test',
-                    icon: '🔬',
-                    title: '바코드 인식 테스트',
-                    subtitle: 'ZXing · Native 비교',
-                    iconBg: 'bg-purple-50',
-                    path: '/mobile/admin/barcode-test',
-                    badge: 0,
-                },
-            ],
-        },
     ];
 
     return (
