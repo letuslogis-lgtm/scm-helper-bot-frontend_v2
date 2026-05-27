@@ -105,36 +105,47 @@ const [isAnalyzing, setIsAnalyzing] = useState(false);
     };
 
     const compressImage = async (file, maxWidth = 1024, quality = 0.6) => {
-        let orientation = 1;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
         try {
-            const meta = await exifr.parse(file, { tiff: true, xmp: false, icc: false, iptc: false, jfif: false, pick: ['Orientation'] });
-            orientation = meta?.Orientation ?? 1;
-        } catch {}
+            // 1순위: createImageBitmap — 브라우저가 EXIF 방향을 직접 처리 (카메라/갤러리 모두 대응)
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            const W = bitmap.width, H = bitmap.height;
+            const ratio = Math.min(maxWidth / W, maxWidth / H, 1);
+            canvas.width  = Math.round(W * ratio);
+            canvas.height = Math.round(H * ratio);
+            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            bitmap.close();
+        } catch {
+            // 폴백: exifr로 직접 EXIF 읽어서 수동 보정
+            let orientation = 1;
+            try {
+                const meta = await exifr.parse(file, { tiff: true, xmp: false, icc: false, iptc: false, jfif: false, pick: ['Orientation'] });
+                orientation = meta?.Orientation ?? 1;
+            } catch {}
+            await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const W = img.width, H = img.height;
+                    const ratio = Math.min(maxWidth / W, maxWidth / H, 1);
+                    const sw = W * ratio, sh = H * ratio;
+                    const needsSwap = orientation === 6 || orientation === 8;
+                    canvas.width  = Math.round(needsSwap ? sh : sw);
+                    canvas.height = Math.round(needsSwap ? sw : sh);
+                    ctx.save();
+                    if (orientation === 6) { ctx.translate(canvas.width, 0); ctx.rotate(Math.PI / 2); }
+                    else if (orientation === 8) { ctx.translate(0, canvas.height); ctx.rotate(-Math.PI / 2); }
+                    else if (orientation === 3) { ctx.translate(canvas.width, canvas.height); ctx.rotate(Math.PI); }
+                    ctx.drawImage(img, 0, 0, sw, sh);
+                    ctx.restore();
+                    resolve();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
 
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-                const W = img.width, H = img.height;
-                const ratio = Math.min(maxWidth / W, maxWidth / H, 1);
-                const sw = W * ratio, sh = H * ratio;
-                const needsSwap = orientation === 6 || orientation === 8;
-
-                const canvas = document.createElement('canvas');
-                canvas.width  = needsSwap ? sh : sw;
-                canvas.height = needsSwap ? sw : sh;
-
-                const ctx = canvas.getContext('2d');
-                ctx.save();
-                if (orientation === 6) { ctx.translate(canvas.width, 0);          ctx.rotate(Math.PI / 2);  }
-                else if (orientation === 8) { ctx.translate(0, canvas.height);    ctx.rotate(-Math.PI / 2); }
-                else if (orientation === 3) { ctx.translate(canvas.width, canvas.height); ctx.rotate(Math.PI); }
-                ctx.drawImage(img, 0, 0, sw, sh);
-                ctx.restore();
-
-                resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
-            };
-            img.src = URL.createObjectURL(file);
-        });
+        return canvas.toDataURL('image/jpeg', quality).split(',')[1];
     };
 
     const handleAiBarcode = async () => {
