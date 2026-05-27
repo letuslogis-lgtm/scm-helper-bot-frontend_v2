@@ -155,44 +155,7 @@ export const MobileIssueRegister = () => {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         try {
-            const file = photos[0].file;
-
-            // ── 1차: Native BarcodeDetector ──
-            if ('BarcodeDetector' in window) {
-                try {
-                    const detector = new window.BarcodeDetector({
-                        formats: ['code_128', 'code_39', 'code_93', 'codabar',
-                                  'ean_13', 'ean_8', 'upc_a', 'upc_e',
-                                  'itf', 'pdf417', 'qr_code', 'data_matrix'],
-                    });
-                    const bitmap = await createImageBitmap(file);
-                    const barcodes = await detector.detect(bitmap);
-                    bitmap.close();
-
-                    for (const bc of barcodes) {
-                        const rawCode = bc.rawValue.trim();
-                        const baseCode = rawCode.includes('-') ? rawCode.split('-')[0] : rawCode;
-                        // products 테이블 조회로 올바른 품목코드인지 검증
-                        const { data: pd } = await supabase
-                            .from('products')
-                            .select('item_code, item_color, brand')
-                            .eq('item_code', baseCode)
-                            .maybeSingle();
-                        if (pd) {
-                            const fullCode = pd.item_color ? `${pd.item_code}-${pd.item_color}` : rawCode;
-                            setProductCode(fullCode);
-                            if (pd.brand && !brand) setBrand(pd.brand);
-                            setAiResult({ success: true, code: fullCode, description: `바코드 직접 인식 (${bc.format})`, method: 'barcode' });
-                            return; // 성공 → AI 생략
-                        }
-                    }
-                } catch (err) {
-                    console.warn('BarcodeDetector 실패, AI 전환:', err);
-                }
-            }
-
-            // ── 2차: AI 텍스트 인식 ──
-            const base64 = await compressImage(file);
+            const base64 = await compressImage(photos[0].file);
 
             // 스캔 이미지 Storage 업로드 (학습 데이터용)
             let imageUrl = null;
@@ -343,7 +306,7 @@ export const MobileIssueRegister = () => {
                         현장 사진
                     </h3>
                     <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 leading-relaxed">
-                        💡 바코드가 선명하게 보이는 <span className="font-bold">근접 사진</span>을 포함해주세요. 전체 사진만 있으면 AI가 코드를 인식하지 못할 수 있습니다.
+                        💡 <span className="font-bold">품목코드가 선명하게 보이는 근접 사진</span>을 포함해주세요. 전체 사진만 있으면 AI가 코드를 인식하지 못할 수 있습니다.
                     </p>
                     <div className="grid grid-cols-3 gap-2.5">
                         {photos.map((p, idx) => (
@@ -415,7 +378,7 @@ export const MobileIssueRegister = () => {
                         >
                             {isAnalyzing ? (
                                 <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>인식 중...</>
-                            ) : <>🔍 바코드 · AI 인식</>}
+                            ) : <>🤖 AI 바코드 인식</>}
                         </button>
                     )}
 
