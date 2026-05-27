@@ -152,10 +152,12 @@ def parse_args():
                         help='조회 시작일 YYYY-MM-DD (기본: 다음 영업일)')
     parser.add_argument('--end',    default=None,
                         help='조회 종료일 YYYY-MM-DD (기본: start와 동일, 금요일은 월요일)')
+    parser.add_argument('--show',   action='store_true',
+                        help='브라우저 창 표시 (기본: headless)')
     args = parser.parse_args()
     end = args.end or (default_end if args.start == default_start else args.start)
     centers = [args.center] if args.center else ALL_CENTERS
-    return centers, args.start, end
+    return centers, args.start, end, args.show
 
 # ---------------------------------------------------------------------------
 # 2. Excel → DB 컬럼 매핑 (WmsShortageList.jsx EXCEL_TO_DB 와 동일)
@@ -186,12 +188,12 @@ EXCEL_TO_DB = {
 # ---------------------------------------------------------------------------
 # 3. 브라우저 자동화
 # ---------------------------------------------------------------------------
-def download_cut_list(center: str, start_date: str, end_date: str, download_dir: str) -> Path:
+def download_cut_list(center: str, start_date: str, end_date: str, download_dir: str, headless: bool = True) -> Path:
     """WMS에서 CUT리스트 엑셀을 다운로드하고 파일 경로를 반환"""
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
-            headless=True,
+            headless=headless,
             args=['--disable-blink-features=AutomationControlled', '--no-sandbox', '--start-maximized'],
         )
         context = browser.new_context(
@@ -393,7 +395,8 @@ def parse_and_upload(file_path: Path, upload_date: str, center: str):
 # 5. 메인
 # ---------------------------------------------------------------------------
 def main():
-    centers, start_date, end_date = parse_args()
+    centers, start_date, end_date, show = parse_args()
+    headless = not show
     print(f'=== WMS CUT리스트 추출 시작: {start_date} ~ {end_date} / 대상 센터: {len(centers)}개 ===')
 
     total = 0
@@ -401,7 +404,7 @@ def main():
         for center in centers:
             print(f'\n── {center} ──')
             try:
-                file_path = download_cut_list(center, start_date, end_date, tmp_dir)
+                file_path = download_cut_list(center, start_date, end_date, tmp_dir, headless=headless)
             except PWTimeout as e:
                 print(f'  [ERROR] 브라우저 타임아웃: {e}')
                 continue
