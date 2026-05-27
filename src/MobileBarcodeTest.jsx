@@ -51,40 +51,58 @@ export const MobileBarcodeTest = () => {
         setResults(null);
         const list = [];
 
-        // ── 1. ZXing (TRY_HARDER + EXIF 회전 보정) ──
+        const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+        const reader = new BrowserMultiFormatReader(hints);
+
+        // ── 1-A. ZXing: 원본 파일 직접 (압축 없음) ──
         try {
-            // EXIF 회전 보정: createImageBitmap으로 올바른 방향의 캔버스 생성
+            const origUrl = URL.createObjectURL(photo.file);
+            let raw = null, fmt = null;
+            try {
+                const result = await reader.decodeFromImageUrl(origUrl);
+                raw = result.getText();
+                fmt = result.getBarcodeFormat?.() ?? '—';
+            } catch (e) {
+                console.warn('ZXing 원본 실패:', e.message);
+            } finally {
+                URL.revokeObjectURL(origUrl);
+            }
+            const dbResult = raw ? await lookupProduct(raw) : null;
+            list.push({
+                method: 'ZXing — 원본',
+                raw, format: typeof fmt === 'number' ? fmtName(fmt) : String(fmt),
+                dbResult, error: raw ? null : '바코드를 찾지 못했습니다',
+            });
+        } catch (err) {
+            list.push({ method: 'ZXing — 원본', raw: null, error: err.message });
+        }
+
+        // ── 1-B. ZXing: EXIF 보정 + PNG 무손실 ──
+        try {
             const bitmap = await createImageBitmap(photo.file, { imageOrientation: 'from-image' });
             const canvas = document.createElement('canvas');
             canvas.width = bitmap.width;
             canvas.height = bitmap.height;
             canvas.getContext('2d').drawImage(bitmap, 0, 0);
             bitmap.close();
-            const correctedUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const pngUrl = canvas.toDataURL('image/png'); // 무손실
 
-            const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
-            const reader = new BrowserMultiFormatReader(hints);
-
-            let zxingRaw = null;
-            let zxingFmt = null;
+            let raw = null, fmt = null;
             try {
-                const result = await reader.decodeFromImageUrl(correctedUrl);
-                zxingRaw = result.getText();
-                zxingFmt = result.getBarcodeFormat?.() ?? '—';
+                const result = await reader.decodeFromImageUrl(pngUrl);
+                raw = result.getText();
+                fmt = result.getBarcodeFormat?.() ?? '—';
             } catch (e) {
-                console.warn('ZXing 인식 실패:', e.message);
+                console.warn('ZXing PNG 실패:', e.message);
             }
-
-            const dbResult = zxingRaw ? await lookupProduct(zxingRaw) : null;
+            const dbResult = raw ? await lookupProduct(raw) : null;
             list.push({
-                method: 'ZXing (TRY_HARDER)',
-                raw: zxingRaw,
-                format: typeof zxingFmt === 'number' ? fmtName(zxingFmt) : String(zxingFmt),
-                dbResult,
-                error: zxingRaw ? null : '바코드를 찾지 못했습니다',
+                method: 'ZXing — EXIF보정+PNG',
+                raw, format: typeof fmt === 'number' ? fmtName(fmt) : String(fmt),
+                dbResult, error: raw ? null : '바코드를 찾지 못했습니다',
             });
         } catch (err) {
-            list.push({ method: 'ZXing (TRY_HARDER)', raw: null, error: err.message });
+            list.push({ method: 'ZXing — EXIF보정+PNG', raw: null, error: err.message });
         }
 
         // ── 2. Native BarcodeDetector (지원 여부 체크) ──
