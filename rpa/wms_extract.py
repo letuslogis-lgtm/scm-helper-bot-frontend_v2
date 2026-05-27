@@ -249,7 +249,7 @@ def download_cut_list(center: str, start_date: str, end_date: str, download_dir:
         """)
         cut_page.wait_for_timeout(500)
 
-        cut_page.click('button.dfBtn._orangeLine')           # 조회하기 버튼
+        cut_page.click('button.dfBtn._sizeL._orangeLine')    # 조회하기 버튼
         cut_page.wait_for_load_state('networkidle')
         cut_page.wait_for_selector(
             'button.exportXlsxBtn[data-target="resultTable2"]',
@@ -259,21 +259,26 @@ def download_cut_list(center: str, start_date: str, end_date: str, download_dir:
         # ── 엑셀 다운로드 ─────────────────────────────────────────
         print('[6/6] 엑셀 다운로드 중...')
 
-        # 다운로드 버튼 클릭 → WMS 다이얼로그 "저장" 버튼 대기 (최대 30초)
-        # 저장 버튼이 안 뜨면 조회 결과 없음으로 간주하고 스킵
-        cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
+        # expect_download 안에서 버튼 클릭:
+        # - 저장 팝업이 뜨는 경우: 팝업 "저장" 클릭 → 다운로드 트리거
+        # - 팝업 없이 바로 다운되는 경우: 그대로 캡처
+        # 30초 내 다운로드 없으면 → 조회 결과 없음으로 간주
         try:
-            save_btn = cut_page.get_by_role('button', name='저장', exact=True)
-            save_btn.wait_for(state='visible', timeout=30000)
+            with cut_page.expect_download(timeout=30000) as dl_info:
+                cut_page.click('button.exportXlsxBtn[data-target="resultTable2"]')
+                try:
+                    save_btn = cut_page.get_by_role('button', name='저장', exact=True)
+                    save_btn.wait_for(state='visible', timeout=4000)
+                    print('    저장 다이얼로그 확인 → "저장" 클릭')
+                    save_btn.click()
+                except Exception:
+                    pass  # 팝업 없이 바로 다운로드 되는 경우 — 정상
         except Exception:
-            print('    저장 버튼 미표시 → 결과 없음으로 간주, 스킵')
+            print('    다운로드 없음 → 조회 결과 없음으로 간주, 스킵')
             context.close()
             browser.close()
             return None
 
-        print('    다이얼로그 확인 → "저장" 클릭')
-        with cut_page.expect_download(timeout=60000) as dl_info:
-            save_btn.click()
         download = dl_info.value
         file_path = Path(download_dir) / f'cut_list_{start_date}_{end_date}.xlsx'
         download.save_as(str(file_path))
