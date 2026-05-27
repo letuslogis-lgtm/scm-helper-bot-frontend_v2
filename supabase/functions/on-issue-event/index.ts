@@ -91,13 +91,14 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, matched: matchedUsers.length, slack: 'skipped' }), { headers: corsHeaders })
       }
 
+      const deepLink = `https://scm-helper-bot-frontend-v2.vercel.app/list?brand=${encodeURIComponent(brand)}${vendor ? `&vendor=${encodeURIComponent(vendor)}` : ''}`
       const message = [
         `📋 *이슈가 귀 팀으로 이관되었습니다*`,
         `• 접수번호: ${receptionNo}`,
         `• 브랜드: ${brand}`,
         `• 공급업체: ${vendor || '-'}`,
         `• 이관 내용:\n${relayContent || '(내용 없음)'}`,
-        `\n_LETUS LOGIS에서 확인 후 회신해주세요._`,
+        `\n<${deepLink}|LETUS LOGIS에서 확인 후 회신해주세요.>`,
       ].join('\n')
 
       let sent = 0
@@ -135,13 +136,14 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, matched: matchedAdmins.length, slack: 'skipped' }), { headers: corsHeaders })
       }
 
+      const deepLink = `https://scm-helper-bot-frontend-v2.vercel.app/list?brand=${encodeURIComponent(brand)}${vendor ? `&vendor=${encodeURIComponent(vendor)}` : ''}`
       const message = [
         `🔔 *이관 부서에서 회신이 등록되었습니다*`,
         `• 접수번호: ${receptionNo}`,
         `• 브랜드: ${brand}`,
         `• 공급업체: ${vendor || '-'}`,
         `• 회신 내용:\n${purchaseResponse || '(내용 없음)'}`,
-        `\n_LETUS LOGIS에서 확인 후 조치를 등록해주세요._`,
+        `\n<${deepLink}|LETUS LOGIS에서 확인 후 조치를 등록해주세요.>`,
       ].join('\n')
 
       let sent = 0

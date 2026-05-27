@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import ReactDOM from 'react-dom';
 import { ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts';
 import { loadXLSX } from './utils.js';
@@ -1111,6 +1112,22 @@ export const WmsShortageList = ({ userProfile }) => {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [draft, setDraft]                 = useState(initFilter());
     const [applied, setApplied]             = useState(initFilter());
+    const [searchParams] = useSearchParams();
+    useEffect(() => {
+        const date = searchParams.get('date');
+        const vendor = searchParams.get('vendor');
+        const actionStatus = searchParams.get('action_status');
+        if (!date && !vendor && !actionStatus) return;
+        const updates = {
+            ...(date ? { startDate: date, endDate: date } : {}),
+            ...(vendor ? { searchType: 'vendor', searchValue: vendor } : {}),
+            ...(actionStatus ? { actionStatus } : {}),
+        };
+        const next = { ...initFilter(), ...updates };
+        setDraft(next);
+        setApplied(next);
+        fetchData(next);
+    }, []);
     const [sortConfig, setSortConfig]       = useState({ key: null, direction: 'none' });
     const [selectedIds, setSelectedIds]     = useState(new Set());
     const [lastSelectedId, setLastSelectedId] = useState(null);

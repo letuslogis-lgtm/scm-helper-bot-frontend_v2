@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
 
     // ── 입고 특이사항 신규 등록 (INSERT) ──────────────────────
     if (table === 'logistics_issues' && type === 'INSERT') {
+      const deepLink = `https://scm-helper-bot-frontend-v2.vercel.app/list?brand=${encodeURIComponent(record.brand || '')}`
       const text = [
         `🚨 *새 입고 특이사항이 등록되었습니다*`,
         `• 접수번호: ${record.reception_no || '-'}`,
@@ -96,7 +97,7 @@ Deno.serve(async (req) => {
         `• 품목코드: ${record.product_code || '-'}`,
         `• 등록자: ${record.reporter || '-'}`,
         `• 내용: ${record.request_content || '-'}`,
-        `\n_LETUS LOGIS에서 확인하세요._`,
+        `\n<${deepLink}|LETUS LOGIS에서 확인하세요.>`,
       ].join('\n')
 
       let sent = 0

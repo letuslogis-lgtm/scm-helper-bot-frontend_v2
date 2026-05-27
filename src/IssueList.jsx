@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from './supabaseClient.js';
 import { StatusBadge, CategoryBadge, formatDateTime, SearchButton, DateRangeInput } from './SharedUI.jsx';
 import { RequestModal, HandleModal, DeptReplyModal } from './SupportCenter.jsx';
@@ -34,6 +35,22 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
     const [draftFilters, setDraftFilters] = useState({ ...savedFilters });
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+    const [searchParams] = useSearchParams();
+    useEffect(() => {
+        const brand = searchParams.get('brand');
+        const vendor = searchParams.get('vendor');
+        if (!brand && !vendor) return;
+        const today = new Date().toISOString().split('T')[0];
+        const d = new Date(); d.setDate(d.getDate() - 30);
+        const startStr = d.toISOString().split('T')[0];
+        const updates = {
+            ...(brand ? { brand } : {}),
+            ...(vendor ? { searchType: '공급업체', searchValue: vendor } : {}),
+            startDate: startStr, endDate: today,
+        };
+        setDraftFilters(prev => ({ ...prev, ...updates }));
+        setSavedFilters(prev => ({ ...prev, ...updates }));
+    }, []);
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
     const [reporterTeamMap, setReporterTeamMap] = useState({});
 
