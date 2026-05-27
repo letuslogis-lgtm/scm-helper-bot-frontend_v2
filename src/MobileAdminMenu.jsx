@@ -5,7 +5,7 @@ import { subscribePush } from './hooks/usePushNotification.js';
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
 
-export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0 }) => {
+export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, onLogoClick }) => {
     const navigate = useNavigate();
     const [installPrompt, setInstallPrompt] = useState(null);
     const [installed, setInstalled] = useState(isStandalone);
@@ -108,9 +108,19 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0 })
                 <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-letusBlue to-blue-700" />
                 <div className="px-5 pt-6 pb-5">
                     <div className="flex items-start justify-between">
-                        <div>
+                        <div
+                            className={onLogoClick ? 'cursor-pointer active:opacity-70 transition-opacity select-none' : ''}
+                            onClick={onLogoClick || undefined}
+                        >
                             <h1 className="text-2xl font-black text-letusBlue tracking-tighter">LETUS LOGIS</h1>
-                            <p className="text-sm text-slate-400 font-medium mt-0.5">관리자 모바일</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className="text-sm text-slate-400 font-medium">관리자 모바일</p>
+                                {onLogoClick && (
+                                    <span className="text-[10px] font-black text-white bg-letusBlue px-1.5 py-0.5 rounded-full leading-none">
+                                        관리자 모드
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <button onClick={() => navigate('/mobile/admin/issues', { state: { initialTab: '조치대기' } })} className="relative p-2 mt-1">
                             <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
