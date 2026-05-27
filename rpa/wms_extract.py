@@ -24,8 +24,11 @@ import argparse
 import os
 import re
 import sys
-import time
 import tempfile
+
+# Windows CP949 환경에서 이모지/유니코드 출력 오류 방지
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
@@ -132,17 +135,27 @@ def calc_default_dates():
     return start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
 
 
+ALL_CENTERS = [
+    '양지1물류센터',
+    '양지2물류센터',
+    '양지3물류센터',
+    '안성물류센터',
+    '평택물류센터',
+]
+
 def parse_args():
     default_start, default_end = calc_default_dates()
     parser = argparse.ArgumentParser(description='WMS CUT리스트 추출')
-    parser.add_argument('--center', required=True, help='WMS 센터명 (예: 양지1물류센터)')
+    parser.add_argument('--center', required=False, default=None,
+                        help='WMS 센터명 (예: 양지1물류센터). 생략 시 전체 5개 센터 순차 처리')
     parser.add_argument('--start',  default=default_start,
                         help='조회 시작일 YYYY-MM-DD (기본: 다음 영업일)')
     parser.add_argument('--end',    default=None,
                         help='조회 종료일 YYYY-MM-DD (기본: start와 동일, 금요일은 월요일)')
     args = parser.parse_args()
     end = args.end or (default_end if args.start == default_start else args.start)
-    return args.center, args.start, end
+    centers = [args.center] if args.center else ALL_CENTERS
+    return centers, args.start, end
 
 # ---------------------------------------------------------------------------
 # 2. Excel → DB 컬럼 매핑 (WmsShortageList.jsx EXCEL_TO_DB 와 동일)
@@ -375,26 +388,30 @@ def parse_and_upload(file_path: Path, upload_date: str, center: str):
 # 5. 메인
 # ---------------------------------------------------------------------------
 def main():
-    center, start_date, end_date = parse_args()
-    print(f'=== WMS CUT리스트 추출 시작: [{center}] {start_date} ~ {end_date} ===')
+    centers, start_date, end_date = parse_args()
+    print(f'=== WMS CUT리스트 추출 시작: {start_date} ~ {end_date} / 대상 센터: {len(centers)}개 ===')
 
+    total = 0
     with tempfile.TemporaryDirectory() as tmp_dir:
-        try:
-            file_path = download_cut_list(center, start_date, end_date, tmp_dir)
-        except PWTimeout as e:
-            print(f'[ERROR] 브라우저 타임아웃: {e}')
-            sys.exit(1)
-        except Exception as e:
-            print(f'[ERROR] 다운로드 실패: {e}')
-            raise
+        for center in centers:
+            print(f'\n── {center} ──')
+            try:
+                file_path = download_cut_list(center, start_date, end_date, tmp_dir)
+            except PWTimeout as e:
+                print(f'  [ERROR] 브라우저 타임아웃: {e}')
+                continue
+            except Exception as e:
+                print(f'  [ERROR] 다운로드 실패: {e}')
+                continue
 
-        if file_path is None:
-            print(f'=== 완료: [{center}] 조회 결과 없음 (0건) ===')
-            return
+            if file_path is None:
+                print(f'  [{center}] 조회 결과 없음 (0건), 스킵')
+                continue
 
-        uploaded = parse_and_upload(file_path, start_date, center)
+            uploaded = parse_and_upload(file_path, start_date, center)
+            total += uploaded
 
-    print(f'=== 완료: [{center}] {uploaded}건 업로드 ===')
+    print(f'\n=== 완료: 전체 {total}건 업로드 ===')
 
 if __name__ == '__main__':
     main()
