@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BrowserMultiFormatReader } from '@zxing/browser';
-import { DecodeHintType } from '@zxing/library';
+import { MultiFormatReader, BinaryBitmap, HybridBinarizer, RGBLuminanceSource, DecodeHintType } from '@zxing/library';
 import { supabase } from './supabaseClient.js';
 
 const FORMATS_LABEL = 'Code128 / Code39 / EAN-13 / QR / DataMatrix 등';
@@ -51,58 +50,62 @@ export const MobileBarcodeTest = () => {
         setResults(null);
         const list = [];
 
-        const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
-        const reader = new BrowserMultiFormatReader(hints);
+        // ZXing 공통: 캔버스 픽셀 데이터 직접 전달 (URL 방식 사용 안 함)
+        const zxingScan = async (canvas, label) => {
+            const ctx = canvas.getContext('2d');
+            const { width, height } = canvas;
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const lum = new RGBLuminanceSource(imageData.data, width, height);
+            const bmp = new BinaryBitmap(new HybridBinarizer(lum));
+            const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+            const reader = new MultiFormatReader();
+            reader.setHints(hints);
+            return reader.decode(bmp); // 실패 시 throw
+        };
 
-        // ── 1-A. ZXing: 원본 파일 직접 (압축 없음) ──
-        try {
-            const origUrl = URL.createObjectURL(photo.file);
-            let raw = null, fmt = null;
-            try {
-                const result = await reader.decodeFromImageUrl(origUrl);
-                raw = result.getText();
-                fmt = result.getBarcodeFormat?.() ?? '—';
-            } catch (e) {
-                console.warn('ZXing 원본 실패:', e.message);
-            } finally {
-                URL.revokeObjectURL(origUrl);
-            }
-            const dbResult = raw ? await lookupProduct(raw) : null;
-            list.push({
-                method: 'ZXing — 원본',
-                raw, format: typeof fmt === 'number' ? fmtName(fmt) : String(fmt),
-                dbResult, error: raw ? null : '바코드를 찾지 못했습니다',
-            });
-        } catch (err) {
-            list.push({ method: 'ZXing — 원본', raw: null, error: err.message });
-        }
-
-        // ── 1-B. ZXing: EXIF 보정 + PNG 무손실 ──
+        // ── 1-A. ZXing: 원본 해상도 ──
         try {
             const bitmap = await createImageBitmap(photo.file, { imageOrientation: 'from-image' });
             const canvas = document.createElement('canvas');
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
+            canvas.width = bitmap.width; canvas.height = bitmap.height;
             canvas.getContext('2d').drawImage(bitmap, 0, 0);
             bitmap.close();
-            const pngUrl = canvas.toDataURL('image/png'); // 무손실
 
             let raw = null, fmt = null;
             try {
-                const result = await reader.decodeFromImageUrl(pngUrl);
+                const result = zxingScan(canvas);
                 raw = result.getText();
-                fmt = result.getBarcodeFormat?.() ?? '—';
-            } catch (e) {
-                console.warn('ZXing PNG 실패:', e.message);
-            }
+                fmt = fmtName(result.getBarcodeFormat?.());
+            } catch (e) { console.warn('ZXing 원본 실패:', e.message); }
+
             const dbResult = raw ? await lookupProduct(raw) : null;
-            list.push({
-                method: 'ZXing — EXIF보정+PNG',
-                raw, format: typeof fmt === 'number' ? fmtName(fmt) : String(fmt),
-                dbResult, error: raw ? null : '바코드를 찾지 못했습니다',
-            });
+            list.push({ method: 'ZXing — 원본 해상도', raw, format: fmt, dbResult, error: raw ? null : '바코드를 찾지 못했습니다' });
         } catch (err) {
-            list.push({ method: 'ZXing — EXIF보정+PNG', raw: null, error: err.message });
+            list.push({ method: 'ZXing — 원본 해상도', raw: null, error: err.message });
+        }
+
+        // ── 1-B. ZXing: 1280px 축소 (대형 이미지 최적화) ──
+        try {
+            const bitmap = await createImageBitmap(photo.file, { imageOrientation: 'from-image' });
+            const MAX = 1280;
+            const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(bitmap.width * scale);
+            canvas.height = Math.round(bitmap.height * scale);
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            bitmap.close();
+
+            let raw = null, fmt = null;
+            try {
+                const result = zxingScan(canvas);
+                raw = result.getText();
+                fmt = fmtName(result.getBarcodeFormat?.());
+            } catch (e) { console.warn('ZXing 1280 실패:', e.message); }
+
+            const dbResult = raw ? await lookupProduct(raw) : null;
+            list.push({ method: 'ZXing — 1280px 축소', raw, format: fmt, dbResult, error: raw ? null : '바코드를 찾지 못했습니다' });
+        } catch (err) {
+            list.push({ method: 'ZXing — 1280px 축소', raw: null, error: err.message });
         }
 
         // ── 2. Native BarcodeDetector (지원 여부 체크) ──
