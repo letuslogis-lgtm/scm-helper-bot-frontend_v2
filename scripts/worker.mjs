@@ -52,24 +52,20 @@ async function notifySlack({ email, title, message }) {
     }
 }
 
-// 관리자 전체에게 Slack 알림 발송
-async function notifySlackToAdmins(title, message) {
+// WMS 이벤트 Edge Function 호출 헬퍼
+async function notifyWmsEvent(event, extra = {}) {
     try {
-        const { data: admins } = await supabase
-            .from('profiles')
-            .select('login_id')
-            .eq('role', '관리자')
-            .eq('status', '정상');
-
-        for (const admin of admins ?? []) {
-            const email = admin.login_id.includes('@')
-                ? admin.login_id
-                : `${admin.login_id}@fursys.com`;
-            await notifySlack({ email, title, message });
-        }
-        log(`[notifySlack] 관리자 ${(admins ?? []).length}명에게 알림 발송`);
+        await fetch(`${SUPABASE_URL}/functions/v1/on-wms-event`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ event, ...extra }),
+        });
+        log(`[notifyWmsEvent] ${event} 호출 완료`);
     } catch (err) {
-        warn(`[notifySlackToAdmins] 실패 (무시): ${err.message}`);
+        warn(`[notifyWmsEvent] 호출 실패 (무시): ${err.message}`);
     }
 }
 
@@ -201,12 +197,9 @@ async function executeJob(job, { runId = null, triggeredBy = 'schedule' } = {}) 
 
         log(`${finalStatus === 'success' ? '✅' : '❌'} ${job.rpa_name} finished (exit ${result.exitCode})`);
 
-        // WMS 결품 추출 성공 시 → 관리자 전체 Slack 알림
+        // WMS 결품 추출 성공 시 → brand/vendor 매칭 알림
         if (finalStatus === 'success' && job.script_command?.includes('wms_extract')) {
-            await notifySlackToAdmins(
-                '📋 WMS 결품 리스트가 업데이트되었습니다',
-                `${job.rpa_name} 자동 추출이 완료되었습니다.\nLETUS LOGIS에서 결품 현황을 확인하세요.`
-            );
+            await notifyWmsEvent('wms_complete', { job_name: job.rpa_name });
         }
     } catch (err) {
         error(`Error executing ${job.rpa_name}: ${err.message}`);
@@ -426,6 +419,13 @@ async function main() {
 
     await loadAllJobs();
     subscribeRealtime();
+
+    // WMS 결품 미확인 30분 주기 체크
+    cron.schedule('*/30 * * * *', () => {
+        log('⏰ WMS 미확인 체크 실행');
+        notifyWmsEvent('wms_check_pending');
+    }, { timezone: 'Asia/Seoul' });
+    log('⏰ WMS 미확인 체크 등록: 30분 주기');
 
     log('🟢 Worker is running. Press Ctrl+C to stop.');
 }

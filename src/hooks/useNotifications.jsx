@@ -76,7 +76,36 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'logistics_issues' }, (payload) => handleIssueChange(payload.new, '상태 변경'))
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
+        // WMS 조치사항 등록 → 관리자 웹앱 알림
+        const handleWmsActionInsert = async (newLog) => {
+            if (!userProfile?.role?.includes('관리자')) return;
+            const { data: shortage } = await supabase
+                .from('wms_shortage_list')
+                .select('brand, vendor, item_code')
+                .eq('id', newLog.shortage_id)
+                .single();
+            if (!shortage) return;
+            const userBrands = userProfile?.managed_brands ? userProfile.managed_brands.split(',').map(s => s.trim()) : [];
+            if (!userBrands.includes('전체') && !userBrands.includes(shortage.brand)) return;
+            const message = `[WMS 조치] ${shortage.brand} · ${shortage.vendor || '-'} 결품 조치사항이 등록되었습니다. (${shortage.item_code || '-'})`;
+            const nowTime = new Date().getTime();
+            setNotifications(prev => [{
+                id: 'wms_action_' + newLog.id + '_' + nowTime,
+                title: 'WMS 조치사항 등록',
+                message,
+                date: new Date(nowTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                read: false, read_at: null, filterObj: { type: 'wms' }
+            }, ...prev].slice(0, 10));
+            if (Notification.permission === 'granted') {
+                new Notification('LETUS LOGIS - WMS 조치사항 등록', { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' });
+            }
+        };
+
+        const wmsChannel = supabase.channel('wms_action_notifications')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wms_action_logs' }, (payload) => handleWmsActionInsert(payload.new))
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); supabase.removeChannel(wmsChannel); };
     }, [session, userProfile, fetchIssues]);
 
     // 🌟 캘린더 30분 전 알림 로직
