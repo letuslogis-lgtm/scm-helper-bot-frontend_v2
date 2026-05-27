@@ -39,6 +39,7 @@ const EMPTY_FORM = {
     working_dir: '',
     runner_type: 'local',       // 'local' | 'github_actions'
     enabled: true,
+    parameters_schema: '',      // JSON 문자열 (textarea 용)
 };
 
 export const RpaManagement = () => {
@@ -64,6 +65,9 @@ export const RpaManagement = () => {
 
     // 실행 이력 모달 (rpa_runs 조회)
     const [historyTarget, setHistoryTarget] = useState(null);
+
+    // 수동 실행 파라미터 입력 모달 { job, paramValues: { key: value } }
+    const [runParamModal, setRunParamModal] = useState(null);
 
     // 필터
     const initialFilters = { triggerType: '전체', status: '전체', searchValue: '' };
@@ -382,6 +386,9 @@ export const RpaManagement = () => {
             working_dir: job.working_dir || '',
             runner_type: job.runner_type || 'local',
             enabled: job.enabled !== false,
+            parameters_schema: job.parameters_schema?.length
+                ? JSON.stringify(job.parameters_schema, null, 2)
+                : '',
         });
         setIsModalOpen(true);
     };
@@ -398,6 +405,17 @@ export const RpaManagement = () => {
             return alert("로컬 Worker 실행이면 'script_command' 가 필요합니다.\n예) node scripts/sync_products.mjs");
         }
 
+        // parameters_schema JSON 파싱 (비어있으면 null)
+        let parsedSchema = null;
+        if (form.parameters_schema?.trim()) {
+            try {
+                parsedSchema = JSON.parse(form.parameters_schema);
+                if (!Array.isArray(parsedSchema)) throw new Error('배열([]) 형식이어야 합니다.');
+            } catch (e) {
+                return alert('파라미터 스키마 JSON 형식이 잘못되었습니다:\n' + e.message);
+            }
+        }
+
         const payload = {
             rpa_name: form.rpa_name.trim(),
             description: form.description.trim() || null,
@@ -407,6 +425,7 @@ export const RpaManagement = () => {
             working_dir: form.working_dir.trim() || null,
             runner_type: form.runner_type,
             enabled: form.enabled,
+            parameters_schema: parsedSchema,
         };
 
         try {
@@ -444,16 +463,9 @@ export const RpaManagement = () => {
     // ============================================================
     // 수동 실행 — rpa_runs INSERT pending → Worker 가 Realtime 감지
     // ============================================================
-    const handleRunRpa = async (job) => {
-        if (job.status === 'running') {
-            return alert('이미 실행 중입니다.');
-        }
-        if (job.runner_type === 'local' && !job.script_command) {
-            return alert("이 봇은 'script_command' 가 비어있어 로컬 Worker 가 실행할 수 없습니다.\n편집해서 채워주세요.");
-        }
-        if (!window.confirm(`▶️ '${job.rpa_name}' 을(를) 지금 실행할까요?\n\n(${job.runner_type === 'local' ? '사내 PC 의 Worker' : 'GitHub Actions'} 가 받아서 실행합니다)`)) {
-            return;
-        }
+
+    // 실제 DB insert 공통 처리
+    const doRunRpa = async (job, params) => {
         try {
             const { error } = await supabase
                 .from('rpa_runs')
@@ -461,16 +473,48 @@ export const RpaManagement = () => {
                     definition_id: job.id,
                     status: 'pending',
                     triggered_by: 'manual',
-                    params: {},
+                    params: params || {},
                     created_at: new Date().toISOString(),
                 }]);
             if (error) throw error;
-            // 낙관적 업데이트: Worker가 잡기 전에도 즉시 버튼 비활성화
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'running' } : j));
-            alert('✅ 실행 요청이 큐에 등록되었습니다. 결과는 [실행 이력] 에서 확인하세요.');
+            alert('실행 요청이 큐에 등록되었습니다. 결과는 [실행 이력]에서 확인하세요.');
         } catch (err) {
             alert('실행 요청 실패: ' + err.message);
         }
+    };
+
+    const handleRunRpa = async (job) => {
+        if (job.status === 'running') return alert('이미 실행 중입니다.');
+        if (job.runner_type === 'local' && !job.script_command) {
+            return alert("이 봇은 'script_command' 가 비어있어 실행할 수 없습니다.\n편집해서 채워주세요.");
+        }
+
+        // 파라미터 스키마가 있으면 입력 모달 표시
+        const schema = job.parameters_schema;
+        if (Array.isArray(schema) && schema.length > 0) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yStr = yesterday.toISOString().split('T')[0];
+            const defaults = {};
+            schema.forEach(p => {
+                defaults[p.key] = p.type === 'date' ? yStr : (p.default || '');
+            });
+            setRunParamModal({ job, paramValues: defaults });
+            return;
+        }
+
+        // 파라미터 없으면 바로 confirm 후 실행
+        if (!window.confirm(`▶️ '${job.rpa_name}' 을(를) 지금 실행할까요?`)) return;
+        await doRunRpa(job, {});
+    };
+
+    // 파라미터 입력 모달에서 실행 버튼
+    const handleConfirmRun = async () => {
+        if (!runParamModal) return;
+        const { job, paramValues } = runParamModal;
+        setRunParamModal(null);
+        await doRunRpa(job, paramValues);
     };
 
     // ============================================================
@@ -735,12 +779,69 @@ export const RpaManagement = () => {
                                     </button>
                                 </div>
                             )}
+
+                            {/* 파라미터 스키마 */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">
+                                    파라미터 스키마 <span className="text-gray-400 font-normal">(선택)</span>
+                                </label>
+                                <textarea
+                                    value={form.parameters_schema}
+                                    onChange={e => setForm({ ...form, parameters_schema: e.target.value })}
+                                    rows={4}
+                                    placeholder={`수동 실행 시 입력받을 파라미터 (JSON 배열)\n예:\n[\n  {"key":"start","label":"시작일","type":"date"},\n  {"key":"end","label":"종료일","type":"date"}\n]`}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-letusBlue bg-white resize-none"
+                                />
+                                <p className="text-[10px] text-gray-400">비워두면 실행 시 파라미터 입력 없이 바로 실행됩니다. type: "date" | "text"</p>
+                            </div>
                         </div>
 
                         <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 shrink-0">
                             <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">취소</button>
                             <button onClick={handleSaveRpa} className="px-5 py-2 bg-letusBlue text-white text-xs font-bold rounded-lg shadow-sm hover:bg-blue-600 transition-colors">
                                 {isEditMode ? '수정 저장' : '신규 등록'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 수동 실행 파라미터 입력 모달 */}
+            {runParamModal && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRunParamModal(null)}></div>
+                    <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-sm slide-up border border-gray-100 overflow-hidden">
+                        <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+                            <h3 className="font-bold text-sm text-gray-800 flex items-center gap-2">
+                                <span className="w-1.5 h-3.5 bg-green-500 rounded-full"></span>
+                                실행 파라미터 입력
+                            </h3>
+                            <button onClick={() => setRunParamModal(null)} className="p-1 text-gray-400 hover:text-gray-600"><CloseIcon /></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                                <span className="font-bold text-gray-700">{runParamModal.job.rpa_name}</span> 봇을 실행합니다.<br />
+                                아래 날짜를 확인하고 실행해 주세요.
+                            </p>
+                            {runParamModal.job.parameters_schema.map(param => (
+                                <div key={param.key} className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-gray-700">{param.label}</label>
+                                    <input
+                                        type={param.type === 'date' ? 'date' : 'text'}
+                                        value={runParamModal.paramValues[param.key] || ''}
+                                        onChange={e => setRunParamModal(prev => ({
+                                            ...prev,
+                                            paramValues: { ...prev.paramValues, [param.key]: e.target.value },
+                                        }))}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+                            <button onClick={() => setRunParamModal(null)} className="px-4 py-2 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">취소</button>
+                            <button onClick={handleConfirmRun} className="px-5 py-2 bg-green-600 text-white text-xs font-bold rounded-lg shadow-sm hover:bg-green-700 transition-colors">
+                                ▶ 실행
                             </button>
                         </div>
                     </div>

@@ -100,7 +100,7 @@ const error = (...args) => console.error(`[${ts()}] 💥`, ...args);
 // ------------------------------------------------------------
 // 3. 봇 실행 (스케줄 / 수동 공통)
 // ------------------------------------------------------------
-async function executeJob(job, { runId = null, triggeredBy = 'schedule' } = {}) {
+async function executeJob(job, { runId = null, triggeredBy = 'schedule', runParams = {} } = {}) {
     // 중복 실행 방지
     if (runningJobs.has(job.id)) {
         warn(`Job '${job.rpa_name}' is already running — skipping ${triggeredBy} trigger`);
@@ -160,15 +160,24 @@ async function executeJob(job, { runId = null, triggeredBy = 'schedule' } = {}) 
             .update({ status: 'running' })
             .eq('id', job.id);
 
-        log(`🚀 [${triggeredBy}] Executing: ${job.rpa_name}`);
-        log(`   command: ${job.script_command}`);
+        // 3-3) rpa_runs.params → CLI 인수 조립 (--key value 형식)
+        const paramArgs = Object.entries(runParams)
+            .filter(([, v]) => v !== null && v !== undefined && v !== '')
+            .map(([k, v]) => `--${k} ${v}`)
+            .join(' ');
+        const fullCommand = paramArgs
+            ? `${job.script_command} ${paramArgs}`
+            : job.script_command;
 
-        // 3-3) child process 실행
+        log(`🚀 [${triggeredBy}] Executing: ${job.rpa_name}`);
+        log(`   command: ${fullCommand}`);
+
+        // child process 실행
         const cwd = job.working_dir
             ? path.resolve(PROJECT_ROOT, job.working_dir)
             : PROJECT_ROOT;
 
-        const result = await runChildProcess(job.script_command, cwd);
+        const result = await runChildProcess(fullCommand, cwd);
 
         const finalStatus = result.exitCode === 0 ? 'success' : 'failed';
 
@@ -401,6 +410,7 @@ function subscribeRealtime() {
                 executeJob(job, {
                     runId,
                     triggeredBy: payload.new.triggered_by || 'manual',
+                    runParams: payload.new.params || {},
                 });
             }
         )
