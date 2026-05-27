@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { DecodeHintType } from '@zxing/library';
 import { supabase } from './supabaseClient.js';
 
 const FORMATS_LABEL = 'Code128 / Code39 / EAN-13 / QR / DataMatrix 등';
@@ -50,33 +51,40 @@ export const MobileBarcodeTest = () => {
         setResults(null);
         const list = [];
 
-        // ── 1. ZXing ──
+        // ── 1. ZXing (TRY_HARDER + EXIF 회전 보정) ──
         try {
-            const reader = new BrowserMultiFormatReader();
-            const imgUrl = URL.createObjectURL(photo.file);
+            // EXIF 회전 보정: createImageBitmap으로 올바른 방향의 캔버스 생성
+            const bitmap = await createImageBitmap(photo.file, { imageOrientation: 'from-image' });
+            const canvas = document.createElement('canvas');
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            canvas.getContext('2d').drawImage(bitmap, 0, 0);
+            bitmap.close();
+            const correctedUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+            const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+            const reader = new BrowserMultiFormatReader(hints);
+
             let zxingRaw = null;
             let zxingFmt = null;
             try {
-                const result = await reader.decodeFromImageUrl(imgUrl);
+                const result = await reader.decodeFromImageUrl(correctedUrl);
                 zxingRaw = result.getText();
                 zxingFmt = result.getBarcodeFormat?.() ?? '—';
             } catch (e) {
-                // NotFoundException 포함 모든 인식 실패는 null로 처리
-                if (!e?.message?.includes('No MultiFormat')) console.warn('ZXing 오류:', e.message);
-            } finally {
-                URL.revokeObjectURL(imgUrl);
+                console.warn('ZXing 인식 실패:', e.message);
             }
 
             const dbResult = zxingRaw ? await lookupProduct(zxingRaw) : null;
             list.push({
-                method: 'ZXing',
+                method: 'ZXing (TRY_HARDER)',
                 raw: zxingRaw,
                 format: typeof zxingFmt === 'number' ? fmtName(zxingFmt) : String(zxingFmt),
                 dbResult,
                 error: zxingRaw ? null : '바코드를 찾지 못했습니다',
             });
         } catch (err) {
-            list.push({ method: 'ZXing', raw: null, error: err.message });
+            list.push({ method: 'ZXing (TRY_HARDER)', raw: null, error: err.message });
         }
 
         // ── 2. Native BarcodeDetector (지원 여부 체크) ──
