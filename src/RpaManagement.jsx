@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon, formatDateTime, SearchButton } from './SharedUI.jsx';
+import { CloseIcon, formatDateTime, SearchButton, DateInput, DateRangeInput } from './SharedUI.jsx';
 import { RpaRunHistoryModal } from './RpaRunHistoryModal.jsx';
 
 // ============================================================
@@ -823,20 +823,62 @@ export const RpaManagement = () => {
                                 <span className="font-bold text-gray-700">{runParamModal.job.rpa_name}</span> 봇을 실행합니다.<br />
                                 아래 날짜를 확인하고 실행해 주세요.
                             </p>
-                            {runParamModal.job.parameters_schema.map(param => (
-                                <div key={param.key} className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-gray-700">{param.label}</label>
-                                    <input
-                                        type={param.type === 'date' ? 'date' : 'text'}
-                                        value={runParamModal.paramValues[param.key] || ''}
-                                        onChange={e => setRunParamModal(prev => ({
-                                            ...prev,
-                                            paramValues: { ...prev.paramValues, [param.key]: e.target.value },
-                                        }))}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white"
-                                    />
-                                </div>
-                            ))}
+                            {(() => {
+                                const schema = runParamModal.job.parameters_schema;
+                                const dateParams = schema.filter(p => p.type === 'date');
+                                const otherParams = schema.filter(p => p.type !== 'date');
+                                return (
+                                    <>
+                                        {/* 날짜 2개 → DateRangeInput, 1개 → DateInput */}
+                                        {dateParams.length === 2 && (
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-bold text-gray-700">
+                                                    {dateParams[0].label} ~ {dateParams[1].label}
+                                                </label>
+                                                <DateRangeInput
+                                                    startDate={runParamModal.paramValues[dateParams[0].key] || ''}
+                                                    endDate={runParamModal.paramValues[dateParams[1].key] || ''}
+                                                    onChange={(start, end) => setRunParamModal(prev => ({
+                                                        ...prev,
+                                                        paramValues: {
+                                                            ...prev.paramValues,
+                                                            [dateParams[0].key]: start,
+                                                            [dateParams[1].key]: end,
+                                                        },
+                                                    }))}
+                                                />
+                                            </div>
+                                        )}
+                                        {dateParams.length === 1 && (
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-bold text-gray-700">{dateParams[0].label}</label>
+                                                <DateInput
+                                                    value={runParamModal.paramValues[dateParams[0].key] || ''}
+                                                    onChange={val => setRunParamModal(prev => ({
+                                                        ...prev,
+                                                        paramValues: { ...prev.paramValues, [dateParams[0].key]: val },
+                                                    }))}
+                                                />
+                                            </div>
+                                        )}
+                                        {/* 텍스트 파라미터 */}
+                                        {otherParams.map(param => (
+                                            <div key={param.key} className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-bold text-gray-700">{param.label}</label>
+                                                <input
+                                                    type="text"
+                                                    value={runParamModal.paramValues[param.key] || ''}
+                                                    onChange={e => setRunParamModal(prev => ({
+                                                        ...prev,
+                                                        paramValues: { ...prev.paramValues, [param.key]: e.target.value },
+                                                    }))}
+                                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-letusBlue bg-white"
+                                                />
+                                            </div>
+                                        ))}
+                                    </>
+                                );
+                            })()}
                         </div>
                         <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
                             <button onClick={() => setRunParamModal(null)} className="px-4 py-2 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">취소</button>
