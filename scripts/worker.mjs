@@ -36,6 +36,43 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
+// ── Slack 알림 헬퍼 (notify-slack Edge Function 호출) ─────────
+async function notifySlack({ email, title, message }) {
+    try {
+        await fetch(`${SUPABASE_URL}/functions/v1/notify-slack`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, title, message }),
+        });
+    } catch (err) {
+        warn(`[notifySlack] 호출 실패 (무시): ${err.message}`);
+    }
+}
+
+// 관리자 전체에게 Slack 알림 발송
+async function notifySlackToAdmins(title, message) {
+    try {
+        const { data: admins } = await supabase
+            .from('profiles')
+            .select('login_id')
+            .eq('role', '관리자')
+            .eq('status', '정상');
+
+        for (const admin of admins ?? []) {
+            const email = admin.login_id.includes('@')
+                ? admin.login_id
+                : `${admin.login_id}@fursys.com`;
+            await notifySlack({ email, title, message });
+        }
+        log(`[notifySlack] 관리자 ${(admins ?? []).length}명에게 알림 발송`);
+    } catch (err) {
+        warn(`[notifySlackToAdmins] 실패 (무시): ${err.message}`);
+    }
+}
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     console.error('❌ Missing Supabase credentials in .env file.');
     console.error('   Required: VITE_SUPABASE_URL, VITE_SUPABASE_SERVICE_ROLE_KEY');
@@ -163,6 +200,14 @@ async function executeJob(job, { runId = null, triggeredBy = 'schedule' } = {}) 
             .eq('id', job.id);
 
         log(`${finalStatus === 'success' ? '✅' : '❌'} ${job.rpa_name} finished (exit ${result.exitCode})`);
+
+        // WMS 결품 추출 성공 시 → 관리자 전체 Slack 알림
+        if (finalStatus === 'success' && job.script_command?.includes('wms_extract')) {
+            await notifySlackToAdmins(
+                '📋 WMS 결품 리스트가 업데이트되었습니다',
+                `${job.rpa_name} 자동 추출이 완료되었습니다.\nLETUS LOGIS에서 결품 현황을 확인하세요.`
+            );
+        }
     } catch (err) {
         error(`Error executing ${job.rpa_name}: ${err.message}`);
         if (activeRunId) {

@@ -251,6 +251,7 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
     const [workplace, setWorkplace] = useState(user.workplace || '');
     const [managedVendors, setManagedVendors] = useState(user.managed_vendors || '');
     const [managedBrands, setManagedBrands] = useState(user.managed_brands || '');
+    const [slackEmail, setSlackEmail] = useState(user.slack_email || '');
 
     const [vendorModalOpen, setVendorModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -284,6 +285,7 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
                 workplace: workplace || null,
                 managed_vendors: managedVendors, managed_brands: managedBrands,
                 accessible_menus: accessibleMenus.join(','),
+                slack_email: slackEmail || null,
             }).eq('id', user.id);
             if (profileError) throw profileError;
 
@@ -364,6 +366,20 @@ const UserEditModal = ({ user, onClose, onReload, isProfileMode = false }) => {
                                     <option value="">미지정</option>
                                     {WORKPLACE_LIST.map(w => <option key={w} value={w}>{w}</option>)}
                                 </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                                    슬랙 이메일
+                                    <span className="text-[9px] font-normal text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">알림 수신용</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    value={slackEmail}
+                                    onChange={(e) => setSlackEmail(e.target.value)}
+                                    placeholder="example@fursyspartners.com"
+                                    className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-[11px] focus:outline-none focus:border-letusBlue transition-all bg-white text-gray-800"
+                                />
                             </div>
 
                             <div className="flex flex-col gap-1.5">
