@@ -853,6 +853,13 @@ const DeptReplyModal = ({ row, onClose, onReload }) => {
     status: '이관부서 확인',
    }).eq('id', row.id);
    if (error) throw error;
+   // 관리자에게 슬랙 알림
+   supabase.functions.invoke('on-issue-event', {
+    body: {
+     record:     { ...row, purchase_response: replyText, status: '이관부서 확인' },
+     old_record: { status: row.status },
+    },
+   }).catch(() => {}); // 알림 실패해도 저장은 성공 처리
    await onReload(); onClose();
   } catch (e) { alert('저장 중 오류가 발생했습니다.'); } finally { setIsSaving(false); }
  };
