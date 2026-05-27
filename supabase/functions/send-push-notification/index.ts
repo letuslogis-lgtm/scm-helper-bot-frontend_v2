@@ -78,6 +78,37 @@ Deno.serve(async (req) => {
     const sent = results.filter((r) => r.status === 'fulfilled').length
     console.log(`[send-push-notification] ${reporter} → ${sent}/${subs.length} 전송 완료`)
 
+    // ── Slack DM: 등록자(reporter)에게도 조치완료 알림 ──────────
+    try {
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('slack_email')
+        .eq('name', reporter)
+        .single()
+
+      if (profile?.slack_email) {
+        const email = profile.slack_email
+
+        await fetch(`${SUPABASE_URL}/functions/v1/notify-slack`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            title: '✅ 이슈가 조치완료 되었습니다',
+            message: `접수번호 *${receptionNo}* 건이 처리되었습니다.\nLETUS LOGIS에서 조치 내용을 확인하세요.`,
+          }),
+        })
+        console.log(`[send-push-notification] Slack DM → ${email}`)
+      }
+    } catch (slackErr: unknown) {
+      // Slack 실패가 푸시 알림 결과에 영향을 주지 않도록 swallow
+      const msg = slackErr instanceof Error ? slackErr.message : String(slackErr)
+      console.warn(`[send-push-notification] Slack DM 실패 (무시): ${msg}`)
+    }
+
     return new Response(JSON.stringify({ ok: true, sent }), { headers: corsHeaders })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'
