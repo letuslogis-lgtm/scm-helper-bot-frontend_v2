@@ -5,13 +5,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// ── Slack DM 헬퍼 (notify-slack Edge Function 경유) ──────────
+async function sendSlack(supabaseUrl: string, serviceKey: string, email: string, title: string, message: string) {
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/notify-slack`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, title, message }),
+    })
+    const json = await res.json()
+    return !!json.sent
+  } catch (e) {
+    console.warn(`[on-issue-event] Slack 실패 (${email}):`, e)
+    return false
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const SUPABASE_URL     = Deno.env.get('SUPABASE_URL') ?? ''
-    const SERVICE_KEY      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const SLACK_BOT_TOKEN  = Deno.env.get('SLACK_BOT_TOKEN') ?? ''
+    const SUPABASE_URL    = Deno.env.get('SUPABASE_URL') ?? ''
+    const SERVICE_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const SLACK_BOT_TOKEN = Deno.env.get('SLACK_BOT_TOKEN') ?? ''
 
     if (!SUPABASE_URL || !SERVICE_KEY) {
       return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500, headers: corsHeaders })
@@ -22,105 +38,123 @@ Deno.serve(async (req) => {
     const record    = payload.record    ?? payload
     const oldRecord = payload.old_record ?? {}
 
-    // ── 이관 중 전환 감지 ─────────────────────────────────────────
-    // status가 '이관 중'으로 바뀐 경우에만 처리
-    if (record?.status !== '이관 중' || oldRecord?.status === '이관 중') {
-      return new Response(JSON.stringify({ ok: true, skipped: true }), { headers: corsHeaders })
-    }
+    const newStatus = record?.status
+    const oldStatus = oldRecord?.status
+    const brand       = record.brand         ?? ''
+    const vendor      = record.vendor        ?? ''
+    const receptionNo = record.reception_no  ?? ''
 
-    const brand  = record.brand  ?? ''
-    const vendor = record.vendor ?? ''  // null 가능
-    const receptionNo   = record.reception_no  ?? ''
-    const relayContent  = record.relay_content ?? ''
-
-    if (!brand) {
-      return new Response(JSON.stringify({ ok: true, skipped: 'no brand' }), { headers: corsHeaders })
+    // 상태 전환이 아닌 경우 스킵
+    if (newStatus === oldStatus) {
+      return new Response(JSON.stringify({ ok: true, skipped: 'no status change' }), { headers: corsHeaders })
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    // ── 매칭 유저 조회 ────────────────────────────────────────────
-    // brand AND vendor 모두 managed_brands/managed_vendors에 포함된 사용자
-    // vendor가 null이면 brand만 매칭 (fallback)
-    const { data: profiles } = await admin
-      .from('profiles')
-      .select('name, team, slack_email, managed_brands, managed_vendors')
-      .eq('role', '사용자')
-      .eq('status', '정상')
+    // ══════════════════════════════════════════════════════════
+    // 케이스 1: 이관 중 — 이관팀 사용자에게 Slack 알림 + assigned_team 저장
+    // ══════════════════════════════════════════════════════════
+    if (newStatus === '이관 중' && oldStatus !== '이관 중') {
+      const relayContent = record.relay_content ?? ''
 
-    const matchedUsers = (profiles ?? []).filter((p) => {
-      const brands  = p.managed_brands?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []
-      const vendors = p.managed_vendors?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []
+      // brand AND vendor 매칭 사용자 조회 (사용자 역할만)
+      const { data: profiles } = await admin
+        .from('profiles')
+        .select('name, team, slack_email, managed_brands, managed_vendors')
+        .eq('role', '사용자')
+        .eq('status', '정상')
 
-      const brandMatch = brands.includes(brand)
-      if (!vendor) return brandMatch                    // vendor null → brand만 매칭
-      return brandMatch && vendors.includes(vendor)    // AND 조건
-    })
+      const matchedUsers = (profiles ?? []).filter((p: {
+        managed_brands?: string; managed_vendors?: string
+      }) => {
+        const brands  = p.managed_brands?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []
+        const vendors = p.managed_vendors?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []
+        const brandMatch = brands.includes(brand)
+        if (!vendor) return brandMatch           // vendor null → brand만 매칭
+        return brandMatch && vendors.includes(vendor)  // AND 조건
+      })
 
-    console.log(`[on-issue-event] 이관 중 감지: ${receptionNo} | brand=${brand} vendor=${vendor} | 매칭=${matchedUsers.length}명`)
+      console.log(`[on-issue-event] 이관 중: ${receptionNo} | brand=${brand} vendor=${vendor} | 매칭=${matchedUsers.length}명`)
 
-    if (matchedUsers.length === 0) {
-      console.log('[on-issue-event] 매칭 유저 없음 — assigned_team 스킵')
-      return new Response(JSON.stringify({ ok: true, matched: 0 }), { headers: corsHeaders })
-    }
-
-    // ── assigned_team 저장 ───────────────────────────────────────
-    const teams = [...new Set(matchedUsers.map((u: { team?: string }) => u.team).filter(Boolean))]
-    const assignedTeam = teams.join(',')
-
-    await admin
-      .from('logistics_issues')
-      .update({ assigned_team: assignedTeam })
-      .eq('id', record.id)
-
-    console.log(`[on-issue-event] assigned_team 저장: "${assignedTeam}"`)
-
-    // ── Slack DM 발송 ─────────────────────────────────────────────
-    if (!SLACK_BOT_TOKEN) {
-      console.warn('[on-issue-event] SLACK_BOT_TOKEN 미설정 — Slack 스킵')
-      return new Response(JSON.stringify({ ok: true, matched: matchedUsers.length, slack: 'skipped' }), { headers: corsHeaders })
-    }
-
-    const slackMessage = [
-      `📋 *이슈가 귀 팀으로 이관되었습니다*`,
-      `• 접수번호: ${receptionNo}`,
-      `• 브랜드: ${brand}`,
-      `• 공급업체: ${vendor || '-'}`,
-      `• 이관 내용:\n${relayContent || '(내용 없음)'}`,
-      `\n_LETUS LOGIS에서 확인 후 회신해주세요._`,
-    ].join('\n')
-
-    let slackSent = 0
-    for (const user of matchedUsers) {
-      if (!user.slack_email) continue
-      try {
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/notify-slack`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${SERVICE_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: user.slack_email,
-            title: '📋 이슈가 이관되었습니다',
-            message: slackMessage,
-          }),
-        })
-        const json = await res.json()
-        if (json.sent) slackSent++
-      } catch (e) {
-        console.warn(`[on-issue-event] Slack 실패 (${user.slack_email}):`, e)
+      // assigned_team 저장
+      if (matchedUsers.length > 0) {
+        const teams = [...new Set(matchedUsers.map((u: { team?: string }) => u.team).filter(Boolean))]
+        const assignedTeam = (teams as string[]).join(',')
+        await admin.from('logistics_issues').update({ assigned_team: assignedTeam }).eq('id', record.id)
+        console.log(`[on-issue-event] assigned_team 저장: "${assignedTeam}"`)
       }
+
+      // Slack 발송
+      if (!SLACK_BOT_TOKEN) {
+        return new Response(JSON.stringify({ ok: true, matched: matchedUsers.length, slack: 'skipped' }), { headers: corsHeaders })
+      }
+
+      const message = [
+        `📋 *이슈가 귀 팀으로 이관되었습니다*`,
+        `• 접수번호: ${receptionNo}`,
+        `• 브랜드: ${brand}`,
+        `• 공급업체: ${vendor || '-'}`,
+        `• 이관 내용:\n${relayContent || '(내용 없음)'}`,
+        `\n_LETUS LOGIS에서 확인 후 회신해주세요._`,
+      ].join('\n')
+
+      let sent = 0
+      for (const user of matchedUsers) {
+        if (!(user as { slack_email?: string }).slack_email) continue
+        if (await sendSlack(SUPABASE_URL, SERVICE_KEY, (user as { slack_email: string }).slack_email, '📋 이슈가 이관되었습니다', message)) sent++
+      }
+
+      console.log(`[on-issue-event] 이관 Slack ${sent}명 전송`)
+      return new Response(JSON.stringify({ ok: true, case: '이관 중', matched: matchedUsers.length, sent }), { headers: corsHeaders })
     }
 
-    console.log(`[on-issue-event] Slack DM ${slackSent}/${matchedUsers.filter((u: { slack_email?: string }) => u.slack_email).length}명 전송`)
+    // ══════════════════════════════════════════════════════════
+    // 케이스 2: 이관부서 확인 — 브랜드 매칭 관리자에게 Slack 알림
+    // ══════════════════════════════════════════════════════════
+    if (newStatus === '이관부서 확인' && oldStatus !== '이관부서 확인') {
+      const purchaseResponse = record.purchase_response ?? ''
 
-    return new Response(
-      JSON.stringify({ ok: true, matched: matchedUsers.length, assignedTeam, slackSent }),
-      { headers: corsHeaders }
-    )
+      // managed_brands 매칭 관리자 조회
+      const { data: admins } = await admin
+        .from('profiles')
+        .select('name, slack_email, managed_brands')
+        .eq('role', '관리자')
+        .eq('status', '정상')
+        .not('slack_email', 'is', null)
+
+      const matchedAdmins = (admins ?? []).filter((a: { managed_brands?: string }) => {
+        const brands = a.managed_brands?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []
+        return brands.includes('전체') || brands.includes(brand)
+      })
+
+      console.log(`[on-issue-event] 이관부서 확인: ${receptionNo} | brand=${brand} | 관리자 ${matchedAdmins.length}명`)
+
+      if (!SLACK_BOT_TOKEN) {
+        return new Response(JSON.stringify({ ok: true, matched: matchedAdmins.length, slack: 'skipped' }), { headers: corsHeaders })
+      }
+
+      const message = [
+        `🔔 *이관 부서에서 회신이 등록되었습니다*`,
+        `• 접수번호: ${receptionNo}`,
+        `• 브랜드: ${brand}`,
+        `• 공급업체: ${vendor || '-'}`,
+        `• 회신 내용:\n${purchaseResponse || '(내용 없음)'}`,
+        `\n_LETUS LOGIS에서 확인 후 조치를 등록해주세요._`,
+      ].join('\n')
+
+      let sent = 0
+      for (const a of matchedAdmins) {
+        if (await sendSlack(SUPABASE_URL, SERVICE_KEY, (a as { slack_email: string }).slack_email, '🔔 이관 회신이 도착했습니다', message)) sent++
+      }
+
+      console.log(`[on-issue-event] 이관부서 확인 Slack ${sent}명 전송`)
+      return new Response(JSON.stringify({ ok: true, case: '이관부서 확인', matched: matchedAdmins.length, sent }), { headers: corsHeaders })
+    }
+
+    // 해당 없는 상태 전환
+    return new Response(JSON.stringify({ ok: true, skipped: `unhandled status: ${newStatus}` }), { headers: corsHeaders })
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'
