@@ -152,6 +152,8 @@ export const MobileIssueRegister = () => {
         if (photos.length === 0) return alert('사진을 먼저 촬영해주세요.');
         setIsAnalyzing(true);
         setAiResult(null);
+        // 스피너가 화면에 그려질 시간을 확보한 뒤 무거운 작업 시작
+        await new Promise(resolve => setTimeout(resolve, 50));
         try {
             const base64 = await compressImage(photos[0].file);
 
