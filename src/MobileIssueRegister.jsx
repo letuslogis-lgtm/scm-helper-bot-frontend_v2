@@ -181,7 +181,8 @@ export const MobileIssueRegister = () => {
             });
             if (error) throw error;
 
-            if (data?.product_code) {
+            if (data?.product_code && data?.is_valid) {
+                // ✅ DB 매칭 성공 — 브랜드/공급업체 자동 세팅
                 let fullCode = data.product_code;
                 if (!fullCode.includes('-')) {
                     const { data: pd } = await supabase
@@ -195,6 +196,18 @@ export const MobileIssueRegister = () => {
                 if (data.brand) setBrand(data.brand);
                 if (data.vendor) setVendor(data.vendor);
                 setAiResult({ success: true, code: fullCode, description: data.description || '', method: 'ai' });
+            } else if (data?.product_code && !data?.is_valid) {
+                // ⚠️ 코드 인식됐지만 DB 미매칭
+                if (data?.has_similar) {
+                    // 유사 코드 있음 → 바코드 오부착 의심
+                    alert('바코드 오류가 의심됩니다.\n이슈 유형이 \'바코드 오류\'로 자동 선택됩니다.');
+                    setIssueType('바코드 오류');
+                    setOpenGroups(prev => new Set([...prev, '품질·포장']));
+                    setAiResult({ success: false, suspect: true, message: `인식된 코드 ${data.product_code}가 DB에 없습니다. 바코드 오부착으로 의심됩니다.` });
+                } else {
+                    // 유사 코드도 없음 → 일반 미인식 처리
+                    setAiResult({ success: false, message: '바코드를 인식하지 못했습니다. 다른 각도에서 다시 촬영해주세요.' });
+                }
             } else {
                 setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
             }
@@ -204,11 +217,13 @@ export const MobileIssueRegister = () => {
                 original_text: `바코드 스캔 | 브랜드: ${brand || '미선택'} | 이슈: ${issueType || '미선택'}`,
                 ai_analyzed_cause: data?.product_code || 'RECOGNITION_FAILED',
                 ai_cause_detail: data?.barcode_type || null,
-                ai_cause_summary: data?.product_code
+                ai_cause_summary: data?.is_valid
                     ? `인식 성공 — ${data.description || data.product_code}`
-                    : (data?.message || '바코드 인식 실패'),
-                ai_confidence: data?.product_code ? 'high' : 'low',
-                low_confidence_reason: data?.product_code ? null : (data?.message || '인식 불가'),
+                    : data?.has_similar
+                        ? `바코드 오부착 의심 — ${data.product_code}`
+                        : (data?.message || '바코드 인식 실패'),
+                ai_confidence: data?.is_valid ? 'high' : 'low',
+                low_confidence_reason: data?.is_valid ? null : (data?.has_similar ? '유사 코드 존재 (오부착 의심)' : '인식 불가'),
                 image_url: imageUrl,
             }).then(({ error }) => {
                 if (error) console.warn('바코드 로그 저장 실패:', error.message);

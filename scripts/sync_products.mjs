@@ -131,13 +131,21 @@ async function syncProducts() {
         let processed = 0;
         for (let i = 0; i < uniqueData.length; i += CHUNK_SIZE) {
             const chunk = uniqueData.slice(i, i + CHUNK_SIZE);
-            const { error } = await supabase
-                .from('products')
-                .upsert(chunk, { onConflict: 'item_code,item_color' });
 
-            if (error) {
-                console.error(`Upsert error at chunk starting ${i.toLocaleString()}:`, error);
-                throw error;
+            // 일시 오류 대비 최대 3회 재시도 (exponential backoff)
+            let lastError = null;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                const { error } = await supabase
+                    .from('products')
+                    .upsert(chunk, { onConflict: 'item_code,item_color' });
+                if (!error) { lastError = null; break; }
+                lastError = error;
+                console.warn(`Upsert retry ${attempt}/3 at chunk ${i.toLocaleString()}:`, error.message);
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+            if (lastError) {
+                console.error(`Upsert failed at chunk starting ${i.toLocaleString()} after 3 retries:`, lastError);
+                throw lastError;
             }
 
             processed += chunk.length;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient.js';
 
 export const useIssues = (session, userProfile) => {
@@ -11,7 +11,7 @@ export const useIssues = (session, userProfile) => {
         brand: '전체', status: '전체', startDate: today, endDate: today, searchType: '품목코드', searchValue: '', teams: '전체'
     });
 
-    const fetchIssues = async () => {
+    const fetchIssues = useCallback(async () => {
         setIsLoading(true);
         try {
             let query = supabase.from('logistics_issues').select('*').order('id', { ascending: false });
@@ -24,7 +24,6 @@ export const useIssues = (session, userProfile) => {
                     : [];
 
                 if (managedBrands.length === 0 && managedVendors.length === 0) {
-                    // 담당 브랜드·업체 미지정 → 빈 목록 (전체 노출 방지)
                     setIssues([]);
                     setIsLoading(false);
                     return;
@@ -41,7 +40,7 @@ export const useIssues = (session, userProfile) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [userProfile?.role, userProfile?.managed_brands, userProfile?.managed_vendors]);
 
     useEffect(() => {
         // userProfile 로드 완료 후 한 번만 조회 (역할 기반 필터 정확히 적용)

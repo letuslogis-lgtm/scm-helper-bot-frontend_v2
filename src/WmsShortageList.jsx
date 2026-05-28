@@ -284,7 +284,8 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
         return REPORT_BRANDS.filter(b => s.has(b));
     }, [selectedRows]);
 
-    // 단품명칭 조회
+    // 단품명칭 조회 (이미 조회된 코드는 재요청하지 않음)
+    const fetchedCodesRef = useRef(new Set());
     useEffect(() => {
         const fetchNames = async () => {
             const codes = [...new Set(selectedRows.map(r => {
@@ -292,20 +293,22 @@ const WmsReportModal = ({ selectedRows, applied, onClose }) => {
                 const idx = c.lastIndexOf('-');
                 return idx === -1 ? c : c.slice(0, idx);
             }).filter(Boolean))];
-            if (codes.length === 0) return;
-            const nameMap = {};
+            const newCodes = codes.filter(c => !fetchedCodesRef.current.has(c));
+            if (newCodes.length === 0) return;
+            newCodes.forEach(c => fetchedCodesRef.current.add(c));
+            const additional = {};
             const CHUNK = 200;
-            for (let i = 0; i < codes.length; i += CHUNK) {
+            for (let i = 0; i < newCodes.length; i += CHUNK) {
                 const { data } = await supabase
                     .from('products')
                     .select('item_code, item_color, item_name')
-                    .in('item_code', codes.slice(i, i + CHUNK));
+                    .in('item_code', newCodes.slice(i, i + CHUNK));
                 (data || []).forEach(p => {
-                    nameMap[`${p.item_code}-${p.item_color}`] = p.item_name || '';
-                    if (!nameMap[p.item_code]) nameMap[p.item_code] = p.item_name || '';
+                    additional[`${p.item_code}-${p.item_color}`] = p.item_name || '';
+                    if (!additional[p.item_code]) additional[p.item_code] = p.item_name || '';
                 });
             }
-            setItemNames(nameMap);
+            setItemNames(prev => ({ ...prev, ...additional }));
         };
         fetchNames();
     }, [selectedRows]);

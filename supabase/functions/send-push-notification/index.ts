@@ -66,9 +66,14 @@ Deno.serve(async (req) => {
       )
     )
 
-    // 만료된 구독은 DB에서 제거
+    // 만료된 구독만 DB에서 제거 (410 Gone / 404 Not Found 한정, 일시 오류 5xx 등은 유지)
     const expiredEndpoints = subs
-      .filter((_, i) => results[i].status === 'rejected')
+      .filter((_, i) => {
+        if (results[i].status !== 'rejected') return false
+        const reason = (results[i] as PromiseRejectedResult).reason
+        const status = reason?.statusCode ?? reason?.status
+        return status === 410 || status === 404
+      })
       .map((s) => s.endpoint)
 
     if (expiredEndpoints.length > 0) {

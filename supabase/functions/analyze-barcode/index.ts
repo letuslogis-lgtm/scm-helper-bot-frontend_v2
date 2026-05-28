@@ -13,6 +13,18 @@ function json(body: unknown, status = 200) {
   })
 }
 
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) => [i])
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+  return dp[m][n]
+}
+
 async function checkAndGetInfo(
   admin: ReturnType<typeof createClient>,
   code: string
@@ -129,10 +141,13 @@ Deno.serve(async (req) => {
     ]
 
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
         body: JSON.stringify({
           contents,
           generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } },
@@ -181,9 +196,34 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Levenshtein 유사 코드 탐색 (①②가 모두 실패한 경우에만 실행) ──
+    let has_similar = false
+    if (!is_valid && finalCode) {
+      const baseCode = finalCode.includes('-')
+        ? finalCode.split('-').slice(0, -1).join('-')
+        : finalCode
+      const prefix = baseCode.slice(0, 3).toUpperCase()
+      try {
+        const { data: candidates } = await admin
+          .from('products')
+          .select('item_code')
+          .like('item_code', `${prefix}%`)
+          .limit(500)
+        if (candidates && candidates.length > 0) {
+          has_similar = candidates.some(p => {
+            const dist = levenshtein(baseCode.toUpperCase(), (p.item_code || '').toUpperCase())
+            return dist > 0 && dist <= 2
+          })
+        }
+      } catch {
+        // 유사 코드 탐색 실패 시 무시
+      }
+    }
+
     return json({
       product_code: finalCode,
       is_valid,
+      has_similar,
       brand,
       vendor,
       description: is_valid

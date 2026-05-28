@@ -51,12 +51,6 @@ export const TeamCalendar = ({ userProfile }) => {
             const teamMap = {};
             if (profiles) profiles.forEach(p => teamMap[p.name] = p.team);
 
-            console.log("현재 로그인 유저:", {
-                name: userProfile?.name,
-                team: userProfile?.team,
-                role: userProfile?.role
-            });
-
             const processedEvents = (data || []).map(ev => {
                 const actDate = ev.start_date || '';
                 const actTime = ev.start_time ? ev.start_time.substring(0, 5) : '09:00';
