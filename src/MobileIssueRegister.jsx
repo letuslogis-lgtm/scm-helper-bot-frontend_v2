@@ -166,10 +166,10 @@ export const MobileIssueRegister = () => {
                 const blob = new Blob([byteArray], { type: 'image/jpeg' });
                 const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
                 const { error: uploadError } = await supabase.storage
-                    .from('barcode-scans')
-                    .upload(filename, blob, { contentType: 'image/jpeg' });
+                    .from('issue_images')
+                    .upload(`barcode_scans/${filename}`, blob, { contentType: 'image/jpeg' });
                 if (!uploadError) {
-                    const { data: urlData } = supabase.storage.from('barcode-scans').getPublicUrl(filename);
+                    const { data: urlData } = supabase.storage.from('issue_images').getPublicUrl(`barcode_scans/${filename}`);
                     imageUrl = urlData?.publicUrl || null;
                 }
             } catch (uploadErr) {
