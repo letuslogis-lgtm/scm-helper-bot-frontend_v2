@@ -441,12 +441,13 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
         '시공/AS':        'service_type',
         '수주번호':       'order_no',
         '수주건명':       'order_name',
-        '품목코드':       'item_code',
+        '단품코드':       '_item_code_raw',   # 색상과 조합 후 item_code 생성
+        '색상':           '_color_raw',       # 단품코드와 조합용
         '이슈수량':       'issue_qty',
         '조치결과구분':   'action_result',
         '납기지연판별':   'is_delayed',
         '귀책부서':       'responsible_dept',
-        '발생원인 상세':  'cause_detail',
+        '이슈내용':       'cause_detail',    # 수정: 발생원인 상세 → 이슈내용
         '처리상태':       'status',
     }
 
@@ -476,6 +477,11 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
         for excel_col, db_col in COL_MAP.items():
             raw = str(row.get(excel_col, '')).strip()
             rec[db_col] = raw if raw and raw.lower() not in ('nan', 'none', '') else None
+
+        # 단품코드 + "-" + 색상 → item_code 조합
+        _code  = rec.pop('_item_code_raw', None) or ''
+        _color = rec.pop('_color_raw', None) or ''
+        rec['item_code'] = f"{_code}-{_color}" if _code and _color else (_code or None)
 
         order_no  = rec.get('order_no')
         item_code = rec.get('item_code')
