@@ -6,7 +6,8 @@ export const useIssues = (session, userProfile) => {
     const [isLoading, setIsLoading] = useState(true);
     const [accidentDrillDownFilters, setAccidentDrillDownFilters] = useState(null);
 
-    const today = new Date().toISOString().split("T")[0];
+    const _t = new Date();
+    const today = `${_t.getFullYear()}-${String(_t.getMonth() + 1).padStart(2, '0')}-${String(_t.getDate()).padStart(2, '0')}`;
     const [savedListFilters, setSavedListFilters] = useState({
         brand: '전체', status: '전체', startDate: today, endDate: today, searchType: '품목코드', searchValue: '', teams: '전체'
     });

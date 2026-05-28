@@ -41,9 +41,10 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         const vendor = searchParams.get('vendor');
         const item_code = searchParams.get('item_code');
         if (!brand && !vendor && !item_code) return;
-        const today = new Date().toISOString().split('T')[0];
+        const _t = new Date();
+        const today = `${_t.getFullYear()}-${String(_t.getMonth() + 1).padStart(2, '0')}-${String(_t.getDate()).padStart(2, '0')}`;
         const d = new Date(); d.setDate(d.getDate() - 30);
-        const startStr = d.toISOString().split('T')[0];
+        const startStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const updates = {
             ...(brand ? { brand } : {}),
             ...(vendor ? { searchType: '공급업체', searchValue: vendor } : {}),
@@ -360,7 +361,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "특이사항_LIST");
-        XLSX.writeFile(wb, `특이사항_LIST_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `특이사항_LIST_${new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]}.xlsx`);
     };
 
     return (
