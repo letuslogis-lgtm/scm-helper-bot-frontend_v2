@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
-import { CloseIcon, formatDateTime, SearchButton, DateRangeInput } from './SharedUI.jsx';
+import { CloseIcon, formatDateTime, SearchButton, DateRangeInput, ImageSlider } from './SharedUI.jsx';
 
 const CATEGORY_DATA = [
     { group: '현장 운영 귀책', codes: ['W-01 피킹 수량 누락', 'W-02 오피킹', 'W-03 PLT 오분배·미분배', 'W-04 오합적', 'W-05 평탄화·이동 누락', 'W-06 작업 중 파손', 'W-07 재고 관리 미흡'] },
@@ -491,63 +491,53 @@ export const AiInsightLab = () => {
             {activeRow && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setActiveRow(null)}></div>
-                    <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-lg slide-up border border-gray-100 overflow-hidden flex flex-col">
-                        <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+                    <div className={`bg-white rounded-xl shadow-2xl z-10 w-full ${isAccident ? 'max-w-lg' : 'max-w-3xl'} slide-up border border-gray-100 overflow-hidden flex flex-col`}>
+
+                        {/* 헤더 */}
+                        <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
                             <h3 className="font-bold text-sm text-gray-800 flex items-center gap-2">
                                 <span className="w-1.5 h-3.5 bg-letusOrange rounded-full"></span>
                                 AI 분석 결과 검토 및 정답 보정
                             </h3>
                             <button onClick={() => setActiveRow(null)} className="p-1 text-gray-400 hover:text-gray-600"><CloseIcon /></button>
                         </div>
-                        <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh] custom-scrollbar">
-                            {activeRow.image_url && (
+
+                        {isAccident ? (
+                            /* ── 사고분석: 단일 컬럼 (기존 레이아웃 유지) ── */
+                            <div className="p-5 space-y-5 overflow-y-auto max-h-[70vh] custom-scrollbar">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">스캔 이미지</label>
-                                    <a href={activeRow.image_url} target="_blank" rel="noreferrer" title="클릭 시 원본 보기">
-                                        <img src={activeRow.image_url} alt="스캔 이미지" className="max-h-[180px] rounded-lg border border-gray-200 object-contain hover:opacity-90 transition-opacity cursor-pointer" />
-                                    </a>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">원본 텍스트 (판단 대상)</label>
+                                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[120px] overflow-y-auto custom-scrollbar">
+                                        {activeRow.original_text}
+                                    </div>
                                 </div>
-                            )}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">원본 텍스트 (판단 대상)</label>
-                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[120px] overflow-y-auto custom-scrollbar">
-                                    {activeRow.original_text}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg">
+                                        <div className="text-[10px] font-bold text-purple-400 mb-1">AI 1차 판별 결과</div>
+                                        <div className="font-black text-purple-700 text-sm">{activeRow.ai_analyzed_cause || '-'}</div>
+                                    </div>
+                                    <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg">
+                                        <div className="text-[10px] font-bold text-purple-400 mb-1">AI 상세</div>
+                                        <div className="font-black text-purple-700 text-sm">{activeRow.ai_cause_detail || '-'}</div>
+                                    </div>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg">
-                                    <div className="text-[10px] font-bold text-purple-400 mb-1">AI 1차 판별 결과</div>
-                                    <div className="font-black text-purple-700 text-sm">{activeRow.ai_analyzed_cause || '-'}</div>
-                                </div>
-                                <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg">
-                                    <div className="text-[10px] font-bold text-purple-400 mb-1">AI 상세</div>
-                                    <div className="font-black text-purple-700 text-sm">{activeRow.ai_cause_detail || '-'}</div>
-                                </div>
-                            </div>
-
-                            {activeRow.ai_confidence === 'low' && (
-                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs">
-                                    <strong className="block mb-1">⚠ AI 불확실 사유:</strong>
-                                    <span className="leading-relaxed">{activeRow.low_confidence_reason || activeRow.ai_cause_summary || '사유가 명확하게 제공되지 않았습니다. 원본 데이터를 직접 확인해 주세요.'}</span>
-                                </div>
-                            )}
-                            {activeRow.ai_confidence !== 'low' && activeRow.ai_cause_summary && (
-                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px]">
-                                    <strong className="block mb-1 text-slate-500">🤖 AI 상세 분석 요약:</strong>
-                                    <span className="leading-relaxed">{activeRow.ai_cause_summary}</span>
-                                </div>
-                            )}
-
-                            <div className="border-t border-gray-200 pt-5">
-                                <h4 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
-                                    <span>👤</span> 올바른 정답을 지정해주세요
-                                    {isAccident && (
+                                {activeRow.ai_confidence === 'low' && (
+                                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs">
+                                        <strong className="block mb-1">⚠ AI 불확실 사유:</strong>
+                                        <span className="leading-relaxed">{activeRow.low_confidence_reason || activeRow.ai_cause_summary || '사유가 명확하게 제공되지 않았습니다. 원본 데이터를 직접 확인해 주세요.'}</span>
+                                    </div>
+                                )}
+                                {activeRow.ai_confidence !== 'low' && activeRow.ai_cause_summary && (
+                                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px]">
+                                        <strong className="block mb-1 text-slate-500">🤖 AI 상세 분석 요약:</strong>
+                                        <span className="leading-relaxed">{activeRow.ai_cause_summary}</span>
+                                    </div>
+                                )}
+                                <div className="border-t border-gray-200 pt-5">
+                                    <h4 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
+                                        <span>👤</span> 올바른 정답을 지정해주세요
                                         <button onClick={() => setIsCategoryModalOpen(true)} className="text-white bg-slate-300 rounded-full w-[16px] h-[16px] flex items-center justify-center text-[10px] font-black hover:bg-slate-500 transition-colors shadow-sm ml-1">?</button>
-                                    )}
-                                </h4>
-
-                                {isAccident ? (
+                                    </h4>
                                     <div className="flex flex-col gap-3">
                                         <div>
                                             <label className="block text-[11px] font-bold text-gray-500 mb-1.5">정확한 대분류 <span className="text-letusOrange">*</span></label>
@@ -571,37 +561,82 @@ export const AiInsightLab = () => {
                                             * 여기서 관리자가 입력한 보정 데이터는, 향후 AI의 판별 정확도를 높이기 위한 Fine-tuning(미세조정) 학습 데이터 셋으로 귀중하게 활용됩니다.
                                         </p>
                                     </div>
-                                ) : (
-                                    <div className="flex flex-col gap-3">
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-gray-500 mb-1.5">올바른 품목코드 <span className="text-letusOrange">*</span></label>
-                                            <input
-                                                type="text"
-                                                value={correctedCause}
-                                                onChange={e => setCorrectedCause(e.target.value)}
-                                                placeholder="예: PF8-31001-7"
-                                                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-orange-400 outline-none font-bold text-gray-800"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-gray-500 mb-1.5">보정 메모 (선택)</label>
-                                            <input
-                                                type="text"
-                                                value={correctedDetail}
-                                                onChange={e => setCorrectedDetail(e.target.value)}
-                                                placeholder="오인식 사유 등 메모"
-                                                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-orange-400 outline-none text-gray-700"
-                                            />
-                                        </div>
-                                        <p className="text-[10px] text-gray-400 font-medium leading-tight mt-1">
-                                            * 보정된 품목코드는 향후 바코드 인식 정확도 개선에 활용됩니다.
-                                        </p>
-                                    </div>
-                                )}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            /* ── 바코드 스캔: 좌(이미지) + 우(폼) 2열 레이아웃 ── */
+                            <div className="flex flex-row max-h-[70vh] overflow-hidden">
+                                {/* 좌: 이미지 슬라이더 */}
+                                <div className="w-[44%] border-r border-gray-100 p-4 bg-gray-50/40 flex flex-col shrink-0 overflow-hidden">
+                                    <label className="block text-xs font-bold text-gray-500 mb-2">📸 스캔 이미지</label>
+                                    <ImageSlider imageUrlString={activeRow.image_url} />
+                                </div>
+                                {/* 우: 분석 결과 + 보정 폼 */}
+                                <div className="flex-1 p-5 space-y-4 overflow-y-auto custom-scrollbar min-w-0">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">원본 텍스트 (판단 대상)</label>
+                                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[120px] overflow-y-auto custom-scrollbar">
+                                            {activeRow.original_text}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 bg-orange-50 border border-orange-100 rounded-lg">
+                                            <div className="text-[10px] font-bold text-orange-400 mb-1">AI 1차 인식 결과</div>
+                                            <div className="font-black text-orange-700 text-sm">{activeRow.ai_analyzed_cause || '-'}</div>
+                                        </div>
+                                        <div className="p-3 bg-orange-50 border border-orange-100 rounded-lg">
+                                            <div className="text-[10px] font-bold text-orange-400 mb-1">AI 상세</div>
+                                            <div className="font-black text-orange-700 text-sm">{activeRow.ai_cause_detail || '-'}</div>
+                                        </div>
+                                    </div>
+                                    {activeRow.ai_confidence === 'low' && (
+                                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs">
+                                            <strong className="block mb-1">⚠ AI 불확실 사유:</strong>
+                                            <span className="leading-relaxed">{activeRow.low_confidence_reason || activeRow.ai_cause_summary || '사유가 명확하게 제공되지 않았습니다. 원본 데이터를 직접 확인해 주세요.'}</span>
+                                        </div>
+                                    )}
+                                    {activeRow.ai_confidence !== 'low' && activeRow.ai_cause_summary && (
+                                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px]">
+                                            <strong className="block mb-1 text-slate-500">🤖 AI 상세 분석 요약:</strong>
+                                            <span className="leading-relaxed">{activeRow.ai_cause_summary}</span>
+                                        </div>
+                                    )}
+                                    <div className="border-t border-gray-200 pt-4">
+                                        <h4 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
+                                            <span>👤</span> 올바른 정답을 지정해주세요
+                                        </h4>
+                                        <div className="flex flex-col gap-3">
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-500 mb-1.5">올바른 품목코드 <span className="text-letusOrange">*</span></label>
+                                                <input
+                                                    type="text"
+                                                    value={correctedCause}
+                                                    onChange={e => setCorrectedCause(e.target.value)}
+                                                    placeholder="예: PF8-31001-7"
+                                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-orange-400 outline-none font-bold text-gray-800"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-500 mb-1.5">보정 메모 (선택)</label>
+                                                <input
+                                                    type="text"
+                                                    value={correctedDetail}
+                                                    onChange={e => setCorrectedDetail(e.target.value)}
+                                                    placeholder="오인식 사유 등 메모"
+                                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-orange-400 outline-none text-gray-700"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 font-medium leading-tight">
+                                                * 보정된 품목코드는 향후 바코드 인식 정확도 개선에 활용됩니다.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-                        <div className="p-4 border-t bg-gray-50 flex justify-between items-center">
+                        {/* 푸터 */}
+                        <div className="p-4 border-t bg-gray-50 flex justify-between items-center shrink-0">
                             <div>
                                 {isAccident && (
                                     <button onClick={() => {
