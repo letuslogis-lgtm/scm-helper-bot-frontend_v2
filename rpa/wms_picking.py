@@ -206,9 +206,11 @@ def download_pallet_history(
 # ---------------------------------------------------------------------------
 def parse_picking_excel(file_path: Path, center_label: str) -> list[dict]:
     """
-    XLS 파싱 후 order_no 기준으로 집계.
-    같은 오더에 작업자가 여럿이면 가장 많이 등장한 작업자로.
-    반환: [{ order_no, worker, zone, shift }, ...]
+    XLS 파싱 후 (order_no, item_code) 기준으로 집계.
+    같은 오더+품목에 작업자가 여럿이면 가장 많이 등장한 작업자로.
+    반환: [{ order_no, item_code, worker_name, zone, shift_type, location }, ...]
+
+    ※ WMS ITEM ID = ERP 단품코드-색상 조합과 동일한 품목코드
     """
     try:
         df = pd.read_excel(str(file_path), dtype=str)
@@ -220,29 +222,34 @@ def parse_picking_excel(file_path: Path, center_label: str) -> list[dict]:
     print(f'    [{center_label}] {len(df)}행 파싱')
 
     # 필수 컬럼 확인
-    required = {'오더번호', '작업자', 'LOCATION', '작업일시'}
+    required = {'오더번호', 'ITEM ID', '작업자', 'LOCATION', '작업일시'}
     missing = required - set(df.columns)
     if missing:
         print(f'    ⚠️  컬럼 없음: {missing} / 실제 컬럼: {list(df.columns)}')
         return []
 
-    results = {}  # order_no → { worker: count, zone: ..., shift: ... }
+    results = {}  # (order_no, item_code) → { worker: count, zone: ..., shift: ... }
 
     for _, row in df.iterrows():
-        order_no = str(row['오더번호']).strip()
+        order_no  = str(row['오더번호']).strip()
+        item_code = str(row['ITEM ID']).strip()
         if not order_no or order_no in ('nan', 'None', ''):
             continue
+        if not item_code or item_code in ('nan', 'None', ''):
+            item_code = None
 
-        worker   = str(row['작업자']).strip()
-        location = str(row['LOCATION']).strip()
+        worker    = str(row['작업자']).strip()
+        location  = str(row['LOCATION']).strip()
         worked_at = str(row['작업일시']).strip()
 
         zone  = calc_zone(location)
         shift = calc_shift(worked_at)
 
-        if order_no not in results:
-            results[order_no] = {
+        key = (order_no, item_code)
+        if key not in results:
+            results[key] = {
                 'order_no':   order_no,
+                'item_code':  item_code,
                 'center':     center_label,
                 'zone':       zone,
                 'shift_type': shift,
@@ -252,9 +259,7 @@ def parse_picking_excel(file_path: Path, center_label: str) -> list[dict]:
 
         # 작업자 빈도 집계
         if worker:
-            results[order_no]['workers'][worker] = results[order_no]['workers'].get(worker, 0) + 1
-
-        # zone/shift는 최초 설정값 유지 (첫 행 기준)
+            results[key]['workers'][worker] = results[key]['workers'].get(worker, 0) + 1
 
     # 최다 빈도 작업자 확정
     records = []
@@ -271,8 +276,10 @@ def parse_picking_excel(file_path: Path, center_label: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 def update_accidents(all_records: list[dict]):
     """
-    order_no 기준으로 logistics_accidents.zone / shift / worker 업데이트.
+    (order_no, item_code) 기준으로 logistics_accidents.zone / shift / worker 업데이트.
     이미 값이 있는 필드는 덮어쓰지 않음.
+
+    ※ WMS ITEM ID = ERP 단품코드-색상 조합 → 동일한 item_code 로 매칭
     """
     if not all_records:
         print('[DB] 업데이트할 피킹 레코드 없음')
@@ -284,12 +291,12 @@ def update_accidents(all_records: list[dict]):
     print(f'[DB] 총 {len(order_nos)}개 오더번호 → logistics_accidents 조회 중...')
     print(f'[DB] 샘플 오더번호: {order_nos[:5]}')
 
-    # 기존 레코드 조회 (청크 처리)
+    # 기존 레코드 조회 (청크 처리) — item_code 포함
     existing = []
     CHUNK = 200
     for i in range(0, len(order_nos), CHUNK):
         resp = supabase.table('logistics_accidents') \
-            .select('id, order_no, zone, shift_type, worker_name, location') \
+            .select('id, order_no, item_code, zone, shift_type, worker_name, location') \
             .in_('order_no', order_nos[i:i + CHUNK]) \
             .execute()
         if resp.data:
@@ -299,12 +306,12 @@ def update_accidents(all_records: list[dict]):
         print('[DB] 매칭되는 logistics_accidents 레코드 없음')
         return
 
-    # order_no → 피킹 데이터 맵
-    pick_map = {r['order_no']: r for r in all_records}
+    # (order_no, item_code) 2중 키로 피킹 데이터 맵 구성
+    pick_map = {(r['order_no'], r['item_code']): r for r in all_records}
 
     to_update = []
     for acc in existing:
-        pick = pick_map.get(acc['order_no'])
+        pick = pick_map.get((acc['order_no'], acc.get('item_code')))
         if not pick:
             continue
 

@@ -173,6 +173,26 @@ LetusLogis/
 
 ---
 
+## 품목코드 컬럼 구조 (시스템별 차이)
+
+> **매번 헷갈리지 않도록 반드시 숙지할 것**
+
+| 시스템 | 원본 컬럼 | DB 저장 컬럼 | 형식 예시 |
+|--------|-----------|-------------|-----------|
+| **ERP** | `단품코드` + `색상` (별도 컬럼) | `item_code` | `A1234` + `BK` → `A1234-BK` |
+| **WMS** | `ITEM ID` (이미 조합된 값) | `item_code` | `A1234-BK` |
+
+- ERP RPA (`erp_scraper_v2.py`): `단품코드 + "-" + 색상` 으로 조합하여 `item_code` 저장
+- WMS RPA (`wms_extract.py`, `wms_picking.py`): `ITEM ID` 값을 그대로 `item_code` 사용
+- 두 시스템의 `item_code`는 동일한 값 → `order_no + item_code` 기준으로 매칭 가능
+
+### 사고분석 LIST 중복 체크 기준
+- **수기 업데이트**: `order_no + item_code` 2중 키
+- **RPA (상차이슈)**: `order_no + item_code + service_date` 3중 키
+- **RPA (PALLET HISTORY)**: `order_no + item_code` 기준으로 logistics_accidents 매칭 후 zone/shift/worker 업데이트
+
+---
+
 ## 핵심 기능 흐름
 
 ### 1. 입고 특이사항 양방향 피드백
