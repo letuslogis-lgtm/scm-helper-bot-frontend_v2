@@ -470,6 +470,7 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
     # 4. 행 변환
     records = []
     skipped = 0
+    batch_keys = set()   # 현재 배치 내 중복 방지 (DB 체크와 별개)
     for _, row in df.iterrows():
         rec = {}
         for excel_col, db_col in COL_MAP.items():
@@ -490,10 +491,12 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
                 d = f"{d[:4]}-{d[4:6]}-{d[6:8]}"
             rec['service_date'] = d
 
-        # 중복 체크: 수주번호 + 품목코드 + 서비스예약일 3중 키
-        if (order_no, item_code, rec.get('service_date')) in existing_keys:
+        # 중복 체크: DB 기존 레코드 + 현재 배치 내 중복 모두 방지
+        key = (order_no, item_code, rec.get('service_date'))
+        if key in existing_keys or key in batch_keys:
             skipped += 1
             continue
+        batch_keys.add(key)
 
         # issue_qty → 정수
         if rec.get('issue_qty'):
