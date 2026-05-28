@@ -32,26 +32,18 @@ async function checkAndGetInfo(
   if (!code) return { is_valid: false, brand: null, vendor: null }
   const parts = code.split('-')
   try {
-    let query = admin.from('products').select('*')
+    let query = admin.from('products').select('brand_category, brand, vendor, production_line, supplier')
     if (parts.length > 1) {
       query = query.eq('item_code', parts.slice(0, -1).join('-')).eq('item_color', parts[parts.length - 1])
     } else {
       query = query.eq('item_code', code)
     }
     const { data, error } = await query.limit(1).maybeSingle()
-    if (error) {
-      console.error('products 조회 에러:', JSON.stringify(error), '| 코드:', code)
-      return { is_valid: false, brand: null, vendor: null }
-    }
-    if (!data) {
-      console.log('products 미매칭:', code)
-      return { is_valid: false, brand: null, vendor: null }
-    }
+    if (error || !data) return { is_valid: false, brand: null, vendor: null }
     const brand = data.brand_category || data.brand || null
     const vendor = data.vendor || data.production_line || data.supplier || null
     return { is_valid: true, brand, vendor }
-  } catch (e) {
-    console.error('checkAndGetInfo 예외:', e, '| 코드:', code)
+  } catch {
     return { is_valid: false, brand: null, vendor: null }
   }
 }
@@ -76,44 +68,6 @@ Deno.serve(async (req) => {
     const { image, mimeType } = await req.json()
     if (!image) return json({ message: '이미지가 제공되지 않았습니다.' }, 400)
 
-    // ── Few-shot: 관리자 검토 완료된 바코드 이미지 사례 로드 ──────────────
-    const fewShotContents: any[] = []
-    try {
-      const { data: fewShotLogs } = await admin
-        .from('ai_analysis_logs')
-        .select('ai_analyzed_cause, corrected_cause, image_url')
-        .eq('source_menu', 'MobileBarcode')
-        .eq('is_reviewed', true)
-        .not('image_url', 'is', null)
-        .not('corrected_cause', 'is', null)
-        .order('reviewed_at', { ascending: false })
-        .limit(3)
-
-      for (const log of fewShotLogs ?? []) {
-        try {
-          const imgRes = await fetch(log.image_url)
-          if (!imgRes.ok) continue
-          const imgBuffer = await imgRes.arrayBuffer()
-          const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)))
-          fewShotContents.push({
-            role: 'user',
-            parts: [
-              { inlineData: { mimeType: 'image/jpeg', data: imgBase64 } },
-              { text: '이 물류 라벨의 품목코드를 추출하세요. JSON 형식으로만 응답하세요.' },
-            ],
-          })
-          fewShotContents.push({
-            role: 'model',
-            parts: [{ text: `{"product_code": "${log.corrected_cause}", "barcode_type": "text_label"}` }],
-          })
-        } catch {
-          // 개별 이미지 로드 실패 시 건너뜀
-        }
-      }
-    } catch {
-      // few-shot 로드 실패 시 무시하고 계속 진행
-    }
-
     const prompt = `당신은 최고 수준의 물류 SCM 라벨 판독기입니다. 첨부된 사진을 분석하여 오직 JSON 형식으로만 응답하세요.
 바코드가 가장 명확하게 보이는 부분을 찾아 아래 규칙대로 판독하세요.
 
@@ -128,18 +82,6 @@ Deno.serve(async (req) => {
 오직 아래 JSON 형식으로만 응답하세요:
 {"product_code": "추출된코드 또는 null", "barcode_type": "code128 | qr | ean13 | text_label | unknown"}`
 
-    // few-shot 사례 + 실제 분석 요청을 multi-turn contents로 구성
-    const contents = [
-      ...fewShotContents,
-      {
-        role: 'user',
-        parts: [
-          { inlineData: { mimeType: mimeType || 'image/jpeg', data: image } },
-          { text: prompt },
-        ],
-      },
-    ]
-
     const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
       {
@@ -149,7 +91,13 @@ Deno.serve(async (req) => {
           'x-goog-api-key': GEMINI_API_KEY,
         },
         body: JSON.stringify({
-          contents,
+          contents: [{
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: mimeType || 'image/jpeg', data: image } },
+              { text: prompt },
+            ],
+          }],
           generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } },
         }),
       }
@@ -181,34 +129,40 @@ Deno.serve(async (req) => {
       })
     }
 
-    let { is_valid, brand, vendor } = await checkAndGetInfo(admin, rawCode)
+    // ① 원본 + ② O→0 변환 병렬 조회
+    const normalizedCode = /O/.test(rawCode) ? rawCode.replace(/O/g, '0') : null
+    const [mainResult, normResult] = await Promise.all([
+      checkAndGetInfo(admin, rawCode),
+      normalizedCode
+        ? checkAndGetInfo(admin, normalizedCode)
+        : Promise.resolve({ is_valid: false, brand: null, vendor: null }),
+    ])
+
+    let is_valid = mainResult.is_valid
+    let brand = mainResult.brand
+    let vendor = mainResult.vendor
     let finalCode = rawCode
 
-    // O(알파벳)를 0(숫자)으로 치환 후 재조회 — OCR 오인식 폴백
-    if (!is_valid && /O/.test(rawCode)) {
-      const normalized = rawCode.replace(/O/g, '0')
-      const result = await checkAndGetInfo(admin, normalized)
-      if (result.is_valid) {
-        is_valid = true
-        brand = result.brand
-        vendor = result.vendor
-        finalCode = normalized
-      }
+    if (!is_valid && normResult.is_valid) {
+      is_valid = true
+      brand = normResult.brand
+      vendor = normResult.vendor
+      finalCode = normalizedCode!
     }
 
-    // ── Levenshtein 유사 코드 탐색 (①②가 모두 실패한 경우에만 실행) ──
+    // ③ Levenshtein 유사 코드 탐색 (①②가 모두 실패한 경우에만)
     let has_similar = false
-    if (!is_valid && finalCode) {
+    if (!is_valid) {
       const baseCode = finalCode.includes('-')
         ? finalCode.split('-').slice(0, -1).join('-')
         : finalCode
-      const prefix = baseCode.slice(0, 3).toUpperCase()
+      const prefix = baseCode.slice(0, 4).toUpperCase()
       try {
         const { data: candidates } = await admin
           .from('products')
           .select('item_code')
           .like('item_code', `${prefix}%`)
-          .limit(500)
+          .limit(200)
         if (candidates && candidates.length > 0) {
           has_similar = candidates.some(p => {
             const dist = levenshtein(baseCode.toUpperCase(), (p.item_code || '').toUpperCase())
