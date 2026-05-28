@@ -65,7 +65,7 @@ const AppContent = () => {
     };
 
     const handleAccidentDrillDown = (filterObj) => {
-        const today = new Date().toISOString().split("T")[0];
+        const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
         logic.setAccidentDrillDownFilters({
             brands: filterObj.brands || [],
             statuses: filterObj.statuses || [],

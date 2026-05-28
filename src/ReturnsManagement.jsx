@@ -65,7 +65,7 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
         receive:      isAdmin || row.receive_center === myWorkplace,
     };
 
-    const [form, setForm]         = useState({ ...row, incident_center: row.incident_center || myWorkplace || '', return_date: row.return_date || new Date().toISOString().split('T')[0] });
+    const [form, setForm]         = useState({ ...row, incident_center: row.incident_center || myWorkplace || '', return_date: row.return_date || new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0] });
     const [isSaving, setIsSaving] = useState(false);
 
     const set = (field, value) => setForm(prev => {
@@ -244,7 +244,7 @@ const PreDeliveryDetailModal = ({ row, onClose, onSaved, workplaceList, userProf
         setForm(prev => ({
             ...prev,
             is_recovered:      newVal,
-            recovered_at:      newVal && !prev.recovered_at      ? new Date().toISOString().split('T')[0] : prev.recovered_at,
+            recovered_at:      newVal && !prev.recovered_at      ? new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0] : prev.recovered_at,
             recovery_handler:  newVal && !prev.recovery_handler  ? myName : prev.recovery_handler,
         }));
     };
@@ -395,7 +395,7 @@ const PreDeliveryDetailModal = ({ row, onClose, onSaved, workplaceList, userProf
 const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
     const isAdmin = userProfile?.role === '관리자';
     const [form, setForm] = useState({
-        incident_date: new Date().toISOString().split('T')[0],
+        incident_date: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0],
         incident_center: isAdmin ? '' : (userProfile?.workplace || ''),
         writer: userProfile?.name || '',
         brand: '', item_code: '', color: '', quantity: '',
@@ -646,8 +646,10 @@ const ReturnsManagement = ({ userProfile }) => {
     const dragSrcRef   = useRef(null);
     const wasDraggedRef = useRef(false);
 
-    const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    const today = new Date().toISOString().split('T')[0];
+    const _kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const _kstFom = new Date(Date.now() + 9 * 60 * 60 * 1000); _kstFom.setUTCDate(1);
+    const firstOfMonth = _kstFom.toISOString().split('T')[0];
+    const today = _kstNow.toISOString().split('T')[0];
     const initialFilters = { startDate: firstOfMonth, endDate: today, center: '전체', reason: '전체', returnCenter: '전체', completed: '전체', type: '전체' };
     const [draftFilters, setDraftFilters]     = useState(initialFilters);
     const [appliedFilters, setAppliedFilters] = useState(initialFilters);

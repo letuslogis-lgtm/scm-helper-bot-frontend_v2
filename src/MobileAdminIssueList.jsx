@@ -19,7 +19,7 @@ const STATUS_STYLE = {
     '조치완료': 'bg-green-50 text-green-600 border-green-200',
 };
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
 
 const formatDate = (dt) => {
     if (!dt) return '';

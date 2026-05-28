@@ -85,7 +85,7 @@ const fmtDate = (iso) => {
 
 const fmtNumber = (n) => (n == null ? '-' : Number(n).toLocaleString());
 
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
 
 // ─── 컬럼 매핑 모달 ────────────────────────────────────────────────
 const ColumnMappingModal = ({ uploadType, headers, existingMapping, onSave, onClose }) => {

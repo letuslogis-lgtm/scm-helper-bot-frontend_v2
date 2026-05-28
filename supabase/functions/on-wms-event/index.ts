@@ -124,8 +124,8 @@ Deno.serve(async (req) => {
     // ══════════════════════════════════════════════════════════
     if (body.event === 'wms_check_pending') {
       // 조치 미등록(action_type IS NULL) 항목 조회 — 최근 30일 이내
-      const since = new Date()
-      since.setDate(since.getDate() - 30)
+      const since = new Date(Date.now() + 9 * 60 * 60 * 1000) // KST 기준
+      since.setUTCDate(since.getUTCDate() - 30)
       const sinceStr = since.toISOString().split('T')[0]
 
       const { data: pending } = await admin

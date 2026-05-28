@@ -8,10 +8,10 @@ const fmtDate = (d) => {
     return `${y}.${m}.${day}`;
 };
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
 const daysAgo = (n) => {
-    const d = new Date();
-    d.setDate(d.getDate() - n);
+    const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    d.setUTCDate(d.getUTCDate() - n);
     return d.toISOString().split('T')[0];
 };
 
@@ -61,7 +61,7 @@ const DateFilterSheet = ({ dateRange, onApply, onClose }) => {
                         {[
                             { label: '오늘',    s: todayStr(),  e: todayStr() },
                             { label: '3일',     s: daysAgo(3),  e: todayStr() },
-                            { label: '이번 달', s: (() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; })(), e: todayStr() },
+                            { label: '이번 달', s: (() => { const d = new Date(Date.now() + 9 * 60 * 60 * 1000); d.setUTCDate(1); return d.toISOString().split('T')[0]; })(), e: todayStr() },
                             { label: '한 달',   s: daysAgo(30), e: todayStr() },
                         ].map(({ label, s, e }) => (
                             <button key={label} onClick={() => { setStart(s); setEnd(e); }}

@@ -27,10 +27,10 @@ const formatDate = (dt) => {
     return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
 const daysAgo = (n) => {
-    const d = new Date();
-    d.setDate(d.getDate() - n);
+    const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    d.setUTCDate(d.getUTCDate() - n);
     return d.toISOString().split('T')[0];
 };
 

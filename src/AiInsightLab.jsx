@@ -232,7 +232,7 @@ export const AiInsightLab = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `AI학습데이터_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.download = `AI학습데이터_${new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

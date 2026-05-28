@@ -79,14 +79,14 @@ function parseDeliveryDate(waveName, uploadDate) {
 }
 
 function weekAgo() {
-    const d = new Date(); d.setDate(d.getDate() - 7);
+    const d = new Date(Date.now() + 9 * 60 * 60 * 1000); d.setUTCDate(d.getUTCDate() - 7);
     return d.toISOString().split('T')[0];
 }
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function todayStr() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]; }
 function nextWorkDayStr() {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    d.setUTCDate(d.getUTCDate() + 1);
+    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
     return d.toISOString().split('T')[0];
 }
 

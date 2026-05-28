@@ -181,7 +181,7 @@ const WorkerManagement = () => {
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "근무자목록");
-        XLSX.writeFile(wb, `근무자목록_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `근무자목록_${new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]}.xlsx`);
     };
 
     const handleDeleteSelected = async () => {

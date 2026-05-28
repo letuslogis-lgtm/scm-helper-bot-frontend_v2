@@ -99,7 +99,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         localStorage.setItem(lsKey, JSON.stringify({ order: colOrder, widths: colWidths }));
     }, [colOrder, colWidths, userProfile?.id, isAiView]);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const initialFiltersMap = {
         brands: [], centers: [], serviceTypes: [], statuses: [], depts: [], actionResults: [],
@@ -499,7 +499,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "사고분석_데이터");
-        XLSX.writeFile(wb, `사고분석_데이터_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `사고분석_데이터_${new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]}.xlsx`);
     };
 
     const MultiSelect = ({ label, options, selected, onChange, width = 'w-32' }) => {

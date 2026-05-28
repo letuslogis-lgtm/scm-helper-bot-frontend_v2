@@ -357,7 +357,7 @@ const UserBulkUploadModal = ({ onClose, onReload }) => {
         ws['!cols'] = [{ wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 40 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "사용자업로드양식");
-        XLSX.writeFile(wb, `사용자_일괄등록수정_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `사용자_일괄등록수정_양식_${new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]}.xlsx`);
     };
 
     const handleFileChange = (e) => {

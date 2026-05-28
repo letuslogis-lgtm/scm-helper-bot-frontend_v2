@@ -493,8 +493,8 @@ export const RpaManagement = () => {
         // 파라미터 스키마가 있으면 입력 모달 표시
         const schema = job.parameters_schema;
         if (Array.isArray(schema) && schema.length > 0) {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterday = new Date(Date.now() + 9 * 60 * 60 * 1000);
+            yesterday.setUTCDate(yesterday.getUTCDate() - 1);
             const yStr = yesterday.toISOString().split('T')[0];
             const defaults = {};
             schema.forEach(p => {

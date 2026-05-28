@@ -26,7 +26,7 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
     const [brand, setBrand] = useState('');
     const [color, setColor] = useState('');
     const [quantity, setQuantity] = useState('');
-    const [incidentDate, setIncidentDate] = useState(new Date().toISOString().split('T')[0]);
+    const [incidentDate, setIncidentDate] = useState(new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [incidentCenter, setIncidentCenter] = useState('');
     const [incidentReason, setIncidentReason] = useState('');
     const [constructionTeam, setConstructionTeam] = useState('');
@@ -83,8 +83,8 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
     };
 
     const queryPendingList = async (code) => {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const thirtyDaysAgo = new Date(Date.now() + 9 * 60 * 60 * 1000);
+        thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
         const fromDate = thirtyDaysAgo.toISOString().split('T')[0];
         const { data } = await supabase
             .from('logistics_returns')
@@ -156,7 +156,7 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
         if (!selectedId) return alert('회수할 건을 선택해주세요.');
         setIsProcessing(true);
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
             const { error } = await supabase
                 .from('logistics_returns')
                 .update({
@@ -212,7 +212,7 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
         setPhotos([]);
         setAiResult(null);
         setItemCode(''); setBrand(''); setColor(''); setQuantity('');
-        setIncidentDate(new Date().toISOString().split('T')[0]);
+        setIncidentDate(new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]);
         setIncidentCenter(userProfile?.workplace || '');
         setIncidentReason('');
         setConstructionTeam('');

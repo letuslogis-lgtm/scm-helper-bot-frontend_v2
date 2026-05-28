@@ -218,7 +218,7 @@ const UserManagement = () => {
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "사용자목록");
-        XLSX.writeFile(wb, `사용자목록_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `사용자목록_${new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]}.xlsx`);
     };
 
     const toggleAll = () => {

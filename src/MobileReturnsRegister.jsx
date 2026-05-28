@@ -18,7 +18,7 @@ export const MobileReturnsRegister = ({ userProfile }) => {
     const [brand, setBrand]               = useState('');
     const [color, setColor]               = useState('');
     const [quantity, setQuantity]               = useState('');
-    const [incidentDate, setIncidentDate]       = useState(new Date().toISOString().split('T')[0]);
+    const [incidentDate, setIncidentDate]       = useState(new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [incidentCenter, setIncidentCenter]   = useState('');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -129,7 +129,7 @@ export const MobileReturnsRegister = ({ userProfile }) => {
     const reset = () => {
         setPhotos([]); setAiResult(null);
         setItemCode(''); setBrand(''); setColor(''); setQuantity('');
-        setIncidentDate(new Date().toISOString().split('T')[0]);
+        setIncidentDate(new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]);
         setIncidentCenter(userProfile?.workplace || '');
         setSubmitted(false);
     };

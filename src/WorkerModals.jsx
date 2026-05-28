@@ -417,7 +417,7 @@ const WorkerBulkUploadModal = ({ onClose, onReload }) => {
         ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 10 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "근무자업로드양식");
-        XLSX.writeFile(wb, `근무자_일괄등록양식_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `근무자_일괄등록양식_${new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]}.xlsx`);
     };
 
     const handleFileChange = (e) => {
