@@ -830,25 +830,38 @@ export const RpaManagement = () => {
                                 return (
                                     <>
                                         {/* 날짜 2개 → DateRangeInput, 1개 → DateInput */}
-                                        {dateParams.length === 2 && (
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-xs font-bold text-gray-700">
-                                                    {dateParams[0].label} ~ {dateParams[1].label}
-                                                </label>
-                                                <DateRangeInput
-                                                    startDate={runParamModal.paramValues[dateParams[0].key] || ''}
-                                                    endDate={runParamModal.paramValues[dateParams[1].key] || ''}
-                                                    onChange={(start, end) => setRunParamModal(prev => ({
-                                                        ...prev,
-                                                        paramValues: {
-                                                            ...prev.paramValues,
-                                                            [dateParams[0].key]: start,
-                                                            [dateParams[1].key]: end,
-                                                        },
-                                                    }))}
-                                                />
-                                            </div>
-                                        )}
+                                        {dateParams.length === 2 && (() => {
+                                            const startVal = runParamModal.paramValues[dateParams[0].key] || '';
+                                            const endVal   = runParamModal.paramValues[dateParams[1].key] || '';
+                                            const diffDays = (startVal && endVal)
+                                                ? Math.round((new Date(endVal) - new Date(startVal)) / 86400000)
+                                                : 0;
+                                            return (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-xs font-bold text-gray-700">
+                                                        {dateParams[0].label} ~ {dateParams[1].label}
+                                                    </label>
+                                                    <DateRangeInput
+                                                        startDate={startVal}
+                                                        endDate={endVal}
+                                                        onChange={(start, end) => setRunParamModal(prev => ({
+                                                            ...prev,
+                                                            paramValues: {
+                                                                ...prev.paramValues,
+                                                                [dateParams[0].key]: start,
+                                                                [dateParams[1].key]: end,
+                                                            },
+                                                        }))}
+                                                    />
+                                                    {diffDays > 7 && (
+                                                        <div className="flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+                                                            <span className="mt-0.5 shrink-0">⚠️</span>
+                                                            <span>조회 기간이 <strong>{diffDays}일</strong>입니다. 데이터량이 많으면 시간 초과 오류가 날 수 있습니다. (권장: 7일 이하)</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                         {dateParams.length === 1 && (
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-xs font-bold text-gray-700">{dateParams[0].label}</label>
