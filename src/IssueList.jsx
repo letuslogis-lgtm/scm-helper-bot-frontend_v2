@@ -260,6 +260,25 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         setSortConfig({ key: direction === 'none' ? null : key, direction });
     };
 
+    const handleDeleteSelected = async () => {
+        if (userProfile?.role !== '관리자') return alert('🚨 삭제 권한이 없습니다. 관리자에게 문의하세요.');
+        if (selectedIds.length === 0) return alert('삭제할 항목을 체크해 주세요.');
+        if (!window.confirm(`선택하신 ${selectedIds.length}건의 데이터를 정말 삭제하시겠습니까?\n이 작업은 영구적이며 복구할 수 없습니다.`)) return;
+        try {
+            const CHUNK_SIZE = 200;
+            for (let i = 0; i < selectedIds.length; i += CHUNK_SIZE) {
+                const chunk = selectedIds.slice(i, i + CHUNK_SIZE);
+                const { error } = await supabase.from('logistics_issues').delete().in('id', chunk);
+                if (error) throw error;
+            }
+            alert(`🗑️ ${selectedIds.length}건의 데이터가 삭제되었습니다.`);
+            setSelectedIds([]);
+            await onReload();
+        } catch (err) {
+            alert('삭제 중 오류 발생: ' + err.message);
+        }
+    };
+
     const handleSendFeedback = async () => { /* 기존 로직과 동일 */
         if (selectedIds.length === 0) return alert('피드백을 전송할 항목을 1개 이상 선택해 주세요.');
         const invalidItems = issues.filter(i => selectedIds.includes(i.id) && i.status !== '조치완료');
@@ -432,6 +451,18 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                                     <button onClick={() => { setIsActionMenuOpen(false); handleSendFeedback(); }} disabled={isSendingFeedback} className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors ${isSendingFeedback ? 'text-gray-400 cursor-not-allowed bg-gray-50' : 'text-gray-700 hover:text-letusBlue hover:bg-blue-50'}`}>
                                         {isSendingFeedback ? '전송 중...' : '피드백 전송'}
                                     </button>
+                                    {userProfile?.role === '관리자' && (
+                                        <>
+                                            <div className="h-px bg-gray-100 my-1"></div>
+                                            <button
+                                                onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
+                                                className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.length > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                            >
+                                                삭제
+                                                {selectedIds.length > 0 && <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </>
                         )}
