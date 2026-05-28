@@ -638,7 +638,7 @@ export const AiInsightLab = () => {
                         {/* 푸터 */}
                         <div className="p-4 border-t bg-gray-50 flex justify-between items-center shrink-0">
                             <div>
-                                {isAccident && (
+                                {isAccident ? (
                                     <button onClick={() => {
                                         if (activeRow.target_id) window.open(`/accident_list?target_id=${activeRow.target_id}`, '_blank');
                                         else alert('해당 메뉴의 바로가기는 아직 지원되지 않습니다.');
@@ -646,6 +646,14 @@ export const AiInsightLab = () => {
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                         원본 메뉴에서 열기
                                     </button>
+                                ) : (
+                                    activeRow.ai_analyzed_cause && activeRow.ai_analyzed_cause !== 'RECOGNITION_FAILED' && (
+                                        <button onClick={() => window.open(`/list?item_code=${encodeURIComponent(activeRow.ai_analyzed_cause)}`, '_blank')}
+                                            className="px-3 py-2 text-xs font-bold text-orange-500 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-1.5">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                            입고특이사항 목록에서 확인
+                                        </button>
+                                    )
                                 )}
                             </div>
                             <div className="flex gap-2">

@@ -39,13 +39,15 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     useEffect(() => {
         const brand = searchParams.get('brand');
         const vendor = searchParams.get('vendor');
-        if (!brand && !vendor) return;
+        const item_code = searchParams.get('item_code');
+        if (!brand && !vendor && !item_code) return;
         const today = new Date().toISOString().split('T')[0];
         const d = new Date(); d.setDate(d.getDate() - 30);
         const startStr = d.toISOString().split('T')[0];
         const updates = {
             ...(brand ? { brand } : {}),
             ...(vendor ? { searchType: '공급업체', searchValue: vendor } : {}),
+            ...(item_code ? { searchType: '품목코드', searchValue: item_code } : {}),
             startDate: startStr, endDate: today,
         };
         setDraftFilters(prev => ({ ...prev, ...updates }));
