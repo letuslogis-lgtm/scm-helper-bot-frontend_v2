@@ -130,6 +130,9 @@ Deno.serve(async (req) => {
     const photosHq = Array.isArray(body.photos_hq)
       ? (body.photos_hq as Array<{ base64?: string; mimeType?: string }>)
       : []
+    const similarCodes = Array.isArray(body.similar_codes)
+      ? (body.similar_codes as string[]).filter(c => typeof c === 'string').slice(0, 20)
+      : null
 
     // ---- 2) 화이트리스트 + 길이 검증 ----
     if (!BRANDS.has(brand)) return json({ error: `Invalid brand: ${brand}` }, 400)
@@ -210,6 +213,7 @@ Deno.serve(async (req) => {
         status: '조치대기',
         image_url: photoUrls.length > 0 ? photoUrls.join(',') : null,
         image_url_hq: photoHqUrls.length > 0 ? photoHqUrls.join(',') : null,
+        similar_codes: similarCodes && similarCodes.length > 0 ? similarCodes : null,
         created_at: new Date().toISOString(),
       }])
       .select('id')

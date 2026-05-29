@@ -86,6 +86,20 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
             ],
         },
         {
+            label: '개발 · 테스트',
+            items: [
+                {
+                    id: 'barcode-tester',
+                    icon: '🔬',
+                    title: 'AI 바코드 테스터',
+                    subtitle: 'analyze-barcode 응답 확인',
+                    iconBg: 'bg-purple-50',
+                    path: '/mobile/admin/barcode-tester',
+                    badge: 0,
+                },
+            ],
+        },
+        {
             label: '공지 · 소통',
             items: [
                 {

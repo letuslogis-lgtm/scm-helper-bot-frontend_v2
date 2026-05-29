@@ -67,6 +67,7 @@ export const MobileIssueRegister = () => {
 
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
+    const [similarCodes, setSimilarCodes] = useState(null); // AI가 반환한 유사 코드 목록
 
     const [openGroups, setOpenGroups] = useState(new Set());
 
@@ -204,12 +205,13 @@ export const MobileIssueRegister = () => {
                 // ⚠️ 코드 인식됐지만 DB 미매칭
                 if (data?.has_similar) {
                     // 유사 코드 있음 → 바코드 오부착 의심
-                    alert('바코드 오류가 의심됩니다.\n이슈 유형이 \'바코드 오류\'로 자동 선택됩니다.');
+                    const codes = Array.isArray(data.similar_codes) ? data.similar_codes : [];
+                    setSimilarCodes(codes);
                     setIssueType('바코드 오류');
                     setOpenGroups(prev => new Set([...prev, '품질·포장']));
-                    setAiResult({ success: false, suspect: true, message: `인식된 코드 ${data.product_code}가 DB에 없습니다. 바코드 오부착으로 의심됩니다.` });
+                    setAiResult({ success: false, suspect: true, message: `인식된 코드 ${data.product_code}가 DB에 없습니다. 바코드 오부착으로 의심됩니다.`, similarCodes: codes, detectedCode: data.product_code });
                 } else {
-                    // 유사 코드도 없음 → 일반 미인식 처리
+                    setSimilarCodes(null);
                     setAiResult({ success: false, message: '바코드를 인식하지 못했습니다. 다른 각도에서 다시 촬영해주세요.' });
                 }
             } else {
@@ -255,6 +257,7 @@ export const MobileIssueRegister = () => {
                 product_code: productCode || null,
                 vendor: vendor || null,
                 detail, photos: photoPayload, photos_hq: photoHqPayload,
+                similar_codes: similarCodes || null,
             });
             setSubmitted(true);
         } catch (err) {
@@ -278,7 +281,7 @@ export const MobileIssueRegister = () => {
                 <button
                     onClick={() => {
                         setBrand(''); setIssueType(''); setProductCode(''); setVendor(''); setDetail('');
-                        setPhotos([]); setAiResult(null); setSubmitted(false);
+                        setPhotos([]); setAiResult(null); setSimilarCodes(null); setSubmitted(false);
                     }}
                     className="bg-letusOrange hover:bg-orange-500 active:bg-orange-600 text-white font-bold text-base px-8 py-4 rounded-xl shadow-md active:scale-95 transition-all"
                 >
@@ -402,12 +405,21 @@ export const MobileIssueRegister = () => {
                     )}
 
                     {aiResult && (
-                        <div className={`mt-3 p-3 rounded-xl text-sm font-bold border ${aiResult.success ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                        <div className={`mt-3 p-3 rounded-xl text-sm font-bold border ${aiResult.success ? 'bg-green-50 text-green-700 border-green-200' : aiResult.suspect ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                             {aiResult.success ? (
                                 <>
                                     {aiResult.method === 'barcode' ? '📷' : '🤖'} 인식 완료:{' '}
                                     <span className="text-slate-800">{aiResult.code}</span>
                                     {aiResult.description && <p className="text-xs text-green-600 mt-1 font-medium">{aiResult.description}</p>}
+                                </>
+                            ) : aiResult.suspect ? (
+                                <>
+                                    <p>⚠️ 바코드 오부착 의심</p>
+                                    <p className="text-xs font-medium mt-1">AI 인식 코드: <span className="font-bold">{aiResult.detectedCode}</span> (DB 미등록)</p>
+                                    {aiResult.similarCodes?.length > 0 && (
+                                        <p className="text-xs font-medium mt-0.5">유사 코드: <span className="font-bold">{aiResult.similarCodes.join(' / ')}</span></p>
+                                    )}
+                                    <p className="text-[11px] font-normal mt-1 text-orange-500">이슈 유형이 &apos;바코드 오류&apos;로 자동 선택됐습니다.</p>
                                 </>
                             ) : (
                                 <>⚠️ {aiResult.message}</>

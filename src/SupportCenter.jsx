@@ -340,6 +340,14 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {row.issue_type === '바코드 오류' && (
   <div className="flex flex-col">
    <h4 className="text-sm font-bold text-gray-700 mb-2">🔍 유사 코드 추천</h4>
+   {/* AI 스캔 시 저장된 유사 코드 */}
+   {row.similar_codes?.length > 0 && (
+    <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mb-2 text-xs">
+     <p className="font-bold text-orange-700">⚠ 바코드 오부착 의심</p>
+     <p className="text-gray-600 mt-0.5">AI 인식 코드: <span className="font-mono font-bold text-gray-800">{row.product_code}</span> <span className="text-red-500">(DB 미등록)</span></p>
+     <p className="text-gray-600 mt-0.5">유사 코드: <span className="font-mono font-bold text-gray-800">{row.similar_codes.join(' / ')}</span></p>
+    </div>
+   )}
    <div className="text-xs text-gray-500 mb-2">
     스캔된 코드: <span className="font-mono font-bold text-gray-800">{row.product_code || '(없음)'}</span>
     {confirmedCode && (
