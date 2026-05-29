@@ -29,6 +29,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     const [activeModalRow, setActiveModalRow] = useState(null);
     const [activeHandleRow, setActiveHandleRow] = useState(null);
     const [activeDeptReplyRow, setActiveDeptReplyRow] = useState(null);
+    const [similarModal, setSimilarModal] = useState(null); // { row, loading, candidates }
     const [selectedIds, setSelectedIds] = useState([]);
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [isSendingFeedback, setIsSendingFeedback] = useState(false);
@@ -79,6 +80,22 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         localStorage.setItem(`letus_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
     }, [colOrder, colWidths, userProfile?.id]);
 
+    // 유사코드 조회 (바코드 불량 건)
+    const handleFindSimilar = async (row) => {
+        if (!row.product_code || !row.brand) return;
+        setSimilarModal({ row, loading: true, candidates: [] });
+        try {
+            const { data, error } = await supabase.functions.invoke('find-similar-codes', {
+                body: { scanned_code: row.product_code, brand: row.brand },
+            });
+            if (error) throw error;
+            setSimilarModal({ row, loading: false, candidates: data?.candidates || [] });
+        } catch (err) {
+            console.error('유사코드 조회 실패:', err);
+            setSimilarModal({ row, loading: false, candidates: [] });
+        }
+    };
+
     const resetColSettings = () => {
         setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
         setColWidths(DEFAULT_COLUMNS.map(c => c.w));
@@ -119,7 +136,20 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         switch (origIdx) {
             case 0:  return <td key={origIdx} className="p-4 font-bold text-gray-800 text-center">{row.reception_no}</td>;
             case 1:  return <td key={origIdx} className="p-4 font-semibold text-gray-700 text-center">{row.brand}</td>;
-            case 2:  return <td key={origIdx} className="p-4 text-gray-600 truncate text-center" title={row.product_code}>{row.product_code}</td>;
+            case 2:  return (
+                <td key={origIdx} className="p-4 text-gray-600 text-center" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-1.5">
+                        <span className="truncate max-w-[120px]" title={row.product_code}>{row.product_code}</span>
+                        {row.issue_type === '바코드 불량' && (
+                            <button
+                                onClick={() => handleFindSimilar(row)}
+                                className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                                title="유사 품목코드 중 입고계획 있는 건 조회"
+                            >입고계획</button>
+                        )}
+                    </div>
+                </td>
+            );
             case 3:  return <td key={origIdx} className="p-4 text-center"><CategoryBadge category={row.issue_type} /></td>;
             case 4:  return <td key={origIdx} className="p-4 text-gray-600 text-center">{row.reporter || '물류담당자'}</td>;
             case 5:  return <td key={origIdx} className="p-4 text-gray-700 font-semibold text-center">{row.vendor || '-'}</td>;
@@ -539,6 +569,54 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
             {activeModalRow && <RequestModal row={activeModalRow} onClose={() => setActiveModalRow(null)} onReload={onReload} userProfile={userProfile} onDirectHandle={(updatedRow) => { setActiveModalRow(null); setActiveHandleRow(updatedRow); }} />}
             {activeHandleRow && <HandleModal row={activeHandleRow} onClose={() => setActiveHandleRow(null)} onReload={onReload} userProfile={userProfile} />}
             {activeDeptReplyRow && <DeptReplyModal row={activeDeptReplyRow} onClose={() => setActiveDeptReplyRow(null)} onReload={onReload} />}
+
+            {/* 유사코드 입고계획 조회 모달 */}
+            {similarModal && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSimilarModal(null)} />
+                    <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-md slide-up border border-gray-100 overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b bg-amber-50">
+                            <div>
+                                <p className="text-xs font-bold text-amber-700">유사 품목코드 · 입고계획 조회</p>
+                                <p className="text-[11px] text-amber-600 mt-0.5">스캔 코드: <span className="font-mono font-bold">{similarModal.row.product_code}</span></p>
+                            </div>
+                            <button onClick={() => setSimilarModal(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
+                        </div>
+                        <div className="p-5">
+                            {similarModal.loading ? (
+                                <div className="flex items-center justify-center py-8 text-sm text-gray-400">조회 중...</div>
+                            ) : similarModal.candidates.length === 0 ? (
+                                <div className="flex items-center justify-center py-8 text-sm text-gray-400">유사한 품목코드를 찾지 못했습니다.</div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {similarModal.candidates.map((c, i) => (
+                                        <div key={i} className={`rounded-lg border p-3 ${c.has_plan ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${c.has_plan ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                                                        {c.has_plan ? '입고계획 ✓' : '계획없음'}
+                                                    </span>
+                                                    <span className="font-mono text-xs font-bold text-gray-800 truncate">{c.item_code}</span>
+                                                    <span className="text-[10px] text-gray-400">({c.item_color})</span>
+                                                </div>
+                                                <span className="shrink-0 text-[10px] text-gray-400">거리 {c.dist}</span>
+                                            </div>
+                                            <p className="text-[11px] text-gray-600 mt-1 truncate">{c.item_name}</p>
+                                            {c.has_plan && (
+                                                <div className="flex items-center gap-3 mt-1.5 text-[11px] text-green-700">
+                                                    <span>📅 {c.plan_date}</span>
+                                                    {c.planned_qty && <span>📦 {c.planned_qty?.toLocaleString()}개</span>}
+                                                    {c.plan_vendor && <span className="truncate">🏭 {c.plan_vendor}</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

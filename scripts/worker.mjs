@@ -437,6 +437,19 @@ async function main() {
     }, { timezone: 'Asia/Seoul' });
     log('⏰ WMS 미확인 체크 등록: 30분 주기');
 
+    // 입고계획 sync (3분 주기, 내부망 미접속 시 자동 스킵)
+    cron.schedule('*/3 * * * *', () => {
+        log('⏰ 입고계획 sync 실행');
+        runChildProcess('node scripts/sync_incoming_plans.mjs', PROJECT_ROOT)
+            .then(result => {
+                if (result.exitCode !== 0) {
+                    warn('입고계획 sync 실패 (exit ' + result.exitCode + ')');
+                }
+            })
+            .catch(err => warn('입고계획 sync 오류:', err.message));
+    }, { timezone: 'Asia/Seoul' });
+    log('⏰ 입고계획 sync 등록: 3분 주기');
+
     log('🟢 Worker is running. Press Ctrl+C to stop.');
 }
 

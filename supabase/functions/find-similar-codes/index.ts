@@ -44,14 +44,15 @@ Deno.serve(async (req) => {
     // 색상코드 분리
     const upper = String(scanned_code).trim().toUpperCase()
     const parts = upper.split('-')
-    const baseCode = parts.length > 1 ? parts.slice(0, -1).join('-') : upper  // 품목코드만
-    const colorCode = parts.length > 1 ? parts[parts.length - 1] : ''         // 색상코드만
+    const baseCode  = parts.length > 1 ? parts.slice(0, -1).join('-') : upper
+    const colorCode = parts.length > 1 ? parts[parts.length - 1] : ''
 
     // 해당 브랜드 전체 품목 조회
     const { data, error } = await admin
       .from('products')
       .select('item_code, item_name, item_color, brand_category')
       .eq('brand_category', brand)
+      .order('item_code')
 
     if (error) return json({ error: error.message }, 500)
     if (!data || data.length === 0) return json({ candidates: [], _debug: { brand, total: 0 } })
@@ -67,7 +68,51 @@ Deno.serve(async (req) => {
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 5)
 
-    return json({ candidates, _debug: { baseCode, colorCode, total: data.length } })
+    if (candidates.length === 0) {
+      return json({ candidates: [], _debug: { baseCode, colorCode, total: data.length } })
+    }
+
+    // 입고계획 조회 — candidates의 item_code 기준
+    const candidateCodes = candidates.map(c => c.item_code)
+    const today = new Date().toISOString().split('T')[0]
+
+    const { data: plans } = await admin
+      .from('incoming_plans')
+      .select('item_code, plan_date, planned_qty, vendor, company')
+      .in('item_code', candidateCodes)
+      .gte('plan_date', today)
+      .order('plan_date')
+
+    // item_code → 가장 빠른 입고계획 매핑
+    const planMap = new Map<string, { plan_date: string; planned_qty: number | null; vendor: string | null; company: string }>()
+    for (const plan of (plans ?? [])) {
+      if (!planMap.has(plan.item_code)) {
+        planMap.set(plan.item_code, {
+          plan_date:   plan.plan_date,
+          planned_qty: plan.planned_qty,
+          vendor:      plan.vendor,
+          company:     plan.company,
+        })
+      }
+    }
+
+    // 입고계획 정보 병합 + 재정렬 (has_plan 우선 → dist 순)
+    const enriched = candidates
+      .map(c => ({
+        ...c,
+        has_plan:     planMap.has(c.item_code),
+        plan_date:    planMap.get(c.item_code)?.plan_date   ?? null,
+        planned_qty:  planMap.get(c.item_code)?.planned_qty ?? null,
+        plan_vendor:  planMap.get(c.item_code)?.vendor      ?? null,
+        plan_company: planMap.get(c.item_code)?.company     ?? null,
+      }))
+      .sort((a, b) => {
+        if (a.has_plan !== b.has_plan) return a.has_plan ? -1 : 1
+        return a.dist - b.dist
+      })
+
+    return json({ candidates: enriched, _debug: { baseCode, colorCode, total: data.length } })
+
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'
     console.error('🚨 에러:', message)
