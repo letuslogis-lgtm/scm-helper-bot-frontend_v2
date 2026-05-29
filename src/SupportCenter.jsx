@@ -205,8 +205,8 @@ const autoResize = (el) => {
  el.style.height = el.scrollHeight + 'px';
 };
 
-// 편집 거리 계산 (바코드 유사 코드 추천용)
-function levenshtein(a, b) {
+// levenshtein 함수는 find-similar-codes Edge Function으로 이관
+function levenshtein_unused(a, b) {
  const m = a.length, n = b.length;
  const dp = Array.from({ length: m + 1 }, (_, i) => [i]);
  for (let j = 0; j <= n; j++) dp[0][j] = j;
@@ -231,23 +231,13 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
 
  React.useEffect(() => {
   if (row.issue_type !== '바코드 오류' || !row.product_code || !row.brand) return;
-  const scanned = row.product_code.trim().toUpperCase();
-  const baseCode = scanned.includes('-') ? scanned.split('-').slice(0, -1).join('-') : scanned;
   setSuggestionsLoading(true);
-  supabase.from('products')
-   .select('item_code, item_name, item_color, brand_category')
-   .eq('brand_category', row.brand)
-   .then(({ data, error }) => {
-    if (error) { console.error('[유사코드] 조회 오류:', error.message); return; }
-    if (!data || data.length === 0) { console.warn('[유사코드] 브랜드 조회 결과 없음:', row.brand); return; }
-    const candidates = data
-     .map(p => ({ ...p, dist: levenshtein(baseCode, (p.item_code || '').toUpperCase()) }))
-     .filter(p => p.dist > 0 && p.dist <= 2)
-     .sort((a, b) => a.dist - b.dist)
-     .slice(0, 5);
-    setCodeSuggestions(candidates);
-   })
-   .finally(() => setSuggestionsLoading(false));
+  supabase.functions.invoke('find-similar-codes', {
+   body: { scanned_code: row.product_code, brand: row.brand },
+  }).then(({ data, error }) => {
+   if (error) { console.error('[유사코드] 오류:', error.message); return; }
+   setCodeSuggestions(data?.candidates ?? []);
+  }).finally(() => setSuggestionsLoading(false));
  }, [row.id]);
 
  const handleSelectCode = async (code) => {
