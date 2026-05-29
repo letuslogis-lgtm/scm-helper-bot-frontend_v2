@@ -41,9 +41,11 @@ Deno.serve(async (req) => {
     const { scanned_code, brand } = await req.json()
     if (!scanned_code || !brand) return json({ error: 'scanned_code, brand 필수' }, 400)
 
-    // 하이픈 뒤 색상코드 제거 → 품목코드 부분만 추출
+    // 색상코드 분리
     const upper = String(scanned_code).trim().toUpperCase()
-    const baseCode = upper.includes('-') ? upper.split('-').slice(0, -1).join('-') : upper
+    const parts = upper.split('-')
+    const baseCode = parts.length > 1 ? parts.slice(0, -1).join('-') : upper  // 품목코드만
+    const colorCode = parts.length > 1 ? parts[parts.length - 1] : ''         // 색상코드만
 
     // 해당 브랜드 전체 품목 조회
     const { data, error } = await admin
@@ -52,16 +54,20 @@ Deno.serve(async (req) => {
       .eq('brand_category', brand)
 
     if (error) return json({ error: error.message }, 500)
-    if (!data || data.length === 0) return json({ candidates: [] })
+    if (!data || data.length === 0) return json({ candidates: [], _debug: { brand, total: 0 } })
 
-    // 서버에서 Levenshtein 전체 계산 후 상위 5건만 반환
+    // 품목코드 기준 Levenshtein 계산 (색상코드 제외하고 비교)
     const candidates = data
-      .map(p => ({ ...p, dist: levenshtein(baseCode, (p.item_code || '').toUpperCase()) }))
-      .filter(p => p.dist > 0 && p.dist <= 2)
+      .map(p => {
+        const dbCode = (p.item_code || '').toUpperCase()
+        const dist = levenshtein(baseCode, dbCode)
+        return { ...p, dist }
+      })
+      .filter(p => p.dist > 0 && p.dist <= 4)
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 5)
 
-    return json({ candidates })
+    return json({ candidates, _debug: { baseCode, colorCode, total: data.length } })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'
     console.error('🚨 에러:', message)

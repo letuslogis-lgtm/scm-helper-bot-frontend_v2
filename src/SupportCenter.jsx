@@ -353,12 +353,14 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
      {codeSuggestions.map((s) => (
       <button
        key={s.item_code}
-       onClick={() => handleSelectCode(s.item_code)}
+       onClick={() => handleSelectCode(s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code)}
        className="flex items-center justify-between bg-amber-50 border border-amber-200 hover:bg-amber-100 active:bg-amber-200 rounded-lg px-3 py-2 text-sm transition-colors text-left"
       >
        <div className="flex flex-col">
-        <span className="font-mono font-bold text-gray-800">{s.item_code}</span>
-        <span className="text-xs text-gray-500">{[s.brand_category, s.item_name || s.item_color].filter(Boolean).join(' · ')}</span>
+        <span className="font-mono font-bold text-gray-800">
+         {s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code}
+        </span>
+        <span className="text-xs text-gray-500">{[s.brand_category, s.item_name].filter(Boolean).join(' · ')}</span>
        </div>
        <span className="text-xs text-amber-600 font-bold ml-2 shrink-0 bg-amber-100 px-2 py-0.5 rounded-full">{s.dist}자 차이</span>
       </button>
