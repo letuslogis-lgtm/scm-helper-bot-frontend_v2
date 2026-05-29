@@ -230,19 +230,24 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  const [confirmedCode, setConfirmedCode] = useState(null);
 
  React.useEffect(() => {
-  if (row.issue_type !== '바코드 오류' || !row.product_code || !row.brand) return;
+  if (row.issue_type !== '바코드 오류' || !row.product_code) return;
   const scanned = row.product_code.trim().toUpperCase();
+  // 하이픈 앞 품목코드 부분만 기준으로 사용
+  const baseCode = scanned.includes('-') ? scanned.split('-').slice(0, -1).join('-') : scanned;
+  const prefix = baseCode.slice(0, 4);
+  if (!prefix) return;
   setSuggestionsLoading(true);
   supabase.from('products')
-   .select('item_code, item_name, item_color')
-   .eq('brand_category', row.brand)
+   .select('item_code, item_name, item_color, brand_category')
+   .like('item_code', `${prefix}%`)
+   .limit(300)
    .then(({ data }) => {
     if (!data) return;
     const candidates = data
-     .map(p => ({ ...p, dist: levenshtein(scanned, (p.item_code || '').toUpperCase()) }))
+     .map(p => ({ ...p, dist: levenshtein(baseCode, (p.item_code || '').toUpperCase()) }))
      .filter(p => p.dist > 0 && p.dist <= 2)
      .sort((a, b) => a.dist - b.dist)
-     .slice(0, 3);
+     .slice(0, 5);
     setCodeSuggestions(candidates);
    })
    .finally(() => setSuggestionsLoading(false));
@@ -366,7 +371,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
       >
        <div className="flex flex-col">
         <span className="font-mono font-bold text-gray-800">{s.item_code}</span>
-        <span className="text-xs text-gray-500">{s.item_name || s.item_color || ''}</span>
+        <span className="text-xs text-gray-500">{[s.brand_category, s.item_name || s.item_color].filter(Boolean).join(' · ')}</span>
        </div>
        <span className="text-xs text-amber-600 font-bold ml-2 shrink-0 bg-amber-100 px-2 py-0.5 rounded-full">{s.dist}자 차이</span>
       </button>

@@ -202,6 +202,8 @@ export const MobileIssueRegister = () => {
                 setAiResult({ success: true, code: fullCode, description: data.description || '', method: 'ai' });
             } else if (data?.product_code && !data?.is_valid) {
                 // ⚠️ 코드 인식됐지만 DB 미매칭 → 바코드 오류 자동 선택
+                // 웹앱에서 유사 코드 조회에 쓸 수 있도록 스캔된 코드 저장
+                setProductCode(data.product_code);
                 setIssueType('바코드 오류');
                 setOpenGroups(prev => new Set([...prev, '품질·포장']));
                 setAiResult({ success: false, suspect: true, message: `인식된 코드 ${data.product_code}가 DB에 없습니다.`, detectedCode: data.product_code });
