@@ -225,20 +225,20 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  React.useEffect(() => { autoResize(relayRef.current); }, []);
 
  // 바코드 오류 유사 코드 추천
- const [codeSuggestions, setCodeSuggestions] = useState([]);
+ const [codeSuggestions, setCodeSuggestions] = useState(null); // null=미조회, []=결과없음
  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
  const [confirmedCode, setConfirmedCode] = useState(null);
 
- React.useEffect(() => {
-  if (row.issue_type !== '바코드 오류' || !row.product_code || !row.brand) return;
+ const handleFindSimilar = () => {
+  if (!row.product_code || !row.brand) return;
   setSuggestionsLoading(true);
   supabase.functions.invoke('find-similar-codes', {
    body: { scanned_code: row.product_code, brand: row.brand },
   }).then(({ data, error }) => {
-   if (error) { console.error('[유사코드] 오류:', error.message); return; }
+   if (error) { console.error('[유사코드] 오류:', error.message); setCodeSuggestions([]); return; }
    setCodeSuggestions(data?.candidates ?? []);
   }).finally(() => setSuggestionsLoading(false));
- }, [row.id]);
+ };
 
  const handleSelectCode = async (code) => {
   try {
@@ -331,44 +331,56 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  {/* 바코드 오류 — 유사 코드 추천 */}
  {row.issue_type === '바코드 오류' && (
   <div className="flex flex-col">
-   <h4 className="text-sm font-bold text-gray-700 mb-2">🔍 유사 코드 추천</h4>
-   {/* AI 스캔 시 저장된 유사 코드 */}
-   {row.similar_codes?.length > 0 && (
-    <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mb-2 text-xs">
-     <p className="font-bold text-orange-700">⚠ 바코드 오부착 의심</p>
-     <p className="text-gray-600 mt-0.5">AI 인식 코드: <span className="font-mono font-bold text-gray-800">{row.product_code}</span> <span className="text-red-500">(DB 미등록)</span></p>
-     <p className="text-gray-600 mt-0.5">유사 코드: <span className="font-mono font-bold text-gray-800">{row.similar_codes.join(' / ')}</span></p>
-    </div>
-   )}
+   <div className="flex items-center justify-between mb-2">
+    <h4 className="text-sm font-bold text-gray-700">🔍 유사 코드 추천</h4>
+    <button
+     onClick={handleFindSimilar}
+     disabled={suggestionsLoading}
+     className="text-xs font-bold px-2.5 py-1 rounded border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+    >
+     {suggestionsLoading ? '조회 중...' : '📋 입고계획 조회'}
+    </button>
+   </div>
    <div className="text-xs text-gray-500 mb-2">
     스캔된 코드: <span className="font-mono font-bold text-gray-800">{row.product_code || '(없음)'}</span>
-    {confirmedCode && (
-     <span className="ml-2 text-green-600 font-bold">→ {confirmedCode} ✅ 수정됨</span>
-    )}
+    {confirmedCode && <span className="ml-2 text-green-600 font-bold">→ {confirmedCode} ✅ 수정됨</span>}
    </div>
    {suggestionsLoading ? (
     <div className="text-xs text-gray-400 py-1 animate-pulse">유사 코드 검색 중...</div>
+   ) : codeSuggestions === null ? (
+    <div className="text-xs text-gray-300 py-1">조회 버튼을 눌러 입고계획 포함 유사 코드를 확인하세요.</div>
    ) : codeSuggestions.length > 0 ? (
     <div className="flex flex-col gap-1.5">
-     {codeSuggestions.map((s) => (
-      <button
-       key={s.item_code}
-       onClick={() => handleSelectCode(s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code)}
-       className="flex items-center justify-between bg-amber-50 border border-amber-200 hover:bg-amber-100 active:bg-amber-200 rounded-lg px-3 py-2 text-sm transition-colors text-left"
-      >
-       <div className="flex flex-col">
-        <span className="font-mono font-bold text-gray-800">
-         {s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code}
-        </span>
-        <span className="text-xs text-gray-500">{[s.brand_category, s.item_name].filter(Boolean).join(' · ')}</span>
-       </div>
-       <span className="text-xs text-amber-600 font-bold ml-2 shrink-0 bg-amber-100 px-2 py-0.5 rounded-full">{s.dist}자 차이</span>
-      </button>
-     ))}
+     {codeSuggestions.map((s) => {
+      const fullCode = s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code;
+      return (
+       <button
+        key={s.item_code}
+        onClick={() => handleSelectCode(fullCode)}
+        className={`flex flex-col bg-amber-50 border hover:bg-amber-100 active:bg-amber-200 rounded-lg px-3 py-2 text-sm transition-colors text-left ${s.has_plan ? 'border-green-300 bg-green-50 hover:bg-green-100' : 'border-amber-200'}`}
+       >
+        <div className="flex items-center justify-between gap-2">
+         <div className="flex items-center gap-1.5">
+          {s.has_plan && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-500 text-white shrink-0">입고계획 ✓</span>}
+          <span className="font-mono font-bold text-gray-800">{fullCode}</span>
+         </div>
+         <span className="text-xs text-amber-600 font-bold shrink-0 bg-amber-100 px-2 py-0.5 rounded-full">{s.dist}자 차이</span>
+        </div>
+        <span className="text-xs text-gray-500 mt-0.5">{[s.brand_category, s.item_name].filter(Boolean).join(' · ')}</span>
+        {s.has_plan && (
+         <div className="flex items-center gap-3 mt-1 text-[11px] text-green-700">
+          <span>📅 {s.plan_date}</span>
+          {s.planned_qty && <span>📦 {s.planned_qty?.toLocaleString()}개</span>}
+          {s.plan_vendor && <span className="truncate">🏭 {s.plan_vendor}</span>}
+         </div>
+        )}
+       </button>
+      );
+     })}
     </div>
-   ) : !confirmedCode ? (
+   ) : (
     <div className="text-xs text-gray-400 py-1">유사한 코드를 찾지 못했습니다.</div>
-   ) : null}
+   )}
   </div>
  )}
 
