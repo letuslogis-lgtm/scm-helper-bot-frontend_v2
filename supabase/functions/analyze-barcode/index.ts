@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
     }
 
     // ③ Levenshtein 유사 코드 탐색 (①②가 모두 실패한 경우에만)
-    let has_similar = false
+    let similar_codes: string[] = []
     if (!is_valid) {
       const baseCode = finalCode.includes('-')
         ? finalCode.split('-').slice(0, -1).join('-')
@@ -179,10 +179,13 @@ Deno.serve(async (req) => {
           .like('item_code', `${prefix}%`)
           .limit(200)
         if (candidates && candidates.length > 0) {
-          has_similar = candidates.some(p => {
-            const dist = levenshtein(baseCode.toUpperCase(), (p.item_code || '').toUpperCase())
-            return dist > 0 && dist <= 2
-          })
+          similar_codes = candidates
+            .filter(p => {
+              const dist = levenshtein(baseCode.toUpperCase(), (p.item_code || '').toUpperCase())
+              return dist > 0 && dist <= 2
+            })
+            .map(p => p.item_code)
+            .slice(0, 5)  // 최대 5개
         }
       } catch {
         // 유사 코드 탐색 실패 시 무시
@@ -192,7 +195,8 @@ Deno.serve(async (req) => {
     return json({
       product_code: finalCode,
       is_valid,
-      has_similar,
+      has_similar: similar_codes.length > 0,
+      similar_codes,
       brand,
       vendor,
       description: is_valid
