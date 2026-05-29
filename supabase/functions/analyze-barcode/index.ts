@@ -31,19 +31,32 @@ async function checkAndGetInfo(
 ): Promise<{ is_valid: boolean; brand: string | null; vendor: string | null }> {
   if (!code) return { is_valid: false, brand: null, vendor: null }
   const parts = code.split('-')
+  const itemCode = parts.slice(0, -1).join('-')
+  const itemColor = parts.length > 1 ? parts[parts.length - 1] : null
+
+  console.log('[checkAndGetInfo] 조회 시도 —', JSON.stringify({ code, itemCode, itemColor }))
+
   try {
     let query = admin.from('products').select('brand_category, brand, vendor, production_line, supplier')
     if (parts.length > 1) {
-      query = query.eq('item_code', parts.slice(0, -1).join('-')).eq('item_color', parts[parts.length - 1])
+      query = query.eq('item_code', itemCode).eq('item_color', itemColor)
     } else {
       query = query.eq('item_code', code)
     }
     const { data, error } = await query.limit(1).maybeSingle()
-    if (error || !data) return { is_valid: false, brand: null, vendor: null }
+    if (error) {
+      console.error('[checkAndGetInfo] 쿼리 에러 —', error.message || JSON.stringify(error))
+      return { is_valid: false, brand: null, vendor: null }
+    }
+    if (!data) {
+      console.warn('[checkAndGetInfo] 결과 없음 — itemCode:', itemCode, '/ itemColor:', itemColor)
+      return { is_valid: false, brand: null, vendor: null }
+    }
     const brand = data.brand_category || data.brand || null
     const vendor = data.vendor || data.production_line || data.supplier || null
     return { is_valid: true, brand, vendor }
-  } catch {
+  } catch (e) {
+    console.error('[checkAndGetInfo] 예외 — code:', code, '/', e)
     return { is_valid: false, brand: null, vendor: null }
   }
 }
@@ -120,7 +133,9 @@ Deno.serve(async (req) => {
       console.warn('JSON 파싱 실패:', rawText)
     }
 
-    const rawCode = parsed?.product_code ? String(parsed.product_code).trim().toUpperCase() : null
+    const rawCode = parsed?.product_code
+      ? String(parsed.product_code).trim().toUpperCase().replace(/\s+/g, '').replace(/\s*-\s*/g, '-')
+      : null
 
     if (!rawCode || rawCode === 'NULL') {
       return json({
