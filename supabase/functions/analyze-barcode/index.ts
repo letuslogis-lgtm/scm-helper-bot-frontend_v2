@@ -13,17 +13,6 @@ function json(body: unknown, status = 200) {
   })
 }
 
-function levenshtein(a: string, b: string): number {
-  const m = a.length, n = b.length
-  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) => [i])
-  for (let j = 0; j <= n; j++) dp[0][j] = j
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
-  return dp[m][n]
-}
 
 async function checkAndGetInfo(
   admin: ReturnType<typeof createClient>,
@@ -165,38 +154,9 @@ Deno.serve(async (req) => {
       finalCode = normalizedCode!
     }
 
-    // ③ Levenshtein 유사 코드 탐색 (①②가 모두 실패한 경우에만)
-    let similar_codes: string[] = []
-    if (!is_valid) {
-      const baseCode = finalCode.includes('-')
-        ? finalCode.split('-').slice(0, -1).join('-')
-        : finalCode
-      const prefix = baseCode.slice(0, 4).toUpperCase()
-      try {
-        const { data: candidates } = await admin
-          .from('products')
-          .select('item_code')
-          .like('item_code', `${prefix}%`)
-          .limit(200)
-        if (candidates && candidates.length > 0) {
-          similar_codes = candidates
-            .filter(p => {
-              const dist = levenshtein(baseCode.toUpperCase(), (p.item_code || '').toUpperCase())
-              return dist > 0 && dist <= 2
-            })
-            .map(p => p.item_code)
-            .slice(0, 5)  // 최대 5개
-        }
-      } catch {
-        // 유사 코드 탐색 실패 시 무시
-      }
-    }
-
     return json({
       product_code: finalCode,
       is_valid,
-      has_similar: similar_codes.length > 0,
-      similar_codes,
       brand,
       vendor,
       description: is_valid

@@ -67,7 +67,6 @@ export const MobileIssueRegister = () => {
 
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
-    const [similarCodes, setSimilarCodes] = useState(null); // AI가 반환한 유사 코드 목록
 
     const [openGroups, setOpenGroups] = useState(new Set());
 
@@ -202,18 +201,10 @@ export const MobileIssueRegister = () => {
                 if (data.vendor) setVendor(data.vendor);
                 setAiResult({ success: true, code: fullCode, description: data.description || '', method: 'ai' });
             } else if (data?.product_code && !data?.is_valid) {
-                // ⚠️ 코드 인식됐지만 DB 미매칭
-                if (data?.has_similar) {
-                    // 유사 코드 있음 → 바코드 오부착 의심
-                    const codes = Array.isArray(data.similar_codes) ? data.similar_codes : [];
-                    setSimilarCodes(codes);
-                    setIssueType('바코드 오류');
-                    setOpenGroups(prev => new Set([...prev, '품질·포장']));
-                    setAiResult({ success: false, suspect: true, message: `인식된 코드 ${data.product_code}가 DB에 없습니다. 바코드 오부착으로 의심됩니다.`, similarCodes: codes, detectedCode: data.product_code });
-                } else {
-                    setSimilarCodes(null);
-                    setAiResult({ success: false, message: '바코드를 인식하지 못했습니다. 다른 각도에서 다시 촬영해주세요.' });
-                }
+                // ⚠️ 코드 인식됐지만 DB 미매칭 → 바코드 오류 자동 선택
+                setIssueType('바코드 오류');
+                setOpenGroups(prev => new Set([...prev, '품질·포장']));
+                setAiResult({ success: false, suspect: true, message: `인식된 코드 ${data.product_code}가 DB에 없습니다.`, detectedCode: data.product_code });
             } else {
                 setAiResult({ success: false, message: data?.message || '바코드를 인식하지 못했습니다.' });
             }
@@ -225,11 +216,9 @@ export const MobileIssueRegister = () => {
                 ai_cause_detail: data?.barcode_type || null,
                 ai_cause_summary: data?.is_valid
                     ? `인식 성공 — ${data.description || data.product_code}`
-                    : data?.has_similar
-                        ? `바코드 오부착 의심 — ${data.product_code}`
-                        : (data?.message || '바코드 인식 실패'),
+                    : (data?.message || '바코드 인식 실패'),
                 ai_confidence: data?.is_valid ? 'high' : 'low',
-                low_confidence_reason: data?.is_valid ? null : (data?.has_similar ? '유사 코드 존재 (오부착 의심)' : '인식 불가'),
+                low_confidence_reason: data?.is_valid ? null : 'DB 미등록 코드',
                 image_url: imageUrl,
             }).then(({ error }) => {
                 if (error) console.warn('바코드 로그 저장 실패:', error.message);
@@ -257,7 +246,6 @@ export const MobileIssueRegister = () => {
                 product_code: productCode || null,
                 vendor: vendor || null,
                 detail, photos: photoPayload, photos_hq: photoHqPayload,
-                similar_codes: similarCodes || null,
             });
             setSubmitted(true);
         } catch (err) {
@@ -416,9 +404,6 @@ export const MobileIssueRegister = () => {
                                 <>
                                     <p>⚠️ 바코드 오부착 의심</p>
                                     <p className="text-xs font-medium mt-1">AI 인식 코드: <span className="font-bold">{aiResult.detectedCode}</span> (DB 미등록)</p>
-                                    {aiResult.similarCodes?.length > 0 && (
-                                        <p className="text-xs font-medium mt-0.5">유사 코드: <span className="font-bold">{aiResult.similarCodes.join(' / ')}</span></p>
-                                    )}
                                     <p className="text-[11px] font-normal mt-1 text-orange-500">이슈 유형이 &apos;바코드 오류&apos;로 자동 선택됐습니다.</p>
                                 </>
                             ) : (
