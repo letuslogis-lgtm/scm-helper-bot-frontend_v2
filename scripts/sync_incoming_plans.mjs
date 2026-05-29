@@ -80,7 +80,6 @@ async function syncIncomingPlans() {
                        입고구분, 공급업체, 입고유형, 입고예정량, 완료여부
                 FROM ${table}
                 WHERE 입고예정일 >= '${TODAY}'
-                  AND (완료여부 IS NULL OR 완료여부 <> 'Y')
             `);
 
             const rows = result.recordset

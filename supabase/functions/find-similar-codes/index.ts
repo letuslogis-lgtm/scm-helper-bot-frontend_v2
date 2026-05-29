@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
       .select('item_code, plan_date, planned_qty, vendor, company')
       .in('item_code', candidateCodes)
       .gte('plan_date', today)
+      .eq('is_completed', false)
       .order('plan_date')
 
     // item_code → 가장 빠른 입고계획 매핑
