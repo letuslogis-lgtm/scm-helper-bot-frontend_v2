@@ -240,17 +240,15 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
   }).finally(() => setSuggestionsLoading(false));
  };
 
- const handleSelectCode = async (code) => {
-  try {
-   const { error } = await supabase.from('logistics_issues')
-    .update({ product_code: code })
-    .eq('id', row.id);
-   if (error) throw error;
-   setConfirmedCode(code);
-   setCodeSuggestions([]);
-  } catch {
-   alert('코드 업데이트 중 오류가 발생했습니다.');
-  }
+ // 유사 코드 선택 → 이관 메시지에 내용 자동 입력 (품목코드 직접 수정 X)
+ const handleSelectCode = (s) => {
+  const fullCode = s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code;
+  const planInfo = s.has_plan
+   ? `입고계획 ${s.plan_date}${s.planned_qty ? ` / ${s.planned_qty.toLocaleString()}개` : ''}${s.plan_vendor ? ` / ${s.plan_vendor}` : ''}`
+   : '입고계획 없음';
+  const msg = `[바코드 오류] AI 인식 코드: ${row.product_code} → 유사 코드: ${fullCode} (${planInfo})`;
+  setRelayText(prev => prev ? `${prev}\n${msg}` : msg);
+  autoResize(relayRef.current);
  };
  const isAdmin = userProfile?.role !== '사용자';
  const isWaiting = row.status === '조치대기';
@@ -260,6 +258,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  const hasPurchaseResponse = !!(row.purchase_response);
 
  const handleTransfer = async () => {
+ if (!row.vendor) return alert('공급업체 정보가 없어 이관할 수 없습니다.\n품목코드를 확인하거나 담당자에게 문의하세요.');
  if (!relayText.trim()) return alert('이관 메시지를 입력해주세요.');
  setIsSaving(true);
  try {
@@ -351,24 +350,25 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
     <div className="text-xs text-gray-300 py-1">조회 버튼을 눌러 입고계획 포함 유사 코드를 확인하세요.</div>
    ) : codeSuggestions.length > 0 ? (
     <div className="flex flex-col gap-1">
-     {codeSuggestions.map((s) => {
+     {codeSuggestions.slice(0, 3).map((s) => {
       const fullCode = s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code;
+      const vendor = s.plan_vendor || s.vendor || null;
       const tooltip = [
        s.item_name,
+       vendor && `공급업체: ${vendor}`,
        s.has_plan && `📅 ${s.plan_date}`,
        s.has_plan && s.planned_qty && `📦 ${s.planned_qty.toLocaleString()}개`,
-       s.has_plan && s.plan_vendor && `🏭 ${s.plan_vendor}`,
       ].filter(Boolean).join(' · ');
       return (
        <button
         key={s.item_code}
-        onClick={() => handleSelectCode(fullCode)}
+        onClick={() => handleSelectCode(s)}
         title={tooltip}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors text-left w-full ${s.has_plan ? 'bg-green-50 border-green-300 hover:bg-green-100' : 'bg-amber-50 border-amber-200 hover:bg-amber-100'}`}
        >
         {s.has_plan && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-500 text-white shrink-0">입고계획 ✓</span>}
         <span className="font-mono font-bold text-gray-800 shrink-0">{fullCode}</span>
-        <span className="text-xs text-gray-400 truncate min-w-0">{[s.brand_category, s.item_name].filter(Boolean).join(' · ')}</span>
+        {vendor && <span className="text-xs text-gray-500 truncate min-w-0">{vendor}</span>}
         <span className="text-xs text-amber-600 font-bold shrink-0 bg-amber-100 px-1.5 py-0.5 rounded-full ml-auto">{s.dist}자</span>
        </button>
       );

@@ -47,11 +47,13 @@ Deno.serve(async (req) => {
     const baseCode  = parts.length > 1 ? parts.slice(0, -1).join('-') : upper
     const colorCode = parts.length > 1 ? parts[parts.length - 1] : ''
 
-    // 해당 브랜드 전체 품목 조회
+    // 해당 브랜드 + prefix 필터로 품목 조회 (1000행 제한 우회)
+    const prefix = baseCode.slice(0, 4)
     const { data, error } = await admin
       .from('products')
-      .select('item_code, item_name, item_color, brand_category')
+      .select('item_code, item_name, item_color, brand_category, vendor, supplier')
       .eq('brand_category', brand)
+      .like('item_code', `${prefix}%`)
       .order('item_code')
 
     if (error) return json({ error: error.message }, 500)
