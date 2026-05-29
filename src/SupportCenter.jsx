@@ -230,26 +230,21 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  const [confirmedCode, setConfirmedCode] = useState(null);
 
  React.useEffect(() => {
-  if (row.issue_type !== '바코드 오류' || !row.product_code) return;
+  if (row.issue_type !== '바코드 오류' || !row.product_code || !row.brand) return;
   const scanned = row.product_code.trim().toUpperCase();
-  // 하이픈 앞 품목코드 부분만 기준으로 사용
   const baseCode = scanned.includes('-') ? scanned.split('-').slice(0, -1).join('-') : scanned;
-  const prefix = baseCode.slice(0, 4);
-  if (!prefix) return;
   setSuggestionsLoading(true);
   supabase.from('products')
    .select('item_code, item_name, item_color, brand_category')
-   .ilike('item_code', `${prefix}%`)
-   .limit(300)
+   .eq('brand_category', row.brand)
    .then(({ data, error }) => {
     if (error) { console.error('[유사코드] 조회 오류:', error.message); return; }
-    if (!data || data.length === 0) { console.warn('[유사코드] prefix 조회 결과 없음:', prefix); return; }
+    if (!data || data.length === 0) { console.warn('[유사코드] 브랜드 조회 결과 없음:', row.brand); return; }
     const candidates = data
      .map(p => ({ ...p, dist: levenshtein(baseCode, (p.item_code || '').toUpperCase()) }))
      .filter(p => p.dist > 0 && p.dist <= 2)
      .sort((a, b) => a.dist - b.dist)
      .slice(0, 5);
-    console.log('[유사코드] 후보:', candidates.length, '건');
     setCodeSuggestions(candidates);
    })
    .finally(() => setSuggestionsLoading(false));
