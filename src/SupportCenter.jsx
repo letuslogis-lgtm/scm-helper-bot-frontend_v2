@@ -239,15 +239,17 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
   setSuggestionsLoading(true);
   supabase.from('products')
    .select('item_code, item_name, item_color, brand_category')
-   .like('item_code', `${prefix}%`)
+   .ilike('item_code', `${prefix}%`)
    .limit(300)
-   .then(({ data }) => {
-    if (!data) return;
+   .then(({ data, error }) => {
+    if (error) { console.error('[유사코드] 조회 오류:', error.message); return; }
+    if (!data || data.length === 0) { console.warn('[유사코드] prefix 조회 결과 없음:', prefix); return; }
     const candidates = data
      .map(p => ({ ...p, dist: levenshtein(baseCode, (p.item_code || '').toUpperCase()) }))
      .filter(p => p.dist > 0 && p.dist <= 2)
      .sort((a, b) => a.dist - b.dist)
      .slice(0, 5);
+    console.log('[유사코드] 후보:', candidates.length, '건');
     setCodeSuggestions(candidates);
    })
    .finally(() => setSuggestionsLoading(false));
