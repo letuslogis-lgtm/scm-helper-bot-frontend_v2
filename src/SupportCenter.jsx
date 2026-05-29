@@ -350,30 +350,26 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
    ) : codeSuggestions === null ? (
     <div className="text-xs text-gray-300 py-1">조회 버튼을 눌러 입고계획 포함 유사 코드를 확인하세요.</div>
    ) : codeSuggestions.length > 0 ? (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
      {codeSuggestions.map((s) => {
       const fullCode = s.item_color ? `${s.item_code}-${s.item_color}` : s.item_code;
+      const tooltip = [
+       s.item_name,
+       s.has_plan && `📅 ${s.plan_date}`,
+       s.has_plan && s.planned_qty && `📦 ${s.planned_qty.toLocaleString()}개`,
+       s.has_plan && s.plan_vendor && `🏭 ${s.plan_vendor}`,
+      ].filter(Boolean).join(' · ');
       return (
        <button
         key={s.item_code}
         onClick={() => handleSelectCode(fullCode)}
-        className={`flex flex-col bg-amber-50 border hover:bg-amber-100 active:bg-amber-200 rounded-lg px-3 py-2 text-sm transition-colors text-left ${s.has_plan ? 'border-green-300 bg-green-50 hover:bg-green-100' : 'border-amber-200'}`}
+        title={tooltip}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors text-left w-full ${s.has_plan ? 'bg-green-50 border-green-300 hover:bg-green-100' : 'bg-amber-50 border-amber-200 hover:bg-amber-100'}`}
        >
-        <div className="flex items-center justify-between gap-2">
-         <div className="flex items-center gap-1.5">
-          {s.has_plan && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-500 text-white shrink-0">입고계획 ✓</span>}
-          <span className="font-mono font-bold text-gray-800">{fullCode}</span>
-         </div>
-         <span className="text-xs text-amber-600 font-bold shrink-0 bg-amber-100 px-2 py-0.5 rounded-full">{s.dist}자 차이</span>
-        </div>
-        <span className="text-xs text-gray-500 mt-0.5">{[s.brand_category, s.item_name].filter(Boolean).join(' · ')}</span>
-        {s.has_plan && (
-         <div className="flex items-center gap-3 mt-1 text-[11px] text-green-700">
-          <span>📅 {s.plan_date}</span>
-          {s.planned_qty && <span>📦 {s.planned_qty?.toLocaleString()}개</span>}
-          {s.plan_vendor && <span className="truncate">🏭 {s.plan_vendor}</span>}
-         </div>
-        )}
+        {s.has_plan && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-500 text-white shrink-0">입고계획 ✓</span>}
+        <span className="font-mono font-bold text-gray-800 shrink-0">{fullCode}</span>
+        <span className="text-xs text-gray-400 truncate min-w-0">{[s.brand_category, s.item_name].filter(Boolean).join(' · ')}</span>
+        <span className="text-xs text-amber-600 font-bold shrink-0 bg-amber-100 px-1.5 py-0.5 rounded-full ml-auto">{s.dist}자</span>
        </button>
       );
      })}
