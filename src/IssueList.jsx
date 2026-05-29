@@ -80,7 +80,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         localStorage.setItem(`letus_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
     }, [colOrder, colWidths, userProfile?.id]);
 
-    // 유사코드 조회 (바코드 불량 건)
+    // 유사코드 조회 (바코드 오류 건)
     const handleFindSimilar = async (row) => {
         if (!row.product_code || !row.brand) return;
         setSimilarModal({ row, loading: true, candidates: [] });
@@ -140,7 +140,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                 <td key={origIdx} className="p-4 text-gray-600 text-center" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1.5">
                         <span className="truncate max-w-[120px]" title={row.product_code}>{row.product_code}</span>
-                        {row.issue_type === '바코드 불량' && (
+                        {row.issue_type === '바코드 오류' && (
                             <button
                                 onClick={() => handleFindSimilar(row)}
                                 className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
