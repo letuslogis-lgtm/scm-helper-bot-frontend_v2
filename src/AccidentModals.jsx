@@ -53,7 +53,8 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
         fetchVendors();
     }, []);
 
-    // AI 분류 실행 (상세 내역만으로 발생 원인 + 확인 결과 + 귀책부서 추천)
+    // AI 분류 실행
+ (상세 내역만으로 발생 원인 + 확인 결과 + 귀책부서 추천)
     const handleAiClassify = async () => {
         if (!causeDetail) return alert('상세 내역을 먼저 입력해 주세요.');
         setIsAiClassifying(true);
@@ -92,12 +93,13 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
     };
 
     const handleSave = async () => {
-        if (!causeType) return alert('발생 원인을 선택해 주세요.');
-        if (!dept) return alert('귀책 부서를 선택해 주세요.');
+        // 관리자만 발생 원인·귀책 부서 필수 (일반 사용자는 상세 내역만 입력)
+        if (!isUser && !causeType) return alert('발생 원인을 선택해 주세요.');
+        if (!isUser && !dept) return alert('귀책 부서를 선택해 주세요.');
 
         setIsSaving(true);
         try {
-            const finalCauseStr = causeDetail ? `[${causeType}] ${causeDetail}` : `[${causeType}]`;
+            const finalCauseStr = causeDetail ? (causeType ? `[${causeType}] ${causeDetail}` : causeDetail) : (causeType ? `[${causeType}]` : '');
 
             const { error } = await supabase
                 .from('logistics_accidents')
@@ -211,100 +213,82 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                     {/* 2. 조치 등록 폼 전체 영역 */}
                     <div className="flex flex-col gap-6">
 
-                        {/* 상단: 보고자 공통 구역 */}
-                        <div className="flex flex-col gap-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5">
-                                        <span className="text-letusOrange">*</span> 발생 원인 선택
-                                    </label>
-                                    <select value={causeType} onChange={e => setCauseType(e.target.value)} className="w-full border border-gray-300 rounded-[4px] p-2.5 text-xs outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue transition-all cursor-pointer bg-white text-gray-800">
-                                        <option value="">원인을 선택해 주세요</option>
-                                        <option value="작업자 귀책">작업자 귀책</option>
-                                        <option value="시공팀 귀책">시공팀 귀책</option>
-                                        <option value="전산/시스템 오류">전산/시스템 오류</option>
-                                        <option value="서류/정보 불일치">서류/정보 불일치</option>
-                                        <option value="재고/수량 이슈">재고/수량 이슈</option>
-                                        <option value="제조/생산 이슈">제조/생산 이슈</option>
-                                        <option value="프로세스 미준수">프로세스 미준수</option>
-                                        <option value="기타">기타</option>
-                                    </select>
+                        {/* 보고자 공통 구역: 상세 내역만 */}
+                        <div>
+                            <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                                발생 원인 및 조치 상세 내역
+                            </label>
+                            <textarea
+                                value={causeDetail}
+                                onChange={e => setCauseDetail(e.target.value)}
+                                rows={4}
+                                className="w-full border border-gray-300 rounded-[4px] p-3 text-xs outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue resize-none transition-all placeholder:text-gray-300"
+                                placeholder="사고 발생의 구체적인 원인과 현장 상황을 자유롭게 입력해 주세요."
+                            ></textarea>
+                            {row.handler_name && (
+                                <div className="text-right text-[11px] text-gray-400 font-bold mt-1.5 pr-1 tracking-wide">
+                                    {formatModalTime(row.updated_at || row.created_at)} / {row.handler_name}
                                 </div>
-
-                                <div>
-                                    <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5">
-                                        <span className="text-letusOrange">*</span> 귀책 부서 선택 {isUser && <span className="text-gray-400 font-normal ml-1">(소속팀 고정)</span>}
-                                    </label>
-                                    <select
-                                        value={dept}
-                                        onChange={e => setDept(e.target.value)}
-                                        disabled={isUser}
-                                        className={`w-full border rounded-[4px] p-2.5 text-xs outline-none transition-all ${isUser ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue cursor-pointer bg-white text-gray-800'}`}
-                                    >
-                                        <option value="">부서를 선택해 주세요</option>
-                                        {isUser && dept && !['물류사업1팀', '물류사업2팀', '운송사업팀', '컨택센터', '라스트마일1팀', '라스트마일2팀', '구매/생산', '브랜드/3PL고객사', '기타'].includes(dept) && (
-                                            <option value={dept}>{dept}</option>
-                                        )}
-                                        <option value="물류사업1팀">물류사업1팀</option>
-                                        <option value="물류사업2팀">물류사업2팀</option>
-                                        <option value="운송사업팀">운송사업팀</option>
-                                        <option value="컨택센터">컨택센터</option>
-                                        <option value="라스트마일1팀">라스트마일1팀</option>
-                                        <option value="라스트마일2팀">라스트마일2팀</option>
-                                        <option value="구매/생산">구매/생산</option>
-                                        <option value="브랜드/3PL고객사">브랜드/3PL고객사</option>
-                                        <option value="기타">기타</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5">
-                                    발생 원인 및 조치 상세 내역
-                                </label>
-                                <textarea
-                                    value={causeDetail}
-                                    onChange={e => setCauseDetail(e.target.value)}
-                                    rows={3}
-                                    className="w-full border border-gray-300 rounded-[4px] p-3 text-xs outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue resize-none transition-all placeholder:text-gray-300"
-                                    placeholder="사고 발생의 구체적인 원인과 현장 상황을 자유롭게 입력해 주세요."
-                                ></textarea>
-
-                                {/* AI 분류 버튼 (관리자 전용) */}
-                                {userProfile?.role === '관리자' && (
-                                    <div className="mt-2 flex items-center gap-3">
-                                        <button
-                                            onClick={handleAiClassify}
-                                            disabled={isAiClassifying || !causeDetail}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-bold transition-all ${isAiClassifying || !causeDetail ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'}`}
-                                        >
-                                            {isAiClassifying ? (
-                                                <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 분류 중...</>
-                                            ) : (
-                                                <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> AI 분류</>
-                                            )}
-                                        </button>
-                                        {aiClassifyMsg && (
-                                            <span className="text-[11px] text-purple-700 font-bold">{aiClassifyMsg}</span>
-                                        )}
-                                    </div>
-                                )}
-
-                                {row.handler_name && (
-                                    <div className="text-right text-[11px] text-gray-400 font-bold mt-1.5 pr-1 tracking-wide">
-                                        {formatModalTime(row.updated_at || row.created_at)} / {row.handler_name}
-                                    </div>
-                                )}
-                            </div>
+                            )}
                         </div>
 
                         {/* 하단: 관리자 전용 구역 */}
                         {userProfile?.role === '관리자' && (
                             <div className="pt-5 border-t border-slate-200 slide-up">
-                                <h5 className="text-[12px] font-black text-letusOrange mb-3 flex items-center gap-1.5">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                                    관리자 전용 마감
-                                </h5>
+                                {/* 헤더 + AI 분류 버튼 */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <h5 className="text-[12px] font-black text-letusOrange flex items-center gap-1.5">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                        관리자 전용 마감
+                                    </h5>
+                                    <div className="flex items-center gap-2">
+                                        {aiClassifyMsg && <span className="text-[11px] text-purple-700 font-bold">{aiClassifyMsg}</span>}
+                                        <button
+                                            onClick={handleAiClassify}
+                                            disabled={isAiClassifying || !causeDetail}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-bold transition-all ${isAiClassifying || !causeDetail ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'}`}
+                                        >
+                                            {isAiClassifying
+                                                ? <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 분류 중...</>
+                                                : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> AI 분류</>
+                                            }
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 발생 원인 + 귀책 부서 */}
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5">발생 원인</label>
+                                        <select value={causeType} onChange={e => setCauseType(e.target.value)} className="w-full border border-gray-300 rounded-[4px] p-2.5 text-xs outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue cursor-pointer bg-white text-gray-800">
+                                            <option value="">선택해 주세요</option>
+                                            <option value="작업자 귀책">작업자 귀책</option>
+                                            <option value="시공팀 귀책">시공팀 귀책</option>
+                                            <option value="전산/시스템 오류">전산/시스템 오류</option>
+                                            <option value="서류/정보 불일치">서류/정보 불일치</option>
+                                            <option value="재고/수량 이슈">재고/수량 이슈</option>
+                                            <option value="제조/생산 이슈">제조/생산 이슈</option>
+                                            <option value="프로세스 미준수">프로세스 미준수</option>
+                                            <option value="기타">기타</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5">귀책 부서</label>
+                                        <select value={dept} onChange={e => setDept(e.target.value)} className="w-full border border-gray-300 rounded-[4px] p-2.5 text-xs outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue cursor-pointer bg-white text-gray-800">
+                                            <option value="">선택해 주세요</option>
+                                            <option value="물류사업1팀">물류사업1팀</option>
+                                            <option value="물류사업2팀">물류사업2팀</option>
+                                            <option value="운송사업팀">운송사업팀</option>
+                                            <option value="컨택센터">컨택센터</option>
+                                            <option value="라스트마일1팀">라스트마일1팀</option>
+                                            <option value="라스트마일2팀">라스트마일2팀</option>
+                                            <option value="구매/생산">구매/생산</option>
+                                            <option value="브랜드/3PL고객사">브랜드/3PL고객사</option>
+                                            <option value="기타">기타</option>
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-3 gap-4 bg-orange-50/40 p-4 rounded-lg border border-orange-100">
 
                                     {/* 1. 확인 결과 */}
