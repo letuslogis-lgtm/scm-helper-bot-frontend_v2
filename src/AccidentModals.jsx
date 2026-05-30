@@ -185,6 +185,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                         <option value="전산/시스템 오류">전산/시스템 오류</option>
                                         <option value="서류/정보 불일치">서류/정보 불일치</option>
                                         <option value="재고/수량 이슈">재고/수량 이슈</option>
+                                        <option value="제조/생산 이슈">제조/생산 이슈</option>
                                         <option value="프로세스 미준수">프로세스 미준수</option>
                                         <option value="기타">기타</option>
                                     </select>
@@ -201,7 +202,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                         className={`w-full border rounded-[4px] p-2.5 text-xs outline-none transition-all ${isUser ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue cursor-pointer bg-white text-gray-800'}`}
                                     >
                                         <option value="">부서를 선택해 주세요</option>
-                                        {isUser && dept && !['물류사업1팀', '물류사업2팀', '운송사업팀', '컨택센터', '라스트마일1팀', '라스트마일2팀', '기타'].includes(dept) && (
+                                        {isUser && dept && !['물류사업1팀', '물류사업2팀', '운송사업팀', '컨택센터', '라스트마일1팀', '라스트마일2팀', '구매/생산', '외부/협력사', '기타'].includes(dept) && (
                                             <option value={dept}>{dept}</option>
                                         )}
                                         <option value="물류사업1팀">물류사업1팀</option>
@@ -210,6 +211,8 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                         <option value="컨택센터">컨택센터</option>
                                         <option value="라스트마일1팀">라스트마일1팀</option>
                                         <option value="라스트마일2팀">라스트마일2팀</option>
+                                        <option value="구매/생산">구매/생산</option>
+                                        <option value="외부/협력사">외부/협력사</option>
                                         <option value="기타">기타</option>
                                     </select>
                                 </div>
@@ -398,7 +401,7 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                                 <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5"><span className="text-letusOrange">*</span> 발생 원인 일괄 적용</label>
                                 <select value={causeType} onChange={e => setCauseType(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue transition-all cursor-pointer bg-white">
                                     <option value="">원인을 선택해 주세요</option>
-                                    <option value="작업자 귀책">작업자 귀책</option><option value="시공팀 귀책">시공팀 귀책</option><option value="전산/시스템 오류">전산/시스템 오류</option><option value="서류/정보 불일치">서류/정보 불일치</option><option value="재고/수량 이슈">재고/수량 이슈</option><option value="프로세스 미준수">프로세스 미준수</option><option value="기타">기타</option>
+                                    <option value="작업자 귀책">작업자 귀책</option><option value="시공팀 귀책">시공팀 귀책</option><option value="전산/시스템 오류">전산/시스템 오류</option><option value="서류/정보 불일치">서류/정보 불일치</option><option value="재고/수량 이슈">재고/수량 이슈</option><option value="제조/생산 이슈">제조/생산 이슈</option><option value="프로세스 미준수">프로세스 미준수</option><option value="기타">기타</option>
                                 </select>
                             </div>
 
@@ -406,8 +409,8 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                                 <label className="block text-[12px] font-bold text-gray-700 mb-2 flex items-center gap-1.5"><span className="text-letusOrange">*</span> 귀책 부서 일괄 적용</label>
                                 <select value={dept} onChange={e => setDept(e.target.value)} disabled={isUser} className={`w-full border rounded-lg p-2.5 text-sm font-bold outline-none transition-all ${isUser ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue cursor-pointer bg-white'}`}>
                                     <option value="">부서를 선택해 주세요</option>
-                                    {isUser && dept && !['물류사업1팀', '물류사업2팀', '운송사업팀', '컨택센터', '라스트마일1팀', '라스트마일2팀', '기타'].includes(dept) && (<option value={dept}>{dept}</option>)}
-                                    <option value="물류사업1팀">물류사업1팀</option><option value="물류사업2팀">물류사업2팀</option><option value="운송사업팀">운송사업팀</option><option value="컨택센터">컨택센터</option><option value="라스트마일1팀">라스트마일1팀</option><option value="라스트마일2팀">라스트마일2팀</option><option value="기타">기타</option>
+                                    {isUser && dept && !['물류사업1팀', '물류사업2팀', '운송사업팀', '컨택센터', '라스트마일1팀', '라스트마일2팀', '구매/생산', '외부/협력사', '기타'].includes(dept) && (<option value={dept}>{dept}</option>)}
+                                    <option value="물류사업1팀">물류사업1팀</option><option value="물류사업2팀">물류사업2팀</option><option value="운송사업팀">운송사업팀</option><option value="컨택센터">컨택센터</option><option value="라스트마일1팀">라스트마일1팀</option><option value="라스트마일2팀">라스트마일2팀</option><option value="구매/생산">구매/생산</option><option value="외부/협력사">외부/협력사</option><option value="기타">기타</option>
                                 </select>
                             </div>
                         </div>
