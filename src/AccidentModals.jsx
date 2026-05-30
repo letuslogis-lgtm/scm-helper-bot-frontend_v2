@@ -53,37 +53,41 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
         fetchVendors();
     }, []);
 
-    // AI 분류 실행 (중간저장 → Edge Function 호출 → pre-fill)
+    // AI 분류 실행 (상세 내역만으로 발생 원인 + 확인 결과 + 귀책부서 추천)
     const handleAiClassify = async () => {
-        if (!causeType) return alert('발생 원인을 먼저 선택해 주세요.');
-        if (!causeDetail) return alert('상세 내역을 입력해 주세요.');
+        if (!causeDetail) return alert('상세 내역을 먼저 입력해 주세요.');
         setIsAiClassifying(true);
         setAiClassifyMsg('');
         try {
-            // ① 중간저장
-            await supabase.from('logistics_accidents').update({
-                cause_detail: `[${causeType}] ${causeDetail}`,
-                updated_at: new Date().toISOString()
-            }).eq('id', row.id);
+            // ① 중간저장 (causeDetail을 DB에 보존, 모달 유지)
+            if (causeType) {
+                await supabase.from('logistics_accidents').update({
+                    cause_detail: `[${causeType}] ${causeDetail}`,
+                    updated_at: new Date().toISOString()
+                }).eq('id', row.id);
+            }
 
-            // ② Edge Function 호출
+            // ② Edge Function 호출 (상세 내역만 전달)
             const { data: { session } } = await supabase.auth.getSession();
             const supabaseUrl = supabase.supabaseUrl;
             const res = await fetch(`${supabaseUrl}/functions/v1/classify-accident`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-                body: JSON.stringify({ cause_type: causeType, cause_detail: causeDetail }),
+                body: JSON.stringify({ cause_detail: causeDetail, record_id: row.id }),
             });
             if (!res.ok) throw new Error('분류 요청 실패');
             const result = await res.json();
 
-            // ③ pre-fill
+            // ③ 발생 원인 + 확인 결과 + 귀책부서 pre-fill
             const methodLabel = result.method === 'rule' ? '규칙' : 'AI';
-            let msg = `[${methodLabel}] `;
-            if (result.action_result)    { setActionResult(result.action_result);    msg += `확인 결과: ${result.action_result}`; }
-            if (result.responsible_dept) { setDept(result.responsible_dept);          msg += ` / 귀책: ${result.responsible_dept}`; }
-            if (!result.action_result && !result.responsible_dept) msg += '해당하는 분류 기준이 없습니다.';
-            setAiClassifyMsg(msg);
+            const parts = [];
+            if (result.cause_type)       { setCauseType(result.cause_type);           parts.push(`발생원인: ${result.cause_type}`); }
+            if (result.action_result)    { setActionResult(result.action_result);      parts.push(`확인결과: ${result.action_result}`); }
+            if (result.responsible_dept) { setDept(result.responsible_dept);           parts.push(`귀책: ${result.responsible_dept}`); }
+
+            setAiClassifyMsg(parts.length > 0
+                ? `[${methodLabel}] ${parts.join(' / ')}`
+                : '해당하는 분류 기준이 없습니다.');
         } catch (err) {
             setAiClassifyMsg('⚠️ AI 분류 중 오류가 발생했습니다.');
         } finally {
@@ -275,8 +279,8 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                     <div className="mt-2 flex items-center gap-3">
                                         <button
                                             onClick={handleAiClassify}
-                                            disabled={isAiClassifying || !causeType || !causeDetail}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-bold transition-all ${isAiClassifying || !causeType || !causeDetail ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'}`}
+                                            disabled={isAiClassifying || !causeDetail}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-bold transition-all ${isAiClassifying || !causeDetail ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'}`}
                                         >
                                             {isAiClassifying ? (
                                                 <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 분류 중...</>
