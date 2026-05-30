@@ -84,7 +84,8 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                 ? `[${methodLabel}] ${parts.join(' / ')}`
                 : '해당하는 분류 기준이 없습니다.');
         } catch (err) {
-            setAiClassifyMsg('⚠️ AI 분류 중 오류가 발생했습니다.');
+            console.error('AI 분류 오류:', err);
+            setAiClassifyMsg(`⚠️ 오류: ${err.message}`);
         } finally {
             setIsAiClassifying(false);
         }
