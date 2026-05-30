@@ -622,28 +622,44 @@ export const AccidentUploadModal = ({ onClose, onFileUpload }) => {
 export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
 
     const total = items.length;
-    const pending = items.filter(i => i.status === '원인 파악 중').length;
-    const delayed = items.filter(i => i.is_delayed === '재일정(지연)').length;
+    const pending  = items.filter(i => i.status === '원인 파악 중').length;
+    const delayed  = items.filter(i => i.is_delayed === '재일정(지연)').length;
     const completedRate = total > 0 ? Math.round((total - pending) / total * 100) : 0;
 
-    // 사고 유형별 분포 (action_result 기준)
-    const resultData = useMemo(() => {
-        const map = {};
+    // 피벗 공통 헬퍼: 데이터 있는 행·열만 추출
+    const buildPivot = (rowField, colField) => {
+        const rowSet = new Set();
+        const colSet = new Set();
+        const matrix = {};
         items.forEach(i => {
-            const r = i.action_result || '미분류';
-            map[r] = (map[r] || 0) + 1;
+            const r = i[rowField] || '미분류';
+            const c = i[colField] || '미입력';
+            rowSet.add(r); colSet.add(c);
+            if (!matrix[r]) matrix[r] = {};
+            matrix[r][c] = (matrix[r][c] || 0) + 1;
         });
-        const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
-        const max = sorted[0]?.count || 1;
-        return sorted.map(item => ({ ...item, pct: Math.round(item.count / max * 100) }));
-    }, [items]);
+        const rows = [...rowSet].sort((a, b) => {
+            const sa = Object.values(matrix[a] || {}).reduce((s, v) => s + v, 0);
+            const sb = Object.values(matrix[b] || {}).reduce((s, v) => s + v, 0);
+            return sb - sa;
+        });
+        const cols = [...colSet].sort((a, b) => {
+            const sa = rows.reduce((s, r) => s + (matrix[r]?.[a] || 0), 0);
+            const sb = rows.reduce((s, r) => s + (matrix[r]?.[b] || 0), 0);
+            return sb - sa;
+        });
+        return { rows, cols, matrix };
+    };
 
-    // 귀책부서별 현황 (responsible_dept 기준)
-    const deptData = useMemo(() => {
+    const pivotA = useMemo(() => buildPivot('action_result', 'responsible_dept'), [items]);
+    const pivotB = useMemo(() => buildPivot('action_result', 'action_content'),   [items]);
+
+    // AI 원인 분류 분포
+    const aiData = useMemo(() => {
         const map = {};
         items.forEach(i => {
-            const d = i.responsible_dept || '미분류';
-            map[d] = (map[d] || 0) + 1;
+            if (!i.ai_analyzed_cause) return;
+            map[i.ai_analyzed_cause] = (map[i.ai_analyzed_cause] || 0) + 1;
         });
         const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
         const max = sorted[0]?.count || 1;
@@ -673,27 +689,66 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
         return () => document.getElementById('accident-report-print-style')?.remove();
     }, []);
 
-    const BAR_COLORS  = ['#3b82f6','#f97316','#ef4444','#10b981','#8b5cf6','#f59e0b','#06b6d4','#ec4899','#84cc16','#6b7280'];
-    const DEPT_COLORS = ['#3b82f6','#f97316','#10b981','#ef4444','#8b5cf6','#f59e0b','#06b6d4'];
+    const AI_COLORS = ['#3b82f6','#f97316','#ef4444','#10b981','#8b5cf6','#f59e0b','#06b6d4','#ec4899'];
 
-    const BarRow = ({ name, count, pct, color }) => (
-        <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-600 font-medium w-28 text-right shrink-0">{name}</span>
-            <div className="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
-                <div className="h-5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+    // 피벗 테이블 공통 컴포넌트
+    const PivotTable = ({ pivot, title, accent }) => {
+        const { rows, cols, matrix } = pivot;
+        if (rows.length === 0) return <p className="text-xs text-gray-300 py-6 text-center font-bold">데이터 없음</p>;
+        const colTotals = cols.map(c => rows.reduce((s, r) => s + (matrix[r]?.[c] || 0), 0));
+        const grandTotal = colTotals.reduce((s, v) => s + v, 0);
+        return (
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full text-[11px] border-collapse">
+                    <thead>
+                        <tr className="bg-slate-50">
+                            <th className="px-3 py-2 text-left font-bold text-gray-600 border-b border-r border-gray-200 min-w-[90px]">이슈 유형</th>
+                            {cols.map(c => (
+                                <th key={c} className="px-2 py-2 text-center font-bold text-gray-600 border-b border-r border-gray-200 min-w-[60px] whitespace-nowrap">{c}</th>
+                            ))}
+                            <th className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-200 min-w-[48px] bg-gray-100">합계</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((r, ri) => {
+                            const rowTotal = cols.reduce((s, c) => s + (matrix[r]?.[c] || 0), 0);
+                            return (
+                                <tr key={r} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                    <td className="px-3 py-2 font-bold text-gray-700 border-r border-b border-gray-100 whitespace-nowrap">{r}</td>
+                                    {cols.map(c => {
+                                        const v = matrix[r]?.[c] || 0;
+                                        return (
+                                            <td key={c} className="px-2 py-2 text-center border-r border-b border-gray-100">
+                                                {v > 0
+                                                    ? <span className="font-bold" style={{ color: accent }}>{v}</span>
+                                                    : <span className="text-gray-300">-</span>
+                                                }
+                                            </td>
+                                        );
+                                    })}
+                                    <td className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50">{rowTotal}</td>
+                                </tr>
+                            );
+                        })}
+                        {/* 합계 행 */}
+                        <tr className="bg-gray-100 font-black text-gray-700">
+                            <td className="px-3 py-2 border-r border-t border-gray-200">합계</td>
+                            {colTotals.map((v, i) => (
+                                <td key={i} className="px-2 py-2 text-center border-r border-t border-gray-200">{v}</td>
+                            ))}
+                            <td className="px-2 py-2 text-center border-t border-gray-200 text-letusBlue">{grandTotal}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-            <span className="text-xs font-bold text-gray-700 w-20 shrink-0">
-                {count}건
-                <span className="text-gray-400 font-normal ml-1">({total > 0 ? Math.round(count / total * 100) : 0}%)</span>
-            </span>
-        </div>
-    );
+        );
+    };
 
     return ReactDOM.createPortal(
         <div id="accident-report-overlay" className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div id="accident-report-print"
-                className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 slide-up">
+                className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 slide-up">
 
                 {/* 헤더 */}
                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
@@ -741,33 +796,51 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                         </div>
                     </section>
 
-                    {/* Section 2: 사고 유형별 분포 */}
+                    {/* Section 2: 피벗 A — 이슈 유형 × 귀책부서 */}
                     <section>
                         <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <span className="w-1 h-3.5 bg-letusBlue rounded-full" /> 사고 유형별 분포
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">확인 결과 기준</span>
+                            <span className="w-1 h-3.5 bg-letusBlue rounded-full" /> 이슈 유형 × 귀책부서
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 사고가 누구 귀책인가</span>
                         </h4>
-                        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2.5">
-                            {resultData.length === 0
-                                ? <p className="text-xs text-gray-300 py-6 text-center font-bold">데이터 없음</p>
-                                : resultData.map((item, idx) => (
-                                    <BarRow key={item.name} {...item} color={BAR_COLORS[idx % BAR_COLORS.length]} />
-                                ))
-                            }
-                        </div>
+                        <PivotTable pivot={pivotA} accent="#3b82f6" />
                     </section>
 
-                    {/* Section 3: 귀책부서별 현황 */}
+                    {/* Section 3: 피벗 B — 이슈 유형 × 조치 내용 */}
                     <section>
                         <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <span className="w-1 h-3.5 bg-green-500 rounded-full" /> 귀책부서별 현황
+                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 이슈 유형 × 조치 내용
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 사고에 어떤 조치가 이뤄졌나</span>
+                        </h4>
+                        <PivotTable pivot={pivotB} accent="#f97316" />
+                    </section>
+
+                    {/* Section 4: AI 원인 분류 분포 */}
+                    <section>
+                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-1 h-3.5 bg-purple-500 rounded-full" /> AI 원인 분류
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">
+                                {aiData.length === 0 ? 'AI 분석 완료 건 없음' : `${items.filter(i => i.ai_analyzed_cause).length}건 분석 완료`}
+                            </span>
                         </h4>
                         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2.5">
-                            {deptData.length === 0
-                                ? <p className="text-xs text-gray-300 py-6 text-center font-bold">데이터 없음</p>
-                                : deptData.map((item, idx) => (
-                                    <BarRow key={item.name} {...item} color={DEPT_COLORS[idx % DEPT_COLORS.length]} />
-                                ))
+                            {aiData.length === 0
+                                ? <p className="text-xs text-gray-300 py-6 text-center font-bold">AI 분석 데이터 없음 — AI 원인 분석 실행 후 조회하세요</p>
+                                : aiData.map((item, idx) => {
+                                    const total_ai = items.filter(i => i.ai_analyzed_cause).length;
+                                    return (
+                                        <div key={item.name} className="flex items-center gap-3">
+                                            <span className="text-xs text-gray-600 font-medium w-32 text-right shrink-0">{item.name}</span>
+                                            <div className="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
+                                                <div className="h-5 rounded-full transition-all duration-500"
+                                                    style={{ width: `${item.pct}%`, backgroundColor: AI_COLORS[idx % AI_COLORS.length] }} />
+                                            </div>
+                                            <span className="text-xs font-bold text-gray-700 w-20 shrink-0">
+                                                {item.count}건
+                                                <span className="text-gray-400 font-normal ml-1">({total_ai > 0 ? Math.round(item.count / total_ai * 100) : 0}%)</span>
+                                            </span>
+                                        </div>
+                                    );
+                                })
                             }
                         </div>
                     </section>
