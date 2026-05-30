@@ -180,10 +180,8 @@ def run(ctx):
     ctx.log(f"ERP 접속 시도: {start_date} ~ {end_date}")
     t0 = datetime.now()
     save_path_acc = None   # 상차이슈
-    save_path_sch = None   # 시공재일정 (D-DAY ~ D+14)
 
     _today  = str(date.today())
-    sch_end = str(date.today() + timedelta(days=14))
 
     with sync_playwright() as playwright:
         # ---------------------------------------------------------------
@@ -383,15 +381,6 @@ def run(ctx):
             ctx.log(f"❌ 상차이슈 추출 오류: {e}")
             _dump_debug(erp_page, ctx, tag="acc_extraction_failed")
 
-        # ---------------------------------------------------------------
-        # 8. 시공일정관리 메뉴 이동 (D-DAY ~ D+14, 재시공 건)
-        # ---------------------------------------------------------------
-        try:
-            save_path_sch = _step2_schedule(erp_page, ctx, _today, sch_end, t0)
-        except Exception as e:
-            ctx.log(f"❌ 시공재일정 추출 오류: {e}")
-            _dump_debug(erp_page, ctx, tag="sch_extraction_failed")
-
         try:
             context.close()
             browser.close()
@@ -403,8 +392,6 @@ def run(ctx):
     # ---------------------------------------------------------------
     if save_path_acc:
         _parse_and_upload(ctx, save_path_acc, start_date, end_date, t0)
-    if save_path_sch:
-        _update_is_delayed(ctx, save_path_sch, t0)
     ctx.log(f"[{_elapsed(t0)}] ===== 완료 =====")
 
 
@@ -487,6 +474,12 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
         item_code = rec.get('item_code')
 
         if not order_no:
+            skipped += 1
+            continue
+
+        # 이슈내용이 '[SCM'으로 시작하는 행 제외 (SCM 내부 처리 건)
+        issue_raw = str(row.get('이슈내용', '')).strip()
+        if issue_raw.upper().startswith('[SCM'):
             skipped += 1
             continue
 
