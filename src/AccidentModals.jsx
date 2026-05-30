@@ -68,6 +68,9 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                     handler_team: handlerTeam,
                     action_content: actionContent,
 
+                    // 조치내용에 '일정 연기' 포함 시 납기지연 자동 표시
+                    is_delayed: actionContent.includes('일정 연기') ? '재일정(지연)' : '',
+
                     status: '등록 완료',
                     handler_name: userProfile?.name || '관리자',
                     updated_at: new Date().toISOString()
@@ -351,6 +354,8 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                     action_result: actionResult !== '미확인' ? actionResult : undefined,
                     handler_team: handlerTeam || undefined,
                     action_content: actionContent || undefined,
+                    // 조치내용 입력 시에만 납기지연 갱신 ('일정 연기' 포함 여부로 판단)
+                    ...(actionContent ? { is_delayed: actionContent.includes('일정 연기') ? '재일정(지연)' : '' } : {}),
                     status: '등록 완료',
                     handler_name: userProfile?.name || '관리자',
                     updated_at: new Date().toISOString()

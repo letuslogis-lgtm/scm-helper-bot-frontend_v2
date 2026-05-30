@@ -169,8 +169,8 @@ const AccidentList = ({ userProfile, initialFilter }) => {
             if (appliedFilters.excludeNormal) { filtered = filtered.filter(i => i.action_result !== '정상출고'); }
 
             if (appliedFilters.isDelayed !== '전체') {
-                if (appliedFilters.isDelayed === '지연') filtered = filtered.filter(i => i.is_delayed !== '-');
-                else if (appliedFilters.isDelayed === '정상') filtered = filtered.filter(i => i.is_delayed === '-');
+                if (appliedFilters.isDelayed === '지연') filtered = filtered.filter(i => i.is_delayed === '재일정(지연)');
+                else if (appliedFilters.isDelayed === '정상') filtered = filtered.filter(i => i.is_delayed !== '재일정(지연)');
             }
             setItems(filtered);
         } catch (err) { console.error(err); } finally { setIsLoading(false); }
@@ -273,8 +273,8 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                 return <td key={origIdx} className="p-4 text-center text-gray-600">{row.action_result}</td>;
             case 'is_delayed':
                 return (
-                    <td key={origIdx} className={`p-4 font-black text-center ${row.is_delayed !== '-' ? 'text-red-500' : 'text-gray-400'}`}>
-                        {row.is_delayed}
+                    <td key={origIdx} className={`p-4 font-black text-center ${row.is_delayed === '재일정(지연)' ? 'text-red-500' : 'text-gray-400'}`}>
+                        {row.is_delayed || '-'}
                     </td>
                 );
             case 'ai_analyzed_cause':
@@ -665,12 +665,8 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
                     const accDate = findCol(row, ['서비스예약일', '예약일', '시공예정일']);
 
-                    let delayCount = 0;
-                    if (schMap[orderId]) {
-                        const hasDelay = schMap[orderId].some(item => item.rework === 'R');
-                        if (hasDelay) delayCount = 1;
-                    }
-                    const isDelayed = delayCount > 0 ? "재일정(지연)" : "-";
+                    // 납기지연 판별은 관리자 모달의 조치내용 입력으로만 결정 → 업로드 시 빈값 고정
+                    const isDelayed = "";
 
                     const item = cleanTxt(findCol(row, ['단품코드', '품목코드']));
                     const color = cleanTxt(row['색상']);
@@ -718,8 +714,8 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     const existingRow = existingMap.get(key);
                     if (!existingRow) { toInsert.push(p); }
                     else {
-                        let finalDelayed = existingRow.is_delayed;
-                        if (p.is_delayed === '재일정(지연)') finalDelayed = '재일정(지연)';
+                        // is_delayed는 관리자 모달 저장 시에만 갱신 → 업로드로 덮어쓰지 않음
+                        const finalDelayed = existingRow.is_delayed;
                         let finalZone = existingRow.zone; let finalLocation = existingRow.location; let finalWorker = existingRow.worker_name; let finalShift = existingRow.shift_type;
                         if (p.worker_name) { finalZone = p.zone; finalLocation = p.location; finalWorker = p.worker_name; finalShift = p.shift_type; }
                         toUpdate.push({
@@ -762,32 +758,9 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                 alert(`🎉 업데이트 완료!\n- 신규: ${finalToInsert.length}건\n- 수정: ${finalToUpdate.length}건\n(중복 제외됨)`);
             }
             else if (rawSch.length > 0) {
-                const orderNos = Object.keys(schMap);
-                let existingData = []; const FETCH_CHUNK = 200;
-                for (let i = 0; i < orderNos.length; i += FETCH_CHUNK) {
-                    const chunkOrders = orderNos.slice(i, i + FETCH_CHUNK);
-                    const { data, error } = await supabase.from('logistics_accidents').select('id, order_no, service_date, is_delayed').in('order_no', chunkOrders);
-                    if (!error && data) existingData = [...existingData, ...data];
-                }
-
-                const toUpdate = [];
-                existingData.forEach(row => {
-                    let isDelayedNow = false;
-                    if (schMap[row.order_no]) { isDelayedNow = schMap[row.order_no].some(item => item.rework === 'R'); }
-                    if (isDelayedNow && row.is_delayed !== '재일정(지연)') {
-                        toUpdate.push({ id: row.id, is_delayed: '재일정(지연)', updated_at: new Date().toISOString() });
-                    }
-                });
-
-                if (toUpdate.length > 0) {
-                    const UPDATE_CHUNK = 500;
-                    for (let i = 0; i < toUpdate.length; i += UPDATE_CHUNK) {
-                        const chunk = toUpdate.slice(i, i + UPDATE_CHUNK);
-                        const { error } = await supabase.from('logistics_accidents').upsert(chunk, { onConflict: 'id' });
-                        if (error) throw error;
-                    }
-                    alert(`✅ 지연 업데이트 완료 (${toUpdate.length}건)`);
-                } else { alert('✅ 새롭게 지연된 건이 없습니다.'); }
+                // 시공일정 데이터로 is_delayed를 자동 갱신하는 로직은 제거됨
+                // is_delayed는 관리자 모달에서 조치내용에 '일정 연기' 입력 시에만 설정됨
+                alert('✅ 시공일정 데이터 반영 완료');
             }
             fetchAccidents();
         } catch (error) {
