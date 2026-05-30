@@ -3,7 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        autoRefreshToken: true,       // 만료 전 자동 갱신
+        persistSession: true,         // localStorage에 세션 영구 저장
+        detectSessionInUrl: false,    // PWA standalone 모드에서 URL 기반 인증 비활성화
+    },
+});
 
 // For backwards compatibility since vibe-code might use window
 window.supabase = supabase;

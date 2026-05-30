@@ -46,10 +46,19 @@ export const useAuth = () => {
             setSession(session);
             setAuthLoading(false);
         });
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                // 명시적 로그아웃(버튼) 또는 리프레시 토큰 만료 시만 세션 제거
+                setSession(null);
+                setUserProfile(null);
+            } else if (session) {
+                // SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED 등 — 세션 있으면 업데이트
+                setSession(session);
+            }
             setAuthLoading(false);
         });
+
         return () => subscription.unsubscribe();
     }, []);
 
