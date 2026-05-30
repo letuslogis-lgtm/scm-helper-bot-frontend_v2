@@ -241,7 +241,6 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                         관리자 전용 마감
                                     </h5>
                                     <div className="flex items-center gap-2">
-                                        {aiClassifyMsg && <span className="text-[11px] text-purple-700 font-bold">{aiClassifyMsg}</span>}
                                         <button
                                             onClick={handleAiClassify}
                                             disabled={isAiClassifying || !causeDetail}
