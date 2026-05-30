@@ -447,7 +447,6 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
         '조치결과구분':   'action_result',
         '납기지연판별':   'is_delayed',
         '귀책부서':       'responsible_dept',
-        '이슈내용':       'cause_detail',    # 수정: 발생원인 상세 → 이슈내용
         '처리상태':       'status',
     }
 
