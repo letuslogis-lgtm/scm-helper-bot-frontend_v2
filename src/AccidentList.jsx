@@ -202,6 +202,10 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
     const activeColumns = isAiView ? AI_COLUMNS : NORMAL_COLUMNS;
 
+    // 뷰 전환 시 colOrder가 useEffect로 늦게 갱신되는 동안 렌더 크래시 방지
+    const safeColOrder = colOrder.length === activeColumns.length ? colOrder : activeColumns.map((_, i) => i);
+    const safeColWidths = colWidths.length === activeColumns.length ? colWidths : activeColumns.map(c => c.w);
+
     const resetColSettings = () => {
         const cols = isAiView ? AI_COLUMNS : NORMAL_COLUMNS;
         setColOrder(cols.map((_, i) => i));
@@ -214,8 +218,8 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
     const handleResizeStart = (e, visualIdx) => {
         e.preventDefault(); e.stopPropagation();
-        const origIdx = colOrder[visualIdx];
-        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const origIdx = safeColOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: safeColWidths[origIdx] };
         const onMove = (ev) => {
             const { origIdx, startX, startW } = resizingRef.current;
             setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
@@ -971,12 +975,12 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                         className="w-4 h-4 cursor-pointer accent-letusBlue"
                                     />
                                 </th>
-                                {colOrder.map((origIdx, visualIdx) => {
+                                {safeColOrder.map((origIdx, visualIdx) => {
                                     const col = activeColumns[origIdx];
                                     return (
                                         <th key={origIdx}
                                             className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
-                                            style={{ width: colWidths[origIdx] }}
+                                            style={{ width: safeColWidths[origIdx] }}
                                             draggable
                                             onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
                                             onDragStart={(e) => handleDragStart(e, visualIdx)}
@@ -998,9 +1002,9 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700">
                             {isLoading ? (
-                                <tr><td colSpan={colOrder.length + 1} className="py-32 text-center"><div className="flex flex-col items-center gap-3"><div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div><p className="text-gray-500 font-bold">데이터 로딩 중...</p></div></td></tr>
+                                <tr><td colSpan={safeColOrder.length + 1} className="py-32 text-center"><div className="flex flex-col items-center gap-3"><div className="w-8 h-8 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin"></div><p className="text-gray-500 font-bold">데이터 로딩 중...</p></div></td></tr>
                             ) : sortedItems.length === 0 ? (
-                                <tr><td colSpan={colOrder.length + 1} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
+                                <tr><td colSpan={safeColOrder.length + 1} className="p-20 text-center text-gray-400 font-bold">조회 결과가 없습니다.</td></tr>
                             ) : (
                                 <>
                                     {sortedItems.slice(0, 300).map(row => (
@@ -1015,7 +1019,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                                     className="w-4 h-4 cursor-pointer accent-letusBlue"
                                                 />
                                             </td>
-                                            {colOrder.map(origIdx => renderCell(origIdx, row))}
+                                            {safeColOrder.map(origIdx => renderCell(origIdx, row))}
                                         </tr>
                                     ))}
                                 </>
