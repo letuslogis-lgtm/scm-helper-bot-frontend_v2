@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase } from './supabaseClient.js';
+import { supabase, invokeFunction } from './supabaseClient.js';
 import { loadXLSXStyle } from './utils.js';
 import { CloseIcon, SearchButton, DateRangeInput } from './SharedUI.jsx';
 import { AccidentModal, AccidentBulkEditModal, AccidentUploadModal, AccidentReportModal } from './AccidentModals.jsx';
@@ -55,6 +55,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [aiBatch, setAiBatch] = useState(null); // { current, total, ruleCount, aiCount, done }
 
     // 🔗 딥링크 (바로가기) 모달 자동 팝업 로직
     useEffect(() => {
@@ -366,6 +367,45 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         }
         setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
         setLastSelectedId(id);
+    };
+
+    // ⚡ AI 일괄 분류 (선택 건별 순차 처리)
+    const handleAiBatchClassify = async () => {
+        if (selectedIds.length === 0) return alert('항목을 체크해 주세요.');
+        if (!window.confirm(`선택하신 ${selectedIds.length}건의 발생 원인·귀책·확인 결과를 AI가 자동 분류합니다.\n진행할까요?`)) return;
+
+        setIsActionMenuOpen(false);
+        const total = selectedIds.length;
+        let ruleCount = 0, aiCount = 0;
+        setAiBatch({ current: 0, total, ruleCount: 0, aiCount: 0, done: false });
+
+        for (let i = 0; i < selectedIds.length; i++) {
+            const id = selectedIds[i];
+            const record = items.find(r => r.id === id);
+            if (!record?.cause_detail) {
+                setAiBatch(prev => ({ ...prev, current: i + 1 }));
+                continue;
+            }
+            // [원인유형] 접두사 제거해서 상세 텍스트만 추출
+            const rawDetail = record.cause_detail.replace(/^\[.*?\]\s*/, '').trim() || record.cause_detail;
+            try {
+                const result = await invokeFunction('classify-accident', { cause_detail: rawDetail, record_id: id });
+                if (result.method === 'rule') ruleCount++;
+                else if (result.method === 'ai') aiCount++;
+
+                const updatePayload = { updated_at: new Date().toISOString() };
+                if (result.cause_type)       updatePayload.cause_detail = `[${result.cause_type}] ${rawDetail}`;
+                if (result.responsible_dept) updatePayload.responsible_dept = result.responsible_dept;
+                if (result.action_result)    updatePayload.action_result = result.action_result;
+                if (Object.keys(updatePayload).length > 1) {
+                    await supabase.from('logistics_accidents').update(updatePayload).eq('id', id);
+                }
+            } catch (err) {
+                console.error(`AI 분류 실패 (${id}):`, err.message);
+            }
+            setAiBatch({ current: i + 1, total, ruleCount, aiCount, done: i + 1 === total });
+        }
+        fetchAccidents();
     };
 
     // 🔥 신규 추가: 일괄 삭제 기능 (청크 처리 완료)
@@ -913,7 +953,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                             <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)}></div>
                             <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
 
-                                {/* 🚩 🤖 단일화된 AI 분석 실행 버튼 */}
+                                {/* AI 원인 분석 (기존) */}
                                 <button
                                     onClick={handleAiAnalysis}
                                     className="w-full text-left px-4 py-2 text-xs font-bold text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-between"
@@ -921,6 +961,17 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                     AI 원인 분석 실행
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </button>
+
+                                {/* AI 일괄 분류 (신규) */}
+                                <button
+                                    onClick={() => { if (selectedIds.length === 0) return alert('항목을 체크해 주세요.'); handleAiBatchClassify(); }}
+                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length > 0 ? 'text-purple-600 hover:bg-purple-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                >
+                                    AI 일괄 분류
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10" />
                                     </svg>
                                 </button>
 
@@ -962,6 +1013,31 @@ const AccidentList = ({ userProfile, initialFilter }) => {
             </div>
 
             {/* 🚩 문제 1 해결: 표 컨테이너에 flex-1 을 주어 남은 공간을 꽉 채우도록 만듦! */}
+            {/* ⚡ AI 일괄 분류 진행 상태 */}
+            {aiBatch && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 flex items-center gap-4 shrink-0">
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold text-purple-700">
+                                {aiBatch.done ? '✅ AI 일괄 분류 완료' : `⚡ AI 일괄 분류 중... ${aiBatch.current} / ${aiBatch.total}건`}
+                            </span>
+                            {aiBatch.done && (
+                                <span className="text-[11px] text-purple-500">
+                                    규칙: {aiBatch.ruleCount}건 / AI: {aiBatch.aiCount}건
+                                </span>
+                            )}
+                        </div>
+                        <div className="w-full bg-purple-200 rounded-full h-1.5 overflow-hidden">
+                            <div className="h-1.5 bg-purple-600 rounded-full transition-all duration-300"
+                                style={{ width: `${aiBatch.total > 0 ? (aiBatch.current / aiBatch.total) * 100 : 0}%` }} />
+                        </div>
+                    </div>
+                    {aiBatch.done && (
+                        <button onClick={() => setAiBatch(null)} className="text-[11px] text-purple-500 hover:text-purple-700 font-bold shrink-0">닫기</button>
+                    )}
+                </div>
+            )}
+
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
                     <table className="w-full text-left whitespace-nowrap table-fixed text-[13px]">
