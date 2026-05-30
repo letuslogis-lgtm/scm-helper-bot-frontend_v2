@@ -28,6 +28,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [isAiClassifying, setIsAiClassifying] = useState(false);
     const [aiClassifyMsg, setAiClassifyMsg] = useState('');
+    const [aiDone, setAiDone] = useState(false);
 
     useEffect(() => {
         const fetchVendors = async () => {
@@ -58,6 +59,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
         if (!causeDetail) return alert('상세 내역을 먼저 입력해 주세요.');
         setIsAiClassifying(true);
         setAiClassifyMsg('');
+        setAiDone(false);
         try {
             // ① 중간저장 (causeDetail을 DB에 보존, 모달 유지)
             if (causeType) {
@@ -80,12 +82,14 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
             if (result.action_result)    { setActionResult(result.action_result);      parts.push(`확인결과: ${result.action_result}`); }
             if (result.responsible_dept) { setDept(result.responsible_dept);           parts.push(`귀책: ${result.responsible_dept}`); }
 
-            setAiClassifyMsg(parts.length > 0
-                ? `[${methodLabel}] ${parts.join(' / ')}`
-                : '해당하는 분류 기준이 없습니다.');
+            if (parts.length > 0) {
+                setAiDone(true);
+            } else {
+                setAiClassifyMsg('해당 기준 없음');
+            }
         } catch (err) {
             console.error('AI 분류 오류:', err);
-            setAiClassifyMsg(`⚠️ 오류: ${err.message}`);
+            setAiClassifyMsg(`오류: ${err.message}`);
         } finally {
             setIsAiClassifying(false);
         }
@@ -241,6 +245,15 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                         관리자 전용 마감
                                     </h5>
                                     <div className="flex items-center gap-2">
+                                        {aiDone && (
+                                            <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                                분류 완료
+                                            </span>
+                                        )}
+                                        {aiClassifyMsg && !aiDone && (
+                                            <span className="text-[11px] text-amber-600 font-bold">{aiClassifyMsg}</span>
+                                        )}
                                         <button
                                             onClick={handleAiClassify}
                                             disabled={isAiClassifying || !causeDetail}
