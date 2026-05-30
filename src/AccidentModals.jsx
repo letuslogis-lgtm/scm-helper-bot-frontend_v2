@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { supabase } from './supabaseClient.js';
 import { CloseIcon } from './SharedUI.jsx';
 
@@ -611,5 +612,183 @@ export const AccidentUploadModal = ({ onClose, onFileUpload }) => {
                 </div>
             </div>
         </div>
+    );
+};
+
+// 4. 사고 현황 분석 보고서 모달
+export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
+
+    const total = items.length;
+    const pending = items.filter(i => i.status === '원인 파악 중').length;
+    const delayed = items.filter(i => i.is_delayed === '재일정(지연)').length;
+    const completedRate = total > 0 ? Math.round((total - pending) / total * 100) : 0;
+
+    // 사고 유형별 분포 (action_result 기준)
+    const resultData = useMemo(() => {
+        const map = {};
+        items.forEach(i => {
+            const r = i.action_result || '미분류';
+            map[r] = (map[r] || 0) + 1;
+        });
+        const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+        const max = sorted[0]?.count || 1;
+        return sorted.map(item => ({ ...item, pct: Math.round(item.count / max * 100) }));
+    }, [items]);
+
+    // 귀책부서별 현황 (responsible_dept 기준)
+    const deptData = useMemo(() => {
+        const map = {};
+        items.forEach(i => {
+            const d = i.responsible_dept || '미분류';
+            map[d] = (map[d] || 0) + 1;
+        });
+        const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+        const max = sorted[0]?.count || 1;
+        return sorted.map(item => ({ ...item, pct: Math.round(item.count / max * 100) }));
+    }, [items]);
+
+    // 인쇄 스타일 주입
+    useEffect(() => {
+        const style = document.createElement('style');
+        style.id = 'accident-report-print-style';
+        style.innerHTML = `@media print {
+            html, body { height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; }
+            body > *:not(#accident-report-overlay) { display: none !important; }
+            #accident-report-overlay { position: static !important; display: block !important; padding: 0 !important; }
+            #accident-report-overlay > div:first-child { display: none !important; }
+            #accident-report-print {
+                width: 100% !important; max-width: 100% !important;
+                max-height: none !important; height: auto !important;
+                overflow: visible !important;
+                box-shadow: none !important; border-radius: 0 !important; border: none !important;
+            }
+            #accident-report-body { overflow: visible !important; max-height: none !important; height: auto !important; flex: none !important; }
+            #accident-report-footer { display: none !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }`;
+        document.head.appendChild(style);
+        return () => document.getElementById('accident-report-print-style')?.remove();
+    }, []);
+
+    const BAR_COLORS  = ['#3b82f6','#f97316','#ef4444','#10b981','#8b5cf6','#f59e0b','#06b6d4','#ec4899','#84cc16','#6b7280'];
+    const DEPT_COLORS = ['#3b82f6','#f97316','#10b981','#ef4444','#8b5cf6','#f59e0b','#06b6d4'];
+
+    const BarRow = ({ name, count, pct, color }) => (
+        <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-600 font-medium w-28 text-right shrink-0">{name}</span>
+            <div className="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
+                <div className="h-5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+            </div>
+            <span className="text-xs font-bold text-gray-700 w-20 shrink-0">
+                {count}건
+                <span className="text-gray-400 font-normal ml-1">({total > 0 ? Math.round(count / total * 100) : 0}%)</span>
+            </span>
+        </div>
+    );
+
+    return ReactDOM.createPortal(
+        <div id="accident-report-overlay" className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div id="accident-report-print"
+                className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 slide-up">
+
+                {/* 헤더 */}
+                <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-4 bg-letusOrange rounded-full" />
+                        <h3 className="font-black text-sm text-gray-800">사고 현황 분석 보고</h3>
+                        <span className="text-xs text-gray-400 font-medium">{startDate} ~ {endDate}</span>
+                    </div>
+                    <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* 본문 */}
+                <div id="accident-report-body" className="overflow-auto flex-1 p-6 space-y-7 custom-scrollbar">
+
+                    {/* Section 1: KPI 카드 */}
+                    <section>
+                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 종합 현황
+                        </h4>
+                        <div className="grid grid-cols-4 gap-3">
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">총 사고</p>
+                                <p className="text-3xl font-black text-letusBlue leading-none">{total.toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">건</p>
+                            </div>
+                            <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">미처리</p>
+                                <p className="text-3xl font-black text-red-500 leading-none">{pending.toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">원인 파악 중</p>
+                            </div>
+                            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">납기 지연</p>
+                                <p className="text-3xl font-black text-letusOrange leading-none">{delayed.toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">재일정(지연)</p>
+                            </div>
+                            <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">처리 완료율</p>
+                                <p className="text-3xl font-black text-green-600 leading-none">{completedRate}%</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">{(total - pending).toLocaleString()}건 완료</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 2: 사고 유형별 분포 */}
+                    <section>
+                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-1 h-3.5 bg-letusBlue rounded-full" /> 사고 유형별 분포
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">확인 결과 기준</span>
+                        </h4>
+                        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2.5">
+                            {resultData.length === 0
+                                ? <p className="text-xs text-gray-300 py-6 text-center font-bold">데이터 없음</p>
+                                : resultData.map((item, idx) => (
+                                    <BarRow key={item.name} {...item} color={BAR_COLORS[idx % BAR_COLORS.length]} />
+                                ))
+                            }
+                        </div>
+                    </section>
+
+                    {/* Section 3: 귀책부서별 현황 */}
+                    <section>
+                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-1 h-3.5 bg-green-500 rounded-full" /> 귀책부서별 현황
+                        </h4>
+                        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2.5">
+                            {deptData.length === 0
+                                ? <p className="text-xs text-gray-300 py-6 text-center font-bold">데이터 없음</p>
+                                : deptData.map((item, idx) => (
+                                    <BarRow key={item.name} {...item} color={DEPT_COLORS[idx % DEPT_COLORS.length]} />
+                                ))
+                            }
+                        </div>
+                    </section>
+                </div>
+
+                {/* 푸터 */}
+                <div id="accident-report-footer" className="p-3 border-t bg-gray-50 flex justify-between items-center shrink-0">
+                    <span className="text-[11px] text-gray-400">현재 화면 필터 기준 · 총 {total.toLocaleString()}건</span>
+                    <div className="flex gap-2">
+                        <button onClick={onClose}
+                            className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm transition-colors">
+                            닫기
+                        </button>
+                        <button onClick={() => window.print()}
+                            className="px-5 py-1.5 bg-letusBlue text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            인쇄
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>,
+        document.body
     );
 };

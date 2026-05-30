@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from './supabaseClient.js';
 import { loadXLSXStyle } from './utils.js';
 import { CloseIcon, SearchButton, DateRangeInput } from './SharedUI.jsx';
-import { AccidentModal, AccidentBulkEditModal, AccidentUploadModal } from './AccidentModals.jsx';
+import { AccidentModal, AccidentBulkEditModal, AccidentUploadModal, AccidentReportModal } from './AccidentModals.jsx';
 
 const NORMAL_COLUMNS = [
     { label: '서비스예약일',   key: 'service_date',     w: 110 },
@@ -54,6 +54,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
     // 🔥 신규: 누락되었던 모달 오픈용 상태값 추가
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
     // 🔗 딥링크 (바로가기) 모달 자동 팝업 로직
     useEffect(() => {
@@ -875,6 +876,16 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     </button>
                 )}
 
+                <button
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-letusBlue border border-blue-300 bg-blue-50 rounded shadow-sm px-3 h-[32px] hover:bg-blue-100 transition-colors"
+                    title="현재 필터 기준 분석 보고서 출력">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    보고서
+                </button>
+
                 <button onClick={resetColSettings}
                     className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
                     title="컬럼 너비·순서를 기본값으로 초기화">
@@ -1019,6 +1030,16 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
             {/* 🔥 일괄 수정 모달 컴포넌트 추가 */}
             {isBulkEditModalOpen && <AccidentBulkEditModal selectedIds={selectedIds} onClose={() => { setIsBulkEditModalOpen(false); setSelectedIds([]); }} onReload={fetchAccidents} userProfile={userProfile} />}
+
+            {/* 📊 사고 현황 분석 보고서 모달 */}
+            {isReportModalOpen && (
+                <AccidentReportModal
+                    items={items}
+                    startDate={appliedFilters.startDate}
+                    endDate={appliedFilters.endDate}
+                    onClose={() => setIsReportModalOpen(false)}
+                />
+            )}
         </div>
     );
 };
