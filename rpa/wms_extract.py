@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 
 # Windows CP949 환경에서 이모지/유니코드 출력 오류 방지
 if hasattr(sys.stdout, 'reconfigure'):
@@ -189,111 +190,122 @@ EXCEL_TO_DB = {
 # 3. 브라우저 자동화
 # ---------------------------------------------------------------------------
 def download_cut_list(center: str, start_date: str, end_date: str, download_dir: str, headless: bool = True) -> Path:
-    """WMS에서 CUT리스트 엑셀을 다운로드하고 파일 경로를 반환"""
+    """WMS에서 CUT리스트 엑셀을 다운로드하고 파일 경로를 반환
+
+    예외 발생 시에도 context/browser 가 확실히 닫히도록 try-finally 로 보강.
+    """
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=headless,
-            args=['--disable-blink-features=AutomationControlled', '--no-sandbox', '--start-maximized'],
-        )
-        context = browser.new_context(
-            user_agent=(
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/120.0.0.0 Safari/537.36'
-            ),
-            accept_downloads=True,
-            viewport={'width': 1920, 'height': 1080},
-        )
-        context.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko'] });
-            if (!window.chrome) { window.chrome = { runtime: {} }; }
-        """)
-
-        page = context.new_page()
-        print(f'[1/5] WMS 접속 중: {WMS_URL}')
-        page.goto(WMS_URL, timeout=30000)
-        page.wait_for_load_state('networkidle')
-
-        # ── 로그인 ──────────────────────────────────────────────
-        print('[2/5] 로그인 중...')
-        page.fill('input[name="loginId"]', WMS_USER)
-        page.fill('input[name="password"]', WMS_PASSWORD)
-        page.click('button#sendAuthCodeBtn')
-        page.wait_for_load_state('networkidle')
-
-        # ── 메뉴 이동 (새창) ─────────────────────────────────────
-        print('[3/5] 메뉴 이동: 피킹/출고관리 > 부족량 CUT 관리')
-        page.click('span[data-id="0009"]')               # 상위 메뉴 펼치기
-        with context.expect_page() as popup_info:
-            page.click('a[menuid="00090010"]')           # 부족량 CUT 관리 (새창)
-
-        cut_page = popup_info.value
-        cut_page.wait_for_load_state('networkidle')
-
-        cut_page.click('#resultTable2HeadBox')               # CUT리스트 관리 탭
-        cut_page.wait_for_load_state('networkidle')
-
-        # ── 센터 드롭박스 선택 ────────────────────────────────────
-        print(f'[4/6] 센터 선택: {center}')
-        cut_page.select_option('select[name="warehouseId"]', label=center)
-        cut_page.wait_for_timeout(500)
-
-        # ── 날짜 설정 (Flatpickr JS API) ──────────────────────────
-        print(f'[5/6] 날짜 설정: {start_date} ~ {end_date}')
-        cut_page.evaluate(f"""
-            const input = document.querySelector('input.dfInput.dateInput._range');
-            if (input && input._flatpickr) {{
-                input._flatpickr.setDate(['{start_date}', '{end_date}'], true);
-                input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-            }}
-        """)
-        cut_page.wait_for_timeout(500)
-
-        cut_page.click('button.dfBtn._orangeLine')             # 조회하기 버튼
-        cut_page.wait_for_load_state('networkidle')
-
-        # ── 엑셀 다운로드 ─────────────────────────────────────────
-        print('[6/6] 엑셀 다운로드 중...')
-
-        export_btn = cut_page.locator('button.exportXlsxBtn[data-target="resultTable2"]').first
+        browser = None
+        context = None
+        file_path = None
         try:
-            export_btn.wait_for(state='visible', timeout=60000)
-        except Exception:
-            print('    엑셀 버튼 미표시 → 조회 결과 없음으로 간주, 스킵')
-            context.close()
-            browser.close()
-            return None
+            browser = pw.chromium.launch(
+                headless=headless,
+                args=['--disable-blink-features=AutomationControlled', '--no-sandbox', '--start-maximized'],
+            )
+            context = browser.new_context(
+                user_agent=(
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/120.0.0.0 Safari/537.36'
+                ),
+                accept_downloads=True,
+                viewport={'width': 1920, 'height': 1080},
+            )
+            context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko'] });
+                if (!window.chrome) { window.chrome = { runtime: {} }; }
+            """)
 
-        export_btn.scroll_into_view_if_needed()
-        cut_page.wait_for_timeout(500)
+            page = context.new_page()
+            print(f'[1/5] WMS 접속 중: {WMS_URL}')
+            page.goto(WMS_URL, timeout=30000)
+            page.wait_for_load_state('networkidle')
 
-        try:
-            with cut_page.expect_download(timeout=60000) as dl_info:
-                export_btn.click()
+            # ── 로그인 ──────────────────────────────────────────────
+            print('[2/5] 로그인 중...')
+            page.fill('input[name="loginId"]', WMS_USER)
+            page.fill('input[name="password"]', WMS_PASSWORD)
+            page.click('button#sendAuthCodeBtn')
+            page.wait_for_load_state('networkidle')
+
+            # ── 메뉴 이동 (새창) ─────────────────────────────────────
+            print('[3/5] 메뉴 이동: 피킹/출고관리 > 부족량 CUT 관리')
+            page.click('span[data-id="0009"]')               # 상위 메뉴 펼치기
+            with context.expect_page() as popup_info:
+                page.click('a[menuid="00090010"]')           # 부족량 CUT 관리 (새창)
+
+            cut_page = popup_info.value
+            cut_page.wait_for_load_state('networkidle')
+
+            cut_page.click('#resultTable2HeadBox')               # CUT리스트 관리 탭
+            cut_page.wait_for_load_state('networkidle')
+
+            # ── 센터 드롭박스 선택 ────────────────────────────────────
+            print(f'[4/6] 센터 선택: {center}')
+            cut_page.select_option('select[name="warehouseId"]', label=center)
+            cut_page.wait_for_timeout(500)
+
+            # ── 날짜 설정 (Flatpickr JS API) ──────────────────────────
+            print(f'[5/6] 날짜 설정: {start_date} ~ {end_date}')
+            cut_page.evaluate(f"""
+                const input = document.querySelector('input.dfInput.dateInput._range');
+                if (input && input._flatpickr) {{
+                    input._flatpickr.setDate(['{start_date}', '{end_date}'], true);
+                    input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                }}
+            """)
+            cut_page.wait_for_timeout(500)
+
+            cut_page.click('button.dfBtn._orangeLine')             # 조회하기 버튼
+            cut_page.wait_for_load_state('networkidle')
+
+            # ── 엑셀 다운로드 ─────────────────────────────────────────
+            print('[6/6] 엑셀 다운로드 중...')
+
+            export_btn = cut_page.locator('button.exportXlsxBtn[data-target="resultTable2"]').first
+            try:
+                export_btn.wait_for(state='visible', timeout=60000)
+            except Exception:
+                print('    엑셀 버튼 미표시 → 조회 결과 없음으로 간주, 스킵')
+                return None
+
+            export_btn.scroll_into_view_if_needed()
+            cut_page.wait_for_timeout(500)
+
+            try:
+                with cut_page.expect_download(timeout=60000) as dl_info:
+                    export_btn.click()
+                    try:
+                        save_btn = cut_page.get_by_role('button', name='저장', exact=True)
+                        save_btn.wait_for(state='visible', timeout=15000)
+                        print('    저장 다이얼로그 확인 → "저장" 클릭')
+                        save_btn.click()
+                    except Exception:
+                        pass  # 팝업 없이 바로 다운로드 되는 경우 — 정상
+            except Exception:
+                print('    다운로드 없음 → 조회 결과 없음으로 간주, 스킵')
+                return None
+
+            download = dl_info.value
+            file_path = Path(download_dir) / f'cut_list_{start_date}_{end_date}.xlsx'
+            download.save_as(str(file_path))
+            print(f'    다운로드 완료: {file_path.name}')
+            return file_path
+        finally:
+            # 예외 경로/정상 경로 모두에서 자원 확실히 정리
+            if context is not None:
                 try:
-                    save_btn = cut_page.get_by_role('button', name='저장', exact=True)
-                    save_btn.wait_for(state='visible', timeout=15000)
-                    print('    저장 다이얼로그 확인 → "저장" 클릭')
-                    save_btn.click()
-                except Exception:
-                    pass  # 팝업 없이 바로 다운로드 되는 경우 — 정상
-        except Exception:
-            print('    다운로드 없음 → 조회 결과 없음으로 간주, 스킵')
-            context.close()
-            browser.close()
-            return None
-
-        download = dl_info.value
-        file_path = Path(download_dir) / f'cut_list_{start_date}_{end_date}.xlsx'
-        download.save_as(str(file_path))
-        print(f'    다운로드 완료: {file_path.name}')
-
-        context.close()
-        browser.close()
-
-    return file_path
+                    context.close()
+                except Exception as e:
+                    print(f'    [WARN] context.close 실패: {e}')
+            if browser is not None:
+                try:
+                    browser.close()
+                except Exception as e:
+                    print(f'    [WARN] browser.close 실패: {e}')
 
 # ---------------------------------------------------------------------------
 # 4. 파싱 + Supabase 업로드
@@ -404,16 +416,36 @@ def main():
     print(f'=== WMS CUT리스트 추출 시작: {start_date} ~ {end_date} / 대상 센터: {len(centers)}개 ===')
 
     total = 0
+    MAX_RETRIES = 3  # 일시적 네트워크/브라우저 오류에 대한 재시도 횟수
     with tempfile.TemporaryDirectory() as tmp_dir:
         for center in centers:
             print(f'\n── {center} ──')
-            try:
-                file_path = download_cut_list(center, start_date, end_date, tmp_dir, headless=headless)
-            except PWTimeout as e:
-                print(f'  [ERROR] 브라우저 타임아웃: {e}')
-                continue
-            except Exception as e:
-                print(f'  [ERROR] 다운로드 실패: {e}')
+            file_path = None
+            last_error = None
+            for attempt in range(1, MAX_RETRIES + 1):
+                try:
+                    file_path = download_cut_list(center, start_date, end_date, tmp_dir, headless=headless)
+                    last_error = None
+                    break  # 정상 종료 (file_path = Path 또는 None)
+                except PWTimeout as e:
+                    last_error = e
+                    if attempt < MAX_RETRIES:
+                        wait = 2 ** attempt   # 2 → 4 → 8 초 지수 백오프
+                        print(f'  [WARN] 브라우저 타임아웃 (시도 {attempt}/{MAX_RETRIES}): {e} → {wait}초 후 재시도')
+                        time.sleep(wait)
+                    else:
+                        print(f'  [ERROR] 브라우저 타임아웃 ({MAX_RETRIES}회 모두 실패): {e}')
+                except Exception as e:
+                    last_error = e
+                    if attempt < MAX_RETRIES:
+                        wait = 2 ** attempt
+                        print(f'  [WARN] 다운로드 실패 (시도 {attempt}/{MAX_RETRIES}): {e} → {wait}초 후 재시도')
+                        time.sleep(wait)
+                    else:
+                        print(f'  [ERROR] 다운로드 실패 ({MAX_RETRIES}회 모두 실패): {e}')
+
+            if last_error is not None:
+                # 재시도 모두 실패 → 다음 센터로
                 continue
 
             if file_path is None:

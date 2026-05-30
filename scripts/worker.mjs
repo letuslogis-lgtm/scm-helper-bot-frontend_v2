@@ -235,11 +235,15 @@ async function executeJob(job, { runId = null, triggeredBy = 'schedule', runPara
 
 /**
  * shell 통해 명령 실행 + stdout/stderr 캡처
+ * 타임아웃(기본 30분) 초과 시 강제 종료하여 좀비 프로세스 방지
  */
-function runChildProcess(command, cwd) {
+const CHILD_PROCESS_TIMEOUT_MS = 30 * 60 * 1000;   // 30분
+
+function runChildProcess(command, cwd, timeoutMs = CHILD_PROCESS_TIMEOUT_MS) {
     return new Promise((resolve) => {
         let stdout = '';
         let stderr = '';
+        let timedOut = false;
 
         const proc = spawn(command, [], {
             cwd,
@@ -247,6 +251,23 @@ function runChildProcess(command, cwd) {
             env: { ...process.env },
             windowsHide: true,
         });
+
+        // 타임아웃 가드 — 일정 시간 초과 시 강제 종료
+        const killTimer = setTimeout(() => {
+            timedOut = true;
+            warn(`Child process timeout (${timeoutMs}ms) → killing pid=${proc.pid}`);
+            try {
+                proc.kill('SIGTERM');
+                // 5초 후에도 안 죽으면 SIGKILL
+                setTimeout(() => {
+                    if (!proc.killed) {
+                        try { proc.kill('SIGKILL'); } catch (_) {}
+                    }
+                }, 5000);
+            } catch (e) {
+                warn(`Failed to kill child process: ${e.message}`);
+            }
+        }, timeoutMs);
 
         proc.stdout.on('data', (chunk) => {
             const text = chunk.toString();
@@ -260,9 +281,14 @@ function runChildProcess(command, cwd) {
         });
 
         proc.on('close', (code) => {
+            clearTimeout(killTimer);
+            if (timedOut) {
+                stderr += `\n[timeout] 프로세스가 ${timeoutMs}ms 를 초과하여 강제 종료되었습니다.`;
+            }
             resolve({ exitCode: code ?? -1, stdout, stderr });
         });
         proc.on('error', (err) => {
+            clearTimeout(killTimer);
             resolve({
                 exitCode: -1,
                 stdout,

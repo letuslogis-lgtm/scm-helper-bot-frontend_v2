@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 // CORS Headers 설정
 const corsHeaders = {
@@ -14,11 +15,41 @@ serve(async (req) => {
   }
 
   try {
+    // ─── JWT 권한 검증 ─────────────────────────────────────────
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      })
+    }
+
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      })
+    }
+
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    })
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      })
+    }
+    // ──────────────────────────────────────────────────────────
+
     const { startDate, endDate, totalCount, topSku, topZone, topCause } = await req.json()
 
     // Supabase 환경 변수에서 OpenAI API Key 가져오기
     const apiKey = Deno.env.get('OPENAI_API_KEY')
-    
+
     if (!apiKey) {
       throw new Error("OPENAI_API_KEY is not set in environment variables.")
     }
@@ -64,7 +95,8 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
+      console.error(`AI API error: ${response.status} - ${errorText}`)
+      throw new Error('AI 분석 요청 실패')
     }
 
     // 스트리밍 응답을 그대로 클라이언트로 파이프(전달)
@@ -79,9 +111,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in generate-insight-report:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: 'AI 인사이트 생성 중 오류가 발생했습니다.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 500,
     })
   }
 })

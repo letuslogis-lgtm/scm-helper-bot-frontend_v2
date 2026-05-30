@@ -173,8 +173,9 @@ Deno.serve(async (req) => {
         return json({ error: `Unknown action: ${action}` }, 400)
     }
   } catch (err) {
+    // 원본 에러는 서버 로그에만 남기고 클라이언트엔 일반 메시지만 노출
     const message = err instanceof Error ? err.message : 'Internal error'
     console.error('[user-admin] exception:', message)
-    return json({ error: message }, 500)
+    return json({ error: '요청 처리 중 오류가 발생했습니다.' }, 500)
   }
 })

@@ -107,9 +107,13 @@ Deno.serve(async (req) => {
 
     const geminiData = await geminiRes.json()
     if (!geminiData.candidates) {
-      const msg = geminiData.error?.message || 'Gemini API 응답 없음'
-      console.error('Gemini 에러:', msg)
-      return json({ product_code: null, message: msg })
+      // 원본 에러는 서버 로그에만 남기고, 클라이언트에는 일반 메시지만 노출
+      const internalMsg = geminiData.error?.message || 'Gemini API 응답 없음'
+      console.error('Gemini 에러:', internalMsg)
+      return json({
+        product_code: null,
+        message: '바코드 분석에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      })
     }
 
     const rawText = geminiData.candidates[0]?.content?.parts?.[0]?.text || ''

@@ -72,15 +72,26 @@ async function syncIncomingPlans() {
 
         let totalRows = 0;
 
+        // 화이트리스트 검증 — TARGETS 외 임의 테이블명 차단
+        const ALLOWED_TABLES = new Set(TARGETS.map(t => t.table));
+
         for (const { company, table } of TARGETS) {
             console.log(`  [${company}] 조회 중...`);
 
-            const result = await pool.request().query(`
-                SELECT 입고예정일, 입고차수, 단품코드, 단품색상, 단품명칭,
-                       입고구분, 공급업체, 입고유형, 입고예정량, 완료여부
-                FROM ${table}
-                WHERE 입고예정일 >= '${TODAY}'
-            `);
+            if (!ALLOWED_TABLES.has(table)) {
+                throw new Error(`[${company}] 허용되지 않은 테이블: ${table}`);
+            }
+
+            // 테이블명은 SQL 파라미터로 바인딩 불가 → 화이트리스트 검증 후 직접 삽입
+            // 값(TODAY)은 parameter binding 사용
+            const result = await pool.request()
+                .input('today', sql.Date, TODAY)
+                .query(`
+                    SELECT 입고예정일, 입고차수, 단품코드, 단품색상, 단품명칭,
+                           입고구분, 공급업체, 입고유형, 입고예정량, 완료여부
+                    FROM ${table}
+                    WHERE 입고예정일 >= @today
+                `);
 
             const rows = result.recordset
                 .map(r => ({

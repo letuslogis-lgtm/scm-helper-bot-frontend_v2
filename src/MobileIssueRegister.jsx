@@ -126,6 +126,8 @@ export const MobileIssueRegister = () => {
             } catch {}
             await new Promise((resolve) => {
                 const img = new Image();
+                const objectUrl = URL.createObjectURL(file);
+                const cleanup = () => URL.revokeObjectURL(objectUrl);
                 img.onload = () => {
                     const W = img.width, H = img.height;
                     const ratio = Math.min(maxWidth / W, maxWidth / H, 1);
@@ -139,9 +141,11 @@ export const MobileIssueRegister = () => {
                     else if (orientation === 3) { ctx.translate(canvas.width, canvas.height); ctx.rotate(Math.PI); }
                     ctx.drawImage(img, 0, 0, sw, sh);
                     ctx.restore();
+                    cleanup();
                     resolve();
                 };
-                img.src = URL.createObjectURL(file);
+                img.onerror = () => { cleanup(); resolve(); };
+                img.src = objectUrl;
             });
         }
 

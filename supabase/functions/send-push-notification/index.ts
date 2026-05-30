@@ -116,8 +116,9 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ ok: true, sent }), { headers: corsHeaders })
   } catch (err: unknown) {
+    // 원본 에러는 서버 로그에만 남기고 클라이언트엔 일반 메시지만 노출
     const message = err instanceof Error ? err.message : 'Internal error'
     console.error('[send-push-notification] 에러:', message)
-    return new Response(JSON.stringify({ error: message }), { status: 500, headers: corsHeaders })
+    return new Response(JSON.stringify({ error: '푸시 알림 처리 중 오류가 발생했습니다.' }), { status: 500, headers: corsHeaders })
   }
 })

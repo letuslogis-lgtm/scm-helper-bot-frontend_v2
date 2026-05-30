@@ -36,7 +36,10 @@ const mssqlConfig = {
     options: {
         encrypt: false,
         trustServerCertificate: true
-    }
+    },
+    // 외근/내부망 미접속 시 빠르게 실패하고, 쿼리는 60초 안에 응답하도록 강제
+    connectionTimeout: 10000,   // 10초
+    requestTimeout:    60000,   // 60초
 };
 
 if (!mssqlConfig.user || !mssqlConfig.password || !mssqlConfig.server || !mssqlConfig.database || !mssqlConfig.port) {
