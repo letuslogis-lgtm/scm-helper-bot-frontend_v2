@@ -838,7 +838,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                             <MultiSelect label="귀책부서" options={['물류사업1팀', '물류사업2팀', '운송사업팀', '컨택센터', '라스트마일1팀', '라스트마일2팀', '구매/생산', '외부/협력사', '기타']} selected={draftFilters.depts} onChange={(val) => setDraftFilters({ ...draftFilters, depts: val })} width="w-40" />
 
                             {/* 🚩 라벨명 수정: 조치결과 -> 확인 결과 */}
-                            <MultiSelect label="확인 결과" options={['정상출고', '미출고', '오출고', '과출고', '물류파손', '시공파손', '현장직출', '센터직출', '납기연기(건)', '납기연기(품목)', '제품분실', '제조/생산 이슈', '기타']} selected={draftFilters.actionResults} onChange={(val) => setDraftFilters({ ...draftFilters, actionResults: val })} width="w-40" />
+                            <MultiSelect label="확인 결과" options={['정상출고', '출고 없음', '미출고', '오출고', '과출고', '물류파손', '시공파손', '현장직출', '센터직출', '납기연기(건)', '납기연기(품목)', '제품분실', '제조/생산 이슈', '기타']} selected={draftFilters.actionResults} onChange={(val) => setDraftFilters({ ...draftFilters, actionResults: val })} width="w-40" />
 
                             <div className="flex items-center shrink-0">
                                 <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">지연판별</label>

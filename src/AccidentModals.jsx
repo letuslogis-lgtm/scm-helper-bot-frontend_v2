@@ -254,6 +254,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                         <select value={actionResult} onChange={e => setActionResult(e.target.value)} className="w-full border border-blue-300 bg-blue-50/30 text-letusBlue rounded-[4px] p-2.5 text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue">
                                             <option value="미확인">미확인 (빈칸)</option>
                                             <option value="정상출고">정상출고</option>
+                                            <option value="출고 없음">출고 없음</option>
                                             <option value="미출고">미출고</option>
                                             <option value="오출고">오출고</option>
                                             <option value="과출고">과출고</option>
@@ -264,6 +265,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                             <option value="납기연기(건)">납기연기(건)</option>
                                             <option value="납기연기(품목)">납기연기(품목)</option>
                                             <option value="제품분실">제품분실</option>
+                                            <option value="제조/생산 이슈">제조/생산 이슈</option>
                                             <option value="기타">기타</option>
                                         </select>
                                     </div>
@@ -437,6 +439,7 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                                         <select value={actionResult} onChange={e => setActionResult(e.target.value)} className="w-full border border-blue-300 bg-blue-50/30 text-letusBlue rounded-[4px] p-2.5 text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue">
                                             <option value="미확인">미확인 (빈칸)</option>
                                             <option value="정상출고">정상출고</option>
+                                            <option value="출고 없음">출고 없음</option>
                                             <option value="미출고">미출고</option>
                                             <option value="오출고">오출고</option>
                                             <option value="과출고">과출고</option>
@@ -447,6 +450,7 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                                             <option value="납기연기(건)">납기연기(건)</option>
                                             <option value="납기연기(품목)">납기연기(품목)</option>
                                             <option value="제품분실">제품분실</option>
+                                            <option value="제조/생산 이슈">제조/생산 이슈</option>
                                             <option value="기타">기타</option>
                                         </select>
                                     </div>
