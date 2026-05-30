@@ -257,6 +257,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                             <option value="납기연기(건)">납기연기(건)</option>
                                             <option value="납기연기(품목)">납기연기(품목)</option>
                                             <option value="제품분실">제품분실</option>
+                                            <option value="기타">기타</option>
                                         </select>
                                     </div>
 
@@ -437,6 +438,7 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                                             <option value="납기연기(건)">납기연기(건)</option>
                                             <option value="납기연기(품목)">납기연기(품목)</option>
                                             <option value="제품분실">제품분실</option>
+                                            <option value="기타">기타</option>
                                         </select>
                                     </div>
 
