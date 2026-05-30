@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { supabase } from './supabaseClient.js';
+import { supabase, invokeFunction } from './supabaseClient.js';
 import { CloseIcon } from './SharedUI.jsx';
 
 // 1. 사고 내역 상세/수정 모달
@@ -68,15 +68,10 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
             }
 
             // ② Edge Function 호출 (상세 내역만 전달)
-            const { data: { session } } = await supabase.auth.getSession();
-            const supabaseUrl = supabase.supabaseUrl;
-            const res = await fetch(`${supabaseUrl}/functions/v1/classify-accident`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-                body: JSON.stringify({ cause_detail: causeDetail, record_id: row.id }),
+            const result = await invokeFunction('classify-accident', {
+                cause_detail: causeDetail,
+                record_id: row.id,
             });
-            if (!res.ok) throw new Error('분류 요청 실패');
-            const result = await res.json();
 
             // ③ 발생 원인 + 확인 결과 + 귀책부서 pre-fill
             const methodLabel = result.method === 'rule' ? '규칙' : 'AI';
