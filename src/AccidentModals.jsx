@@ -53,8 +53,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
         fetchVendors();
     }, []);
 
-    // AI 분류 실행
- (상세 내역만으로 발생 원인 + 확인 결과 + 귀책부서 추천)
+    // AI 분류 실행 (상세 내역만으로 발생 원인 + 확인 결과 + 귀책부서 추천)
     const handleAiClassify = async () => {
         if (!causeDetail) return alert('상세 내역을 먼저 입력해 주세요.');
         setIsAiClassifying(true);
