@@ -26,6 +26,8 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
 
     const [actionResult, setActionResult] = useState(row.action_result || '미확인');
     const [isSaving, setIsSaving] = useState(false);
+    const [isAiClassifying, setIsAiClassifying] = useState(false);
+    const [aiClassifyMsg, setAiClassifyMsg] = useState('');
 
     useEffect(() => {
         const fetchVendors = async () => {
@@ -50,6 +52,44 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
 
         fetchVendors();
     }, []);
+
+    // AI 분류 실행 (중간저장 → Edge Function 호출 → pre-fill)
+    const handleAiClassify = async () => {
+        if (!causeType) return alert('발생 원인을 먼저 선택해 주세요.');
+        if (!causeDetail) return alert('상세 내역을 입력해 주세요.');
+        setIsAiClassifying(true);
+        setAiClassifyMsg('');
+        try {
+            // ① 중간저장
+            await supabase.from('logistics_accidents').update({
+                cause_detail: `[${causeType}] ${causeDetail}`,
+                updated_at: new Date().toISOString()
+            }).eq('id', row.id);
+
+            // ② Edge Function 호출
+            const { data: { session } } = await supabase.auth.getSession();
+            const supabaseUrl = supabase.supabaseUrl;
+            const res = await fetch(`${supabaseUrl}/functions/v1/classify-accident`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+                body: JSON.stringify({ cause_type: causeType, cause_detail: causeDetail }),
+            });
+            if (!res.ok) throw new Error('분류 요청 실패');
+            const result = await res.json();
+
+            // ③ pre-fill
+            const methodLabel = result.method === 'rule' ? '규칙' : 'AI';
+            let msg = `[${methodLabel}] `;
+            if (result.action_result)    { setActionResult(result.action_result);    msg += `확인 결과: ${result.action_result}`; }
+            if (result.responsible_dept) { setDept(result.responsible_dept);          msg += ` / 귀책: ${result.responsible_dept}`; }
+            if (!result.action_result && !result.responsible_dept) msg += '해당하는 분류 기준이 없습니다.';
+            setAiClassifyMsg(msg);
+        } catch (err) {
+            setAiClassifyMsg('⚠️ AI 분류 중 오류가 발생했습니다.');
+        } finally {
+            setIsAiClassifying(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!causeType) return alert('발생 원인을 선택해 주세요.');
@@ -229,6 +269,27 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                                     className="w-full border border-gray-300 rounded-[4px] p-3 text-xs outline-none focus:ring-2 focus:ring-letusBlue/20 focus:border-letusBlue resize-none transition-all placeholder:text-gray-300"
                                     placeholder="사고 발생의 구체적인 원인과 현장 상황을 자유롭게 입력해 주세요."
                                 ></textarea>
+
+                                {/* AI 분류 버튼 (관리자 전용) */}
+                                {userProfile?.role === '관리자' && (
+                                    <div className="mt-2 flex items-center gap-3">
+                                        <button
+                                            onClick={handleAiClassify}
+                                            disabled={isAiClassifying || !causeType || !causeDetail}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-bold transition-all ${isAiClassifying || !causeType || !causeDetail ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'}`}
+                                        >
+                                            {isAiClassifying ? (
+                                                <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> 분류 중...</>
+                                            ) : (
+                                                <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> AI 분류</>
+                                            )}
+                                        </button>
+                                        {aiClassifyMsg && (
+                                            <span className="text-[11px] text-purple-700 font-bold">{aiClassifyMsg}</span>
+                                        )}
+                                    </div>
+                                )}
+
                                 {row.handler_name && (
                                     <div className="text-right text-[11px] text-gray-400 font-bold mt-1.5 pr-1 tracking-wide">
                                         {formatModalTime(row.updated_at || row.created_at)} / {row.handler_name}
