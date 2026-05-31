@@ -63,6 +63,8 @@ export const AiInsightLab = () => {
     const [activeRow, setActiveRow] = useState(null);
     const [correctedCause, setCorrectedCause] = useState('');
     const [correctedDetail, setCorrectedDetail] = useState('');
+    const [correctedDept, setCorrectedDept] = useState('');
+    const [correctedActionResult, setCorrectedActionResult] = useState('');
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
     useEffect(() => { fetchLogs(); }, []);
@@ -160,6 +162,8 @@ export const AiInsightLab = () => {
                     reviewed_at: new Date().toISOString(),
                     corrected_cause: correctedCause,
                     corrected_detail: correctedDetail || null,
+                    corrected_dept: correctedDept || null,
+                    corrected_action_result: correctedActionResult || null,
                 })
                 .eq('id', activeRow.id);
             if (error) throw error;
@@ -167,7 +171,13 @@ export const AiInsightLab = () => {
             if (activeRow.source_menu === 'AccidentManagement' && activeRow.target_id) {
                 await supabase
                     .from('logistics_accidents')
-                    .update({ ai_analyzed_cause: correctedCause, ai_cause_detail: correctedDetail, ai_confidence: 'human' })
+                    .update({
+                        ai_analyzed_cause: correctedCause,
+                        ai_cause_detail: correctedDetail,
+                        ai_confidence: 'human',
+                        ...(correctedDept && { responsible_dept: correctedDept }),
+                        ...(correctedActionResult && { action_result: correctedActionResult }),
+                    })
                     .eq('id', activeRow.target_id);
             }
 
@@ -413,7 +423,7 @@ export const AiInsightLab = () => {
                                         </td>
                                         <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
                                             <button
-                                                onClick={() => { setActiveRow(row); setCorrectedCause(row.corrected_cause || row.ai_analyzed_cause || ''); setCorrectedDetail(row.corrected_detail || row.ai_cause_detail || ''); }}
+                                                onClick={() => { setActiveRow(row); setCorrectedCause(row.corrected_cause || row.ai_analyzed_cause || ''); setCorrectedDetail(row.corrected_detail || row.ai_cause_detail || ''); setCorrectedDept(row.corrected_dept || ''); setCorrectedActionResult(row.corrected_action_result || ''); }}
                                                 className={`px-3 py-1.5 border text-xs font-bold rounded shadow-sm transition-colors ${row.is_reviewed ? 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100' : 'border-blue-200 text-letusBlue bg-white hover:bg-blue-50'}`}
                                             >
                                                 {row.is_reviewed ? '내역 보기' : '검토/보정'}
@@ -556,6 +566,43 @@ export const AiInsightLab = () => {
                                                     <option key={code} value={code}>{code}</option>
                                                 ))}
                                             </select>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100">
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-500 mb-1.5">귀책부서 <span className="text-gray-300 font-normal">(선택)</span></label>
+                                                <select value={correctedDept} onChange={e => setCorrectedDept(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
+                                                    <option value="">-- 선택 --</option>
+                                                    <option value="물류사업1팀">물류사업1팀</option>
+                                                    <option value="물류사업2팀">물류사업2팀</option>
+                                                    <option value="운송사업팀">운송사업팀</option>
+                                                    <option value="컨택센터">컨택센터</option>
+                                                    <option value="라스트마일1팀">라스트마일1팀</option>
+                                                    <option value="라스트마일2팀">라스트마일2팀</option>
+                                                    <option value="구매/생산">구매/생산</option>
+                                                    <option value="브랜드/3PL고객사">브랜드/3PL고객사</option>
+                                                    <option value="기타">기타</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-500 mb-1.5">확인결과 <span className="text-gray-300 font-normal">(선택)</span></label>
+                                                <select value={correctedActionResult} onChange={e => setCorrectedActionResult(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
+                                                    <option value="">-- 선택 --</option>
+                                                    <option value="정상출고">정상출고</option>
+                                                    <option value="출고 없음">출고 없음</option>
+                                                    <option value="미출고">미출고</option>
+                                                    <option value="오출고">오출고</option>
+                                                    <option value="과출고">과출고</option>
+                                                    <option value="물류파손">물류파손</option>
+                                                    <option value="시공파손">시공파손</option>
+                                                    <option value="현장직출">현장직출</option>
+                                                    <option value="센터직출">센터직출</option>
+                                                    <option value="납기연기(건)">납기연기(건)</option>
+                                                    <option value="납기연기(품목)">납기연기(품목)</option>
+                                                    <option value="제품분실">제품분실</option>
+                                                    <option value="제조/생산 이슈">제조/생산 이슈</option>
+                                                    <option value="기타">기타</option>
+                                                </select>
+                                            </div>
                                         </div>
                                         <p className="text-[10px] text-gray-400 font-medium leading-tight mt-1">
                                             * 여기서 관리자가 입력한 보정 데이터는, 향후 AI의 판별 정확도를 높이기 위한 Fine-tuning(미세조정) 학습 데이터 셋으로 귀중하게 활용됩니다.

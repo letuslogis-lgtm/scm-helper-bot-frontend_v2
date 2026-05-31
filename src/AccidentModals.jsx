@@ -124,6 +124,43 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                 .eq('id', row.id);
 
             if (error) throw error;
+
+            // 관리자 저장 시 ai_analysis_logs에 보정 데이터 기록 (AI 학습용)
+            if (!isUser && causeType) {
+                try {
+                    const { data: existingLog } = await supabase
+                        .from('ai_analysis_logs')
+                        .select('id')
+                        .eq('target_id', row.id)
+                        .eq('source_menu', 'AccidentManagement')
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    const correctionPayload = {
+                        is_reviewed: true,
+                        reviewed_at: new Date().toISOString(),
+                        corrected_cause: causeType,
+                        corrected_dept: dept || null,
+                        corrected_action_result: actionResult !== '미확인' ? actionResult : null,
+                    };
+
+                    if (existingLog) {
+                        await supabase.from('ai_analysis_logs').update(correctionPayload).eq('id', existingLog.id);
+                    } else {
+                        await supabase.from('ai_analysis_logs').insert({
+                            source_menu: 'AccidentManagement',
+                            target_id: row.id,
+                            original_text: causeDetail,
+                            ai_confidence: 'human',
+                            ...correctionPayload,
+                        });
+                    }
+                } catch (logErr) {
+                    console.warn('AI 학습 데이터 기록 실패 (무시):', logErr.message);
+                }
+            }
+
             alert('사고 원인이 성공적으로 등록되었습니다.');
             onReload();
             onClose();
