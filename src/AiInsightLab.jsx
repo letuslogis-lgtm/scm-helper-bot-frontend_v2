@@ -3,11 +3,12 @@ import { supabase } from './supabaseClient.js';
 import { CloseIcon, formatDateTime, SearchButton, DateRangeInput, ImageSlider } from './SharedUI.jsx';
 
 const CATEGORY_DATA = [
-    { group: '현장 운영 귀책', codes: ['W-01 피킹 수량 누락', 'W-02 오피킹', 'W-03 PLT 오분배·미분배', 'W-04 오합적', 'W-05 평탄화·이동 누락', 'W-06 작업 중 파손', 'W-07 재고 관리 미흡'] },
+    { group: '작업자 귀책', codes: ['W-01 피킹 수량 누락', 'W-02 오피킹', 'W-03 PLT 오분배·미분배', 'W-04 오합적', 'W-05 평탄화·이동 누락', 'W-06 작업 중 파손', 'W-07 재고 관리 미흡'] },
     { group: '시공팀 귀책', codes: ['I-01 오상차·미상차', 'I-02 분실', 'I-03 오등록', 'I-04 파손 공유 누락', 'I-05 회수 미진행'] },
     { group: '전산/시스템 오류', codes: ['S-01 WMS 오류', 'S-02 운송 전산 오류', 'S-03 수주·A/S 미등록'] },
     { group: '서류/정보 불일치', codes: ['D-01 일정 변경 미공유', 'D-02 긴급건 미공유', 'D-03 오기재', 'D-04 연기건 미분배'] },
-    { group: '공급망 이슈', codes: ['V-01 재고 부족', 'V-02 화주사 입고 지연', 'V-03 생산 지연'] },
+    { group: '재고/수량 이슈', codes: ['V-01 재고 부족', 'V-02 화주사 입고 지연', 'V-03 생산 지연'] },
+    { group: '제조/생산 이슈', codes: [] },
     { group: '프로세스 미준수', codes: ['P-01 포장·랩핑 불량', 'P-02 적재 불량', 'P-03 검수 불량·훼손 출고'] },
     { group: '기타', codes: ['E-01 원인 불명', 'E-02 고객 귀책', 'E-03 정상 출고', 'E-04 직출·택배·화주사 직출'] },
 ];
@@ -23,13 +24,14 @@ const CategoryGuideModal = ({ onClose }) => (
             </div>
             <div className="p-5 overflow-y-auto max-h-[60vh] text-[12px] text-gray-700 leading-relaxed custom-scrollbar">
                 <ul className="space-y-4">
-                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【1】현장 운영 귀책</strong><br />W-01(피킹 수량 누락), W-02(오피킹), W-03(PLT 오분배/미분배), W-04(오합적), W-05(평탄화·이동 누락), W-06(파손), W-07(재고 관리 미흡)</li>
+                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【1】작업자 귀책</strong><br />W-01(피킹 수량 누락), W-02(오피킹), W-03(PLT 오분배/미분배), W-04(오합적), W-05(평탄화·이동 누락), W-06(파손), W-07(재고 관리 미흡)</li>
                     <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【2】시공팀 귀책</strong><br />I-01(오상차/미상차), I-02(분실), I-03(오등록), I-04(파손 공유 누락), I-05(회수·확인 미진행)</li>
                     <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【3】전산/시스템 오류</strong><br />S-01(WMS 오류), S-02(운송 전산 오류), S-03(수주·A/S 미등록)</li>
                     <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【4】서류/정보 불일치</strong><br />D-01(일정 변경 미공유), D-02(긴급건 미공유), D-03(오기재), D-04(연기건 미분배)</li>
-                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【5】공급망 이슈</strong><br />V-01(재고 부족), V-02(화주사 입고 지연), V-03(생산 지연)</li>
-                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【6】프로세스 미준수</strong><br />P-01(포장·랩핑 불량), P-02(적재 불량), P-03(검수 불량·훼손 출고)</li>
-                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【7】기타</strong><br />E-01(원인 불명/파악 불가), E-02(고객 귀책), E-03(정상 출고), E-04(직출/택배 품목)</li>
+                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【5】재고/수량 이슈</strong><br />V-01(재고 부족), V-02(화주사 입고 지연), V-03(생산 지연)</li>
+                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【6】제조/생산 이슈</strong><br />별도 소분류 없음 — 제조·생산 단계 기인 이슈</li>
+                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【7】프로세스 미준수</strong><br />P-01(포장·랩핑 불량), P-02(적재 불량), P-03(검수 불량·훼손 출고)</li>
+                    <li><strong className="text-slate-800 text-[13px] bg-slate-100 px-1 py-0.5 rounded">【8】기타</strong><br />E-01(원인 불명/파악 불가), E-02(고객 귀책), E-03(정상 출고), E-04(직출/택배 품목)</li>
                 </ul>
             </div>
         </div>
@@ -152,8 +154,9 @@ export const AiInsightLab = () => {
     };
 
     const handleSaveCorrection = async () => {
-        if (!correctedCause.trim()) return alert('정답 원인을 입력 또는 선택해주세요.');
-        if (activeTab === 'accident' && !correctedDetail.trim()) return alert('소분류 코드를 선택해주세요.');
+        if (!correctedCause.trim()) return alert('대분류를 선택해주세요.');
+        if (activeTab === 'accident' && !correctedDept.trim()) return alert('귀책부서를 선택해주세요.');
+        if (activeTab === 'accident' && !correctedActionResult.trim()) return alert('확인결과를 선택해주세요.');
         try {
             const { error } = await supabase
                 .from('ai_analysis_logs')
@@ -501,7 +504,7 @@ export const AiInsightLab = () => {
             {activeRow && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setActiveRow(null)}></div>
-                    <div className={`bg-white rounded-xl shadow-2xl z-10 w-full ${isAccident ? 'max-w-lg' : 'max-w-3xl'} slide-up border border-gray-100 overflow-hidden flex flex-col`}>
+                    <div className={`bg-white rounded-xl shadow-2xl z-10 w-full ${isAccident ? 'max-w-xl' : 'max-w-3xl'} slide-up border border-gray-100 overflow-hidden flex flex-col`}>
 
                         {/* 헤더 */}
                         <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
@@ -543,34 +546,26 @@ export const AiInsightLab = () => {
                                         <span className="leading-relaxed">{activeRow.ai_cause_summary}</span>
                                     </div>
                                 )}
-                                <div className="border-t border-gray-200 pt-5">
-                                    <h4 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
-                                        <span>👤</span> 올바른 정답을 지정해주세요
-                                        <button onClick={() => setIsCategoryModalOpen(true)} className="text-white bg-slate-300 rounded-full w-[16px] h-[16px] flex items-center justify-center text-[10px] font-black hover:bg-slate-500 transition-colors shadow-sm ml-1">?</button>
-                                    </h4>
-                                    <div className="flex flex-col gap-3">
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-gray-500 mb-1.5">정확한 대분류 <span className="text-letusOrange">*</span></label>
-                                            <select value={correctedCause} onChange={e => handleCauseChange(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
-                                                <option value="">-- 대분류 선택 --</option>
-                                                {CATEGORY_DATA.map(cat => (
-                                                    <option key={cat.group} value={cat.group}>{cat.group}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-gray-500 mb-1.5">정확한 소분류 코드 <span className="text-letusOrange">*</span></label>
-                                            <select value={correctedDetail} onChange={e => setCorrectedDetail(e.target.value)} disabled={!correctedCause} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed">
-                                                <option value="">{correctedCause ? '-- 소분류 선택 --' : '먼저 대분류를 선택해주세요'}</option>
-                                                {CATEGORY_DATA.find(c => c.group === correctedCause)?.codes.map(code => (
-                                                    <option key={code} value={code}>{code}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100">
+                                <div className="border-t border-gray-200 pt-5 flex flex-col gap-4">
+                                    <div>
+                                        <h4 className="text-xs font-black text-gray-600 mb-2.5 flex items-center gap-1.5">
+                                            <span className="w-1 h-3 bg-letusBlue rounded-full"></span> 분류 보정
+                                            <span className="text-letusOrange text-[10px] font-bold ml-1">* 필수</span>
+                                            <button onClick={() => setIsCategoryModalOpen(true)} className="text-white bg-slate-300 rounded-full w-[15px] h-[15px] flex items-center justify-center text-[9px] font-black hover:bg-slate-500 transition-colors shadow-sm ml-1">?</button>
+                                        </h4>
+                                        <div className="grid grid-cols-3 gap-2">
                                             <div>
-                                                <label className="block text-[11px] font-bold text-gray-500 mb-1.5">귀책부서 <span className="text-gray-300 font-normal">(선택)</span></label>
-                                                <select value={correctedDept} onChange={e => setCorrectedDept(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
+                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">대분류 <span className="text-letusOrange">*</span></label>
+                                                <select value={correctedCause} onChange={e => handleCauseChange(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-2 text-xs focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
+                                                    <option value="">-- 선택 --</option>
+                                                    {CATEGORY_DATA.map(cat => (
+                                                        <option key={cat.group} value={cat.group}>{cat.group}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">귀책부서 <span className="text-letusOrange">*</span></label>
+                                                <select value={correctedDept} onChange={e => setCorrectedDept(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-2 text-xs focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
                                                     <option value="">-- 선택 --</option>
                                                     <option value="물류사업1팀">물류사업1팀</option>
                                                     <option value="물류사업2팀">물류사업2팀</option>
@@ -584,8 +579,8 @@ export const AiInsightLab = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-[11px] font-bold text-gray-500 mb-1.5">확인결과 <span className="text-gray-300 font-normal">(선택)</span></label>
-                                                <select value={correctedActionResult} onChange={e => setCorrectedActionResult(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
+                                                <label className="block text-[10px] font-bold text-gray-500 mb-1">확인결과 <span className="text-letusOrange">*</span></label>
+                                                <select value={correctedActionResult} onChange={e => setCorrectedActionResult(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-2 text-xs focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer">
                                                     <option value="">-- 선택 --</option>
                                                     <option value="정상출고">정상출고</option>
                                                     <option value="출고 없음">출고 없음</option>
@@ -604,10 +599,22 @@ export const AiInsightLab = () => {
                                                 </select>
                                             </div>
                                         </div>
-                                        <p className="text-[10px] text-gray-400 font-medium leading-tight mt-1">
-                                            * 여기서 관리자가 입력한 보정 데이터는, 향후 AI의 판별 정확도를 높이기 위한 Fine-tuning(미세조정) 학습 데이터 셋으로 귀중하게 활용됩니다.
-                                        </p>
                                     </div>
+                                    <div>
+                                        <h4 className="text-xs font-black text-gray-600 mb-2.5 flex items-center gap-1.5">
+                                            <span className="w-1 h-3 bg-purple-400 rounded-full"></span> 상세 분석 코드
+                                            <span className="text-gray-400 text-[10px] font-normal ml-1">(선택)</span>
+                                        </h4>
+                                        <select value={correctedDetail} onChange={e => setCorrectedDetail(e.target.value)} disabled={!correctedCause} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-letusBlue outline-none bg-white font-bold text-gray-800 cursor-pointer disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed">
+                                            <option value="">{correctedCause ? '-- 소분류 코드 선택 --' : '먼저 대분류를 선택해주세요'}</option>
+                                            {CATEGORY_DATA.find(c => c.group === correctedCause)?.codes.map(code => (
+                                                <option key={code} value={code}>{code}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 font-medium leading-tight">
+                                        * 관리자가 입력한 보정 데이터는 향후 AI 판별 정확도를 높이기 위한 Fine-tuning 학습 데이터로 활용됩니다.
+                                    </p>
                                 </div>
                             </div>
                         ) : (
