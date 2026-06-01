@@ -104,7 +104,6 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
     };
 
     const handleSave = async () => {
-        console.log('[DEBUG] AccidentModal handleSave 호출됨');
         // 관리자만 발생 원인·귀책 부서 필수 (일반 사용자는 상세 내역만 입력)
         if (!isUser && !causeType) return alert('발생 원인을 선택해 주세요.');
         if (!isUser && !dept) return alert('귀책 부서를 선택해 주세요.');
@@ -135,8 +134,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
             if (error) throw error;
 
             // 관리자 저장 시 ai_analysis_logs에 학습 데이터 INSERT (항상 신규, UPDATE 없음)
-            console.log('[AI로그] isUser:', isUser, '| causeType:', causeType, '| role:', userProfile?.role);
-            if (!isUser && causeType) {
+            if (!isUser && causeType && aiSuggestion) {
                 try {
                     const { error: logErr } = await supabase.from('ai_analysis_logs').insert({
                         source_menu:           'AccidentManagement',
