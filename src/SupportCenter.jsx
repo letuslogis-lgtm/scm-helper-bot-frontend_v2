@@ -229,6 +229,12 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
  const [confirmedCode, setConfirmedCode] = useState(null);
 
+ // 품목코드 직접 입력 (product_code가 없는 경우)
+ const [showCodeInput, setShowCodeInput] = useState(false);
+ const [manualCode, setManualCode] = useState('');
+ const [isSavingCode, setIsSavingCode] = useState(false);
+ const [savedCode, setSavedCode] = useState(null);
+
  const handleFindSimilar = () => {
   if (!row.product_code || !row.brand) return;
   setSuggestionsLoading(true);
@@ -238,6 +244,26 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
    if (error) { console.error('[유사코드] 오류:', error.message); setCodeSuggestions([]); return; }
    setCodeSuggestions(data?.candidates ?? []);
   }).finally(() => setSuggestionsLoading(false));
+ };
+
+ // 품목코드 직접 등록 (product_code가 null인 경우)
+ const handleSaveCode = async () => {
+  const code = manualCode.trim().toUpperCase();
+  if (!code) return alert('품목코드를 입력해주세요.');
+  setIsSavingCode(true);
+  try {
+   const { error } = await supabase.from('logistics_issues')
+    .update({ product_code: code })
+    .eq('id', row.id);
+   if (error) throw error;
+   setSavedCode(code);
+   setShowCodeInput(false);
+   await onReload();
+  } catch (e) {
+   alert('저장 중 오류가 발생했습니다.');
+  } finally {
+   setIsSavingCode(false);
+  }
  };
 
  // 유사 코드 선택 → 이관 메시지에 내용 자동 입력 (품목코드 직접 수정 X)
@@ -376,6 +402,55 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
     </div>
    ) : (
     <div className="text-xs text-gray-400 py-1">유사한 코드를 찾지 못했습니다.</div>
+   )}
+  </div>
+ )}
+
+ {/* 품목코드 미인식 — 관리자 직접 입력 */}
+ {!row.product_code && isAdmin && isWaiting && (
+  <div className="flex flex-col">
+   <div className="flex items-center justify-between mb-2">
+    <h4 className="text-sm font-bold text-red-600">⚠️ 품목코드 미인식</h4>
+    {!showCodeInput && !savedCode && (
+     <button
+      onClick={() => setShowCodeInput(true)}
+      className="text-xs font-bold px-2.5 py-1 rounded border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+     >
+      ✏️ 직접 입력
+     </button>
+    )}
+   </div>
+   {savedCode ? (
+    <div className="text-xs text-green-600 font-bold py-1 bg-green-50 border border-green-200 rounded-lg px-3">
+     ✅ 품목코드 등록 완료: <span className="font-mono">{savedCode}</span>
+    </div>
+   ) : showCodeInput ? (
+    <div className="flex gap-2 items-center">
+     <input
+      type="text"
+      value={manualCode}
+      onChange={e => setManualCode(e.target.value.toUpperCase())}
+      placeholder="품목코드 입력 (예: LFXX2003004-WW)"
+      className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-800 outline-none focus:ring-2 focus:ring-letusBlue focus:border-letusBlue"
+     />
+     <button
+      onClick={handleSaveCode}
+      disabled={isSavingCode || !manualCode.trim()}
+      className="px-3 py-1.5 bg-letusBlue text-white text-xs font-bold rounded hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
+     >
+      {isSavingCode ? '저장 중...' : '등록'}
+     </button>
+     <button
+      onClick={() => { setShowCodeInput(false); setManualCode(''); }}
+      className="px-3 py-1.5 border border-gray-300 text-gray-500 text-xs font-bold rounded hover:bg-gray-100 transition-colors shrink-0"
+     >
+      취소
+     </button>
+    </div>
+   ) : (
+    <div className="text-xs text-gray-400 py-1">
+     AI가 품목코드를 인식하지 못했습니다. 직접 입력 버튼으로 코드를 등록할 수 있습니다.
+    </div>
    )}
   </div>
  )}
