@@ -744,7 +744,7 @@ const BrandDetailTable = ({ items }) => {
 
     if (brandPivots.length === 0) return null;
 
-    const th = 'px-2 py-2 text-center font-bold text-gray-600 border-b border-r border-gray-200 text-[11px] whitespace-nowrap bg-slate-50';
+    const th = 'px-2 py-2 align-middle text-center font-bold text-gray-600 border-b border-r border-gray-200 text-[11px] whitespace-nowrap bg-slate-50';
     const tdNum = (v) => v > 0
         ? <span className="font-bold text-letusBlue">{v}</span>
         : <span className="text-gray-200">-</span>;
@@ -788,7 +788,7 @@ const BrandDetailTable = ({ items }) => {
                                                 <tr>
                                                     <th className={th} style={{ minWidth: 90 }}>이슈 유형</th>
                                                     {cols.map(c => <th key={c} className={th} style={{ minWidth: 60 }}>{c}</th>)}
-                                                    <th className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-200 text-[11px] bg-gray-100 min-w-[48px]">합계</th>
+                                                    <th className="px-2 py-2 align-middle text-center font-black text-gray-700 border-b border-gray-200 text-[11px] bg-gray-100 min-w-[48px]">합계</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -796,22 +796,22 @@ const BrandDetailTable = ({ items }) => {
                                                     const rowTotal = cols.reduce((s,c) => s+(matrix[r]?.[c]||0), 0);
                                                     return (
                                                         <tr key={r} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                                            <td className="px-3 py-2 font-bold text-gray-700 border-r border-b border-gray-100 whitespace-nowrap">{r}</td>
+                                                            <td className="px-3 py-2 align-middle font-bold text-gray-700 border-r border-b border-gray-100 whitespace-nowrap">{r}</td>
                                                             {cols.map(c => (
-                                                                <td key={c} className="px-2 py-2 text-center border-r border-b border-gray-100">
+                                                                <td key={c} className="px-2 py-2 align-middle text-center border-r border-b border-gray-100">
                                                                     {tdNum(matrix[r]?.[c] || 0)}
                                                                 </td>
                                                             ))}
-                                                            <td className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50">{rowTotal}</td>
+                                                            <td className="px-2 py-2 align-middle text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50">{rowTotal}</td>
                                                         </tr>
                                                     );
                                                 })}
                                                 <tr className="bg-gray-100 font-black text-gray-700">
-                                                    <td className="px-3 py-2 border-r border-t border-gray-200">합계</td>
+                                                    <td className="px-3 py-2 align-middle border-r border-t border-gray-200">합계</td>
                                                     {colTotals.map((v, i) => (
-                                                        <td key={i} className="px-2 py-2 text-center border-r border-t border-gray-200">{v}</td>
+                                                        <td key={i} className="px-2 py-2 align-middle text-center border-r border-t border-gray-200">{v}</td>
                                                     ))}
-                                                    <td className="px-2 py-2 text-center border-t border-gray-200 text-letusBlue">{grandTotal}</td>
+                                                    <td className="px-2 py-2 align-middle text-center border-t border-gray-200 text-letusBlue">{grandTotal}</td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -973,11 +973,11 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                 <table className="w-full text-[11px] border-collapse">
                     <thead>
                         <tr className="bg-slate-50">
-                            <th className="px-3 py-2 text-left font-bold text-gray-600 border-b border-r border-gray-200 min-w-[90px]">{rowLabel}</th>
+                            <th className="px-3 py-2 align-middle text-left font-bold text-gray-600 border-b border-r border-gray-200 min-w-[90px]">{rowLabel}</th>
                             {cols.map(c => (
-                                <th key={c} className="px-2 py-2 text-center font-bold text-gray-600 border-b border-r border-gray-200 min-w-[60px] whitespace-nowrap">{c}</th>
+                                <th key={c} className="px-2 py-2 align-middle text-center font-bold text-gray-600 border-b border-r border-gray-200 min-w-[60px] whitespace-nowrap">{c}</th>
                             ))}
-                            <th className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-200 min-w-[48px] bg-gray-100">합계</th>
+                            <th className="px-2 py-2 align-middle text-center font-black text-gray-700 border-b border-gray-200 min-w-[48px] bg-gray-100">합계</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -985,11 +985,11 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                             const rowTotal = cols.reduce((s, c) => s + (matrix[r]?.[c] || 0), 0);
                             return (
                                 <tr key={r} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                    <td className="px-3 py-2 font-bold text-gray-700 border-r border-b border-gray-100 whitespace-nowrap">{r}</td>
+                                    <td className="px-3 py-2 align-middle font-bold text-gray-700 border-r border-b border-gray-100 whitespace-nowrap">{r}</td>
                                     {cols.map(c => {
                                         const v = matrix[r]?.[c] || 0;
                                         return (
-                                            <td key={c} className="px-2 py-2 text-center border-r border-b border-gray-100">
+                                            <td key={c} className="px-2 py-2 align-middle text-center border-r border-b border-gray-100">
                                                 {v > 0
                                                     ? <span className="font-bold" style={{ color: accent }}>{v}</span>
                                                     : <span className="text-gray-300">-</span>
@@ -997,17 +997,17 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                                             </td>
                                         );
                                     })}
-                                    <td className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50">{rowTotal}</td>
+                                    <td className="px-2 py-2 align-middle text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50">{rowTotal}</td>
                                 </tr>
                             );
                         })}
                         {/* 합계 행 */}
                         <tr className="bg-gray-100 font-black text-gray-700">
-                            <td className="px-3 py-2 border-r border-t border-gray-200">합계</td>
+                            <td className="px-3 py-2 align-middle border-r border-t border-gray-200">합계</td>
                             {colTotals.map((v, i) => (
-                                <td key={i} className="px-2 py-2 text-center border-r border-t border-gray-200">{v}</td>
+                                <td key={i} className="px-2 py-2 align-middle text-center border-r border-t border-gray-200">{v}</td>
                             ))}
-                            <td className="px-2 py-2 text-center border-t border-gray-200 text-letusBlue">{grandTotal}</td>
+                            <td className="px-2 py-2 align-middle text-center border-t border-gray-200 text-letusBlue">{grandTotal}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1044,25 +1044,25 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                             <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 종합 현황
                         </h4>
                         <div className="grid grid-cols-4 gap-3">
-                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">총 사고</p>
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
+                                <p className="text-[11px] text-gray-500 font-bold leading-none">총 사고</p>
                                 <p className="text-3xl font-black text-letusBlue leading-none">{total.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">건</p>
+                                <p className="text-[10px] text-gray-400 leading-none">건</p>
                             </div>
-                            <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">미처리</p>
+                            <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
+                                <p className="text-[11px] text-gray-500 font-bold leading-none">미처리</p>
                                 <p className="text-3xl font-black text-red-500 leading-none">{pending.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">원인 파악 중</p>
+                                <p className="text-[10px] text-gray-400 leading-none">원인 파악 중</p>
                             </div>
-                            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">납기 지연</p>
+                            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
+                                <p className="text-[11px] text-gray-500 font-bold leading-none">납기 지연</p>
                                 <p className="text-3xl font-black text-letusOrange leading-none">{delayed.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">재일정(지연)</p>
+                                <p className="text-[10px] text-gray-400 leading-none">재일정(지연)</p>
                             </div>
-                            <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">처리 완료율</p>
+                            <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
+                                <p className="text-[11px] text-gray-500 font-bold leading-none">처리 완료율</p>
                                 <p className="text-3xl font-black text-green-600 leading-none">{completedRate}%</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">{(total - pending).toLocaleString()}건 완료</p>
+                                <p className="text-[10px] text-gray-400 leading-none">{(total - pending).toLocaleString()}건 완료</p>
                             </div>
                         </div>
                     </section>
