@@ -29,6 +29,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
     const [isAiClassifying, setIsAiClassifying] = useState(false);
     const [aiClassifyMsg, setAiClassifyMsg] = useState('');
     const [aiDone, setAiDone] = useState(false);
+    const [aiSuggestion, setAiSuggestion] = useState(null); // AI 제안값 보관 (학습 데이터용)
 
     useEffect(() => {
         const fetchVendors = async () => {
@@ -84,6 +85,13 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
 
             if (parts.length > 0) {
                 setAiDone(true);
+                // AI 제안값 보관 (저장 시 ai_analysis_logs에 기록)
+                setAiSuggestion({
+                    cause_type:       result.cause_type       || null,
+                    action_result:    result.action_result    || null,
+                    responsible_dept: result.responsible_dept || null,
+                    confidence:       ['high', 'medium', 'low'].includes(result.confidence) ? result.confidence : 'medium',
+                });
             } else {
                 setAiClassifyMsg('해당 기준 없음');
             }
@@ -148,11 +156,14 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                     if (existingLog) {
                         await supabase.from('ai_analysis_logs').update(correctionPayload).eq('id', existingLog.id);
                     } else {
+                        // AI 버튼을 눌렀으면 AI 제안값도 함께 기록, 아니면 human으로 처리
                         await supabase.from('ai_analysis_logs').insert({
                             source_menu: 'AccidentManagement',
                             target_id: row.id,
                             original_text: causeDetail,
-                            ai_confidence: 'human',
+                            ai_analyzed_cause: aiSuggestion?.cause_type       ?? null,
+                            ai_confidence:     aiSuggestion?.confidence        ?? 'human',
+                            low_confidence_reason: null,
                             ...correctionPayload,
                         });
                     }
