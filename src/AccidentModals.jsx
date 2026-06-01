@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import { supabase, invokeFunction } from './supabaseClient.js';
 import { CloseIcon } from './SharedUI.jsx';
 
@@ -837,54 +837,51 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
         const el = reportRef.current;
         if (!el) return;
         setIsCopying(true);
-        try {
-            // overflow 제한 임시 해제 → 전체 콘텐츠 캡처
-            el.style.maxHeight = 'none';
-            el.style.overflow = 'visible';
-            const bodyEl = document.getElementById('accident-report-body');
-            if (bodyEl) {
-                bodyEl.style.maxHeight = 'none';
-                bodyEl.style.overflow = 'visible';
-                bodyEl.style.flex = 'none';
-            }
 
-            const canvas = await html2canvas(el, {
-                scale: 2,
-                useCORS: true,
+        // 전체 콘텐츠 캡처를 위해 overflow 임시 해제
+        const bodyEl = document.getElementById('accident-report-body');
+        const prevElMaxH   = el.style.maxHeight;
+        const prevElOverflow = el.style.overflow;
+        el.style.maxHeight = 'none';
+        el.style.overflow  = 'visible';
+        if (bodyEl) {
+            bodyEl.style.maxHeight = 'none';
+            bodyEl.style.overflow  = 'visible';
+            bodyEl.style.flex      = 'none';
+        }
+
+        try {
+            // html-to-image: SVG foreignObject 방식 → 커스텀 폰트·flex/grid CSS 정확히 렌더링
+            const dataUrl = await toPng(el, {
+                pixelRatio: 2,
                 backgroundColor: '#ffffff',
-                logging: false,
+                // 캡처 제외: 푸터 버튼 영역
+                filter: (node) => node.id !== 'accident-report-footer',
             });
 
             // 스타일 복원
-            el.style.maxHeight = '';
-            el.style.overflow = '';
-            if (bodyEl) {
-                bodyEl.style.maxHeight = '';
-                bodyEl.style.overflow = '';
-                bodyEl.style.flex = '';
-            }
+            el.style.maxHeight = prevElMaxH;
+            el.style.overflow  = prevElOverflow;
+            if (bodyEl) { bodyEl.style.maxHeight = ''; bodyEl.style.overflow = ''; bodyEl.style.flex = ''; }
 
             // 클립보드 복사 시도, 실패 시 PNG 다운로드 fallback
-            canvas.toBlob(async (blob) => {
-                try {
-                    await navigator.clipboard.write([
-                        new ClipboardItem({ 'image/png': blob })
-                    ]);
-                    setCopyDone(true);
-                    setTimeout(() => setCopyDone(false), 2500);
-                } catch {
-                    const link = document.createElement('a');
-                    link.download = '사고현황보고서.png';
-                    link.href = canvas.toDataURL();
-                    link.click();
-                }
-            });
+            try {
+                const res  = await fetch(dataUrl);
+                const blob = await res.blob();
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                setCopyDone(true);
+                setTimeout(() => setCopyDone(false), 2500);
+            } catch {
+                const link = document.createElement('a');
+                link.download = '사고현황보고서.png';
+                link.href = dataUrl;
+                link.click();
+            }
         } catch (err) {
             console.error('이미지 복사 실패:', err);
             alert('이미지 복사에 실패했습니다.');
-            // 스타일 복원 (에러 시에도)
-            if (el) { el.style.maxHeight = ''; el.style.overflow = ''; }
-            const bodyEl = document.getElementById('accident-report-body');
+            el.style.maxHeight = prevElMaxH;
+            el.style.overflow  = prevElOverflow;
             if (bodyEl) { bodyEl.style.maxHeight = ''; bodyEl.style.overflow = ''; bodyEl.style.flex = ''; }
         } finally {
             setIsCopying(false);
@@ -1044,25 +1041,25 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                             <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 종합 현황
                         </h4>
                         <div className="grid grid-cols-4 gap-3">
-                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
-                                <p className="text-[11px] text-gray-500 font-bold leading-none">총 사고</p>
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">총 사고</p>
                                 <p className="text-3xl font-black text-letusBlue leading-none">{total.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 leading-none">건</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">건</p>
                             </div>
-                            <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
-                                <p className="text-[11px] text-gray-500 font-bold leading-none">미처리</p>
+                            <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">미처리</p>
                                 <p className="text-3xl font-black text-red-500 leading-none">{pending.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 leading-none">원인 파악 중</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">원인 파악 중</p>
                             </div>
-                            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
-                                <p className="text-[11px] text-gray-500 font-bold leading-none">납기 지연</p>
+                            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">납기 지연</p>
                                 <p className="text-3xl font-black text-letusOrange leading-none">{delayed.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 leading-none">재일정(지연)</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">재일정(지연)</p>
                             </div>
-                            <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
-                                <p className="text-[11px] text-gray-500 font-bold leading-none">처리 완료율</p>
+                            <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
+                                <p className="text-[11px] text-gray-500 font-bold mb-1">처리 완료율</p>
                                 <p className="text-3xl font-black text-green-600 leading-none">{completedRate}%</p>
-                                <p className="text-[10px] text-gray-400 leading-none">{(total - pending).toLocaleString()}건 완료</p>
+                                <p className="text-[10px] text-gray-400 mt-1.5">{(total - pending).toLocaleString()}건 완료</p>
                             </div>
                         </div>
                     </section>
