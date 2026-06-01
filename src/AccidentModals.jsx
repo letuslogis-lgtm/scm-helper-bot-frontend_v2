@@ -133,42 +133,25 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
 
             if (error) throw error;
 
-            // 관리자 저장 시 ai_analysis_logs에 보정 데이터 기록 (AI 학습용)
+            // 관리자 저장 시 ai_analysis_logs에 학습 데이터 INSERT (항상 신규, UPDATE 없음)
             if (!isUser && causeType) {
                 try {
-                    const { data: existingLog } = await supabase
-                        .from('ai_analysis_logs')
-                        .select('id')
-                        .eq('target_id', row.id)
-                        .eq('source_menu', 'AccidentManagement')
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
-
-                    const correctionPayload = {
-                        is_reviewed: true,
-                        reviewed_at: new Date().toISOString(),
-                        corrected_cause: causeType,
-                        corrected_dept: dept || null,
+                    const { error: logErr } = await supabase.from('ai_analysis_logs').insert({
+                        source_menu:           'AccidentManagement',
+                        target_id:             String(row.id),
+                        original_text:         causeDetail,
+                        ai_analyzed_cause:     aiSuggestion?.cause_type  ?? null,
+                        ai_confidence:         aiSuggestion?.confidence   ?? 'human',
+                        low_confidence_reason: null,
+                        is_reviewed:           false,
+                        reviewed_at:           null,
+                        corrected_cause:       causeType,
+                        corrected_dept:        dept || null,
                         corrected_action_result: actionResult !== '미확인' ? actionResult : null,
-                    };
-
-                    if (existingLog) {
-                        await supabase.from('ai_analysis_logs').update(correctionPayload).eq('id', existingLog.id);
-                    } else {
-                        // AI 버튼을 눌렀으면 AI 제안값도 함께 기록, 아니면 human으로 처리
-                        await supabase.from('ai_analysis_logs').insert({
-                            source_menu: 'AccidentManagement',
-                            target_id: row.id,
-                            original_text: causeDetail,
-                            ai_analyzed_cause: aiSuggestion?.cause_type       ?? null,
-                            ai_confidence:     aiSuggestion?.confidence        ?? 'human',
-                            low_confidence_reason: null,
-                            ...correctionPayload,
-                        });
-                    }
+                    });
+                    if (logErr) console.warn('AI 학습 데이터 기록 실패:', logErr.message);
                 } catch (logErr) {
-                    console.warn('AI 학습 데이터 기록 실패 (무시):', logErr.message);
+                    console.warn('AI 학습 데이터 기록 예외:', logErr.message);
                 }
             }
 
