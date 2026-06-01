@@ -231,10 +231,10 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 shrink-0 z-10 hover:shadow-md transition-shadow">
                 <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-6 gap-4">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900 font-sans flex items-center gap-2">
+                        <h3 className="text-base font-bold text-gray-900 font-sans flex items-center gap-2">
                             브랜드별 사고 처리 현황
                             <span className="bg-blue-50 text-letusBlue text-[10px] px-2 py-0.5 rounded border border-blue-100 font-black">{label}</span>
-                        </h2>
+                        </h3>
                         <p className="text-xs text-gray-400 font-medium mt-1.5">조회 기간: {startDate} ~ {endDate}</p>
                     </div>
 
