@@ -744,7 +744,7 @@ const BrandDetailTable = ({ items }) => {
 
     if (brandPivots.length === 0) return null;
 
-    const th = 'px-2 py-2 align-middle text-center font-bold text-gray-600 border-b border-r border-gray-200 text-[11px] whitespace-nowrap bg-slate-50';
+    const th = 'px-2 py-2 align-middle text-center font-bold text-gray-600 border-b border-r border-gray-200 text-[13px] whitespace-nowrap bg-slate-50';
     const tdNum = (v) => v > 0
         ? <span className="font-bold text-letusBlue">{v}</span>
         : <span className="text-gray-200">-</span>;
@@ -778,12 +778,12 @@ const BrandDetailTable = ({ items }) => {
                                     {/* 브랜드 헤더 */}
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="w-1 h-3.5 bg-letusBlue rounded-full" />
-                                        <span className="text-[12px] font-black text-gray-800">{brand}</span>
-                                        <span className="text-[10px] text-gray-400 font-medium">총 {total}건</span>
+                                        <span className="text-sm font-black text-gray-800">{brand}</span>
+                                        <span className="text-xs text-gray-400 font-medium">총 {total}건</span>
                                     </div>
                                     {/* 이슈유형(행) × 조치내용(열) 피벗 */}
                                     <div className="overflow-x-auto rounded-lg border border-gray-200">
-                                        <table className="text-[11px] border-collapse w-full">
+                                        <table className="text-[13px] border-collapse w-full">
                                             <thead>
                                                 <tr>
                                                     <th className={th} style={{ minWidth: 90 }}>이슈 유형</th>
@@ -967,7 +967,7 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
         const grandTotal = colTotals.reduce((s, v) => s + v, 0);
         return (
             <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full text-[11px] border-collapse">
+                <table className="w-full text-[13px] border-collapse">
                     <thead>
                         <tr className="bg-slate-50">
                             <th className="px-3 py-2 align-middle text-left font-bold text-gray-600 border-b border-r border-gray-200 min-w-[90px]">{rowLabel}</th>
@@ -1022,8 +1022,8 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2">
                         <span className="w-1.5 h-4 bg-letusOrange rounded-full" />
-                        <h3 className="font-black text-sm text-gray-800">사고 현황 분석 보고</h3>
-                        <span className="text-xs text-gray-400 font-medium">{startDate} ~ {endDate}</span>
+                        <h3 className="font-black text-base text-gray-800">사고 현황 분석 보고</h3>
+                        <span className="text-sm text-gray-400 font-medium">{startDate} ~ {endDate}</span>
                     </div>
                     <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1037,47 +1037,47 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
 
                     {/* Section 1: KPI 카드 */}
                     <section>
-                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 종합 현황
                         </h4>
                         <div className="grid grid-cols-4 gap-3">
                             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">총 사고</p>
+                                <p className="text-[13px] text-gray-500 font-bold mb-1">총 사고</p>
                                 <p className="text-3xl font-black text-letusBlue leading-none">{total.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">건</p>
+                                <p className="text-xs text-gray-400 mt-1.5">건</p>
                             </div>
                             <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">미처리</p>
+                                <p className="text-[13px] text-gray-500 font-bold mb-1">미처리</p>
                                 <p className="text-3xl font-black text-red-500 leading-none">{pending.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">원인 파악 중</p>
+                                <p className="text-xs text-gray-400 mt-1.5">원인 파악 중</p>
                             </div>
                             <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">납기 지연</p>
+                                <p className="text-[13px] text-gray-500 font-bold mb-1">납기 지연</p>
                                 <p className="text-3xl font-black text-letusOrange leading-none">{delayed.toLocaleString()}</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">재일정(지연)</p>
+                                <p className="text-xs text-gray-400 mt-1.5">재일정(지연)</p>
                             </div>
                             <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
-                                <p className="text-[11px] text-gray-500 font-bold mb-1">처리 완료율</p>
+                                <p className="text-[13px] text-gray-500 font-bold mb-1">처리 완료율</p>
                                 <p className="text-3xl font-black text-green-600 leading-none">{completedRate}%</p>
-                                <p className="text-[10px] text-gray-400 mt-1.5">{(total - pending).toLocaleString()}건 완료</p>
+                                <p className="text-xs text-gray-400 mt-1.5">{(total - pending).toLocaleString()}건 완료</p>
                             </div>
                         </div>
                     </section>
 
                     {/* Section 2: 브랜드별 이슈 유형 */}
                     <section>
-                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <span className="w-1 h-3.5 bg-letusBlue rounded-full" /> 브랜드별 이슈 유형
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">브랜드별 어떤 유형의 사고가 발생했나</span>
+                            <span className="text-xs text-gray-400 font-normal normal-case tracking-normal">브랜드별 어떤 유형의 사고가 발생했나</span>
                         </h4>
                         <PivotTable pivot={pivotBrandIssue} accent="#3b82f6" rowLabel="브랜드" />
                     </section>
 
                     {/* Section 3: 이슈 유형 × 조치 내용 */}
                     <section>
-                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 이슈 유형 × 조치 내용
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 사고에 어떤 조치가 이뤄졌나</span>
+                            <span className="text-xs text-gray-400 font-normal normal-case tracking-normal">어떤 사고에 어떤 조치가 이뤄졌나</span>
                         </h4>
                         <PivotTable pivot={pivotIssueAction} accent="#f97316" rowLabel="이슈 유형" />
                         <BrandDetailTable items={items} />
@@ -1085,34 +1085,34 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
 
                     {/* Section 4: 이슈별 귀책부서 */}
                     <section>
-                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <span className="w-1 h-3.5 bg-emerald-500 rounded-full" /> 이슈별 귀책부서
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 유형의 사고가 어느 부서 귀책인가</span>
+                            <span className="text-xs text-gray-400 font-normal normal-case tracking-normal">어떤 유형의 사고가 어느 부서 귀책인가</span>
                         </h4>
                         <PivotTable pivot={pivotIssueDept} accent="#10b981" rowLabel="이슈 유형" />
                     </section>
 
                     {/* Section 5: AI 원인 분류 분포 */}
                     <section>
-                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <span className="w-1 h-3.5 bg-purple-500 rounded-full" /> AI 원인 분류
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">
+                            <span className="text-xs text-gray-400 font-normal normal-case tracking-normal">
                                 {aiData.length === 0 ? 'AI 분석 완료 건 없음' : `${items.filter(i => i.ai_analyzed_cause).length}건 분석 완료`}
                             </span>
                         </h4>
                         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2.5">
                             {aiData.length === 0
-                                ? <p className="text-xs text-gray-300 py-6 text-center font-bold">AI 분석 데이터 없음 — AI 원인 분석 실행 후 조회하세요</p>
+                                ? <p className="text-sm text-gray-300 py-6 text-center font-bold">AI 분석 데이터 없음 — AI 원인 분석 실행 후 조회하세요</p>
                                 : aiData.map((item, idx) => {
                                     const total_ai = items.filter(i => i.ai_analyzed_cause).length;
                                     return (
                                         <div key={item.name} className="flex items-center gap-3">
-                                            <span className="text-xs text-gray-600 font-medium w-32 text-right shrink-0">{item.name}</span>
+                                            <span className="text-[13px] text-gray-600 font-medium w-36 text-right shrink-0">{item.name}</span>
                                             <div className="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
                                                 <div className="h-5 rounded-full transition-all duration-500"
                                                     style={{ width: `${item.pct}%`, backgroundColor: AI_COLORS[idx % AI_COLORS.length] }} />
                                             </div>
-                                            <span className="text-xs font-bold text-gray-700 w-20 shrink-0">
+                                            <span className="text-[13px] font-bold text-gray-700 w-20 shrink-0">
                                                 {item.count}건
                                                 <span className="text-gray-400 font-normal ml-1">({total_ai > 0 ? Math.round(item.count / total_ai * 100) : 0}%)</span>
                                             </span>
@@ -1126,7 +1126,7 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
 
                 {/* 푸터 */}
                 <div id="accident-report-footer" className="p-3 border-t bg-gray-50 flex justify-between items-center shrink-0">
-                    <span className="text-[11px] text-gray-400">현재 화면 필터 기준 · 총 {total.toLocaleString()}건</span>
+                    <span className="text-[13px] text-gray-400">현재 화면 필터 기준 · 총 {total.toLocaleString()}건</span>
                     <div className="flex gap-2">
                         <button onClick={onClose}
                             className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm transition-colors">
