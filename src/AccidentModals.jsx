@@ -742,8 +742,9 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
         return { rows, cols, matrix };
     };
 
-    const pivotA = useMemo(() => buildPivot('action_result', 'responsible_dept'), [items]);
-    const pivotB = useMemo(() => buildPivot('action_result', 'action_content'),   [items]);
+    const pivotBrandIssue  = useMemo(() => buildPivot('brand', 'action_result'),          [items]); // 2. 브랜드 × 이슈 유형
+    const pivotBrandAction = useMemo(() => buildPivot('brand', 'action_content'),         [items]); // 3. 브랜드 × 조치 내용
+    const pivotIssueDept   = useMemo(() => buildPivot('action_result', 'responsible_dept'), [items]); // 4. 이슈 × 귀책부서
 
     // AI 원인 분류 분포
     const aiData = useMemo(() => {
@@ -783,7 +784,7 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
     const AI_COLORS = ['#3b82f6','#f97316','#ef4444','#10b981','#8b5cf6','#f59e0b','#06b6d4','#ec4899'];
 
     // 피벗 테이블 공통 컴포넌트
-    const PivotTable = ({ pivot, title, accent }) => {
+    const PivotTable = ({ pivot, accent, rowLabel = '이슈 유형' }) => {
         const { rows, cols, matrix } = pivot;
         if (rows.length === 0) return <p className="text-xs text-gray-300 py-6 text-center font-bold">데이터 없음</p>;
         const colTotals = cols.map(c => rows.reduce((s, r) => s + (matrix[r]?.[c] || 0), 0));
@@ -793,7 +794,7 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                 <table className="w-full text-[11px] border-collapse">
                     <thead>
                         <tr className="bg-slate-50">
-                            <th className="px-3 py-2 text-left font-bold text-gray-600 border-b border-r border-gray-200 min-w-[90px]">이슈 유형</th>
+                            <th className="px-3 py-2 text-left font-bold text-gray-600 border-b border-r border-gray-200 min-w-[90px]">{rowLabel}</th>
                             {cols.map(c => (
                                 <th key={c} className="px-2 py-2 text-center font-bold text-gray-600 border-b border-r border-gray-200 min-w-[60px] whitespace-nowrap">{c}</th>
                             ))}
@@ -887,25 +888,34 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                         </div>
                     </section>
 
-                    {/* Section 2: 피벗 A — 이슈 유형 × 귀책부서 */}
+                    {/* Section 2: 브랜드별 이슈 유형 */}
                     <section>
                         <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <span className="w-1 h-3.5 bg-letusBlue rounded-full" /> 이슈 유형 × 귀책부서
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 사고가 누구 귀책인가</span>
+                            <span className="w-1 h-3.5 bg-letusBlue rounded-full" /> 브랜드별 이슈 유형
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">브랜드별 어떤 유형의 사고가 발생했나</span>
                         </h4>
-                        <PivotTable pivot={pivotA} accent="#3b82f6" />
+                        <PivotTable pivot={pivotBrandIssue} accent="#3b82f6" rowLabel="브랜드" />
                     </section>
 
-                    {/* Section 3: 피벗 B — 이슈 유형 × 조치 내용 */}
+                    {/* Section 3: 브랜드별 이슈 조치내용 */}
                     <section>
                         <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 이슈 유형 × 조치 내용
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 사고에 어떤 조치가 이뤄졌나</span>
+                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 브랜드별 이슈 조치내용
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">브랜드별 사고에 어떤 조치가 이뤄졌나</span>
                         </h4>
-                        <PivotTable pivot={pivotB} accent="#f97316" />
+                        <PivotTable pivot={pivotBrandAction} accent="#f97316" rowLabel="브랜드" />
                     </section>
 
-                    {/* Section 4: AI 원인 분류 분포 */}
+                    {/* Section 4: 이슈별 귀책부서 */}
+                    <section>
+                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-1 h-3.5 bg-emerald-500 rounded-full" /> 이슈별 귀책부서
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 유형의 사고가 어느 부서 귀책인가</span>
+                        </h4>
+                        <PivotTable pivot={pivotIssueDept} accent="#10b981" rowLabel="이슈 유형" />
+                    </section>
+
+                    {/* Section 5: AI 원인 분류 분포 */}
                     <section>
                         <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <span className="w-1 h-3.5 bg-purple-500 rounded-full" /> AI 원인 분류
