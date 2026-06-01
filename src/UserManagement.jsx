@@ -26,8 +26,10 @@ const UserManagement = () => {
     const [vendorListTarget, setVendorListTarget] = useState(null);
     const [filterRole, setFilterRole] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
+    const [filterTeam, setFilterTeam] = useState('');
     const [filterKeyword, setFilterKeyword] = useState('');
     const [filterVendor, setFilterVendor] = useState('');
+    const [teamOptions, setTeamOptions] = useState([]);
     const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -257,16 +259,29 @@ const UserManagement = () => {
         }
     };
 
+    const fetchTeamOptions = async () => {
+        try {
+            const { data, error } = await supabase.from('profiles').select('team').not('team', 'is', null).neq('team', '');
+            if (error) throw error;
+            const unique = [...new Set((data || []).map(d => d.team).filter(Boolean))].sort();
+            setTeamOptions(unique);
+        } catch (error) {
+            console.error("fetchTeamOptions error:", error.message);
+        }
+    };
+
     const fetchUsers = async (params = {}) => {
         setIsLoading(true);
         try {
             let query = supabase.from('profiles').select('*');
             const role = params.role !== undefined ? params.role : filterRole;
             const status = params.status !== undefined ? params.status : filterStatus;
+            const team = params.team !== undefined ? params.team : filterTeam;
             const keyword = params.keyword !== undefined ? params.keyword : filterKeyword;
             const vendor = params.vendor !== undefined ? params.vendor : filterVendor;
             if (role) query = query.eq('role', role);
             if (status) query = query.eq('status', status);
+            if (team) query = query.eq('team', team);
             if (keyword) query = query.ilike('name', `%${keyword}%`);
             if (vendor) query = query.ilike('managed_vendors', `%${vendor}%`);
             const { data, error } = await query.order('created_at', { ascending: false });
@@ -287,6 +302,7 @@ const UserManagement = () => {
     }, [filterRole, filterStatus, filterKeyword, filterVendor]);
 
     useEffect(() => {
+        fetchTeamOptions();
         fetchUsers();
     }, []);
 
@@ -314,6 +330,16 @@ const UserManagement = () => {
                     </div>
 
                     <div className="flex items-center shrink-0">
+                        <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">팀</label>
+                        <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)} className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange w-28 cursor-pointer text-gray-700">
+                            <option value="">전체</option>
+                            {teamOptions.map(team => (
+                                <option key={team} value={team}>{team}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="flex items-center shrink-0">
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">이름</label>
                         <input
                             type="text" value={filterKeyword} onChange={e => setFilterKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -331,7 +357,7 @@ const UserManagement = () => {
 
                     <div className="ml-auto shrink-0 flex items-center gap-2">
                         <button
-                            onClick={() => { setFilterRole(''); setFilterStatus(''); setFilterKeyword(''); setFilterVendor(''); fetchUsers({ role: '', status: '', keyword: '', vendor: '' }); }}
+                            onClick={() => { setFilterRole(''); setFilterStatus(''); setFilterTeam(''); setFilterKeyword(''); setFilterVendor(''); fetchUsers({ role: '', status: '', team: '', keyword: '', vendor: '' }); }}
                             className="border border-gray-300 text-gray-500 hover:bg-gray-50 font-bold px-4 h-[30px] rounded-[3px] transition-colors text-xs"
                         >
                             초기화
