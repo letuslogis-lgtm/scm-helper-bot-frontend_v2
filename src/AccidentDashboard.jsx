@@ -292,7 +292,7 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                                 </div>
 
                                 <div className="flex items-center flex-1">
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 py-2.5 border-r border-gray-200">
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 py-2.5">
                                         <span className="text-gray-400 font-medium whitespace-nowrap text-xs">파악 중</span>
                                         <span
                                             className={`font-bold text-sm cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-red-500' : 'text-gray-400'}`}
@@ -302,7 +302,7 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                                         </span>
                                     </div>
 
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 py-2.5 border-r border-gray-200">
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 py-2.5">
                                         <span className="text-gray-400 font-medium whitespace-nowrap text-xs">등록 완료</span>
                                         <span
                                             className={`font-bold text-sm cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-green-500' : 'text-gray-400'}`}
