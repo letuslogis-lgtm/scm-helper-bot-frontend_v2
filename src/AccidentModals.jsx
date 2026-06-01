@@ -752,7 +752,7 @@ const BrandDetailTable = ({ items }) => {
                         {i === 0 && (
                             <td rowSpan={rows.length + 1}
                                 className={`text-center font-black text-[11px] border-r border-b border-gray-200 ${labelBg}`}
-                                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', padding: '8px 6px' }}>
+                                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', padding: '8px 6px' }}>
                                 {label}
                             </td>
                         )}
