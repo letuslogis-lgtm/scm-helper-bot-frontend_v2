@@ -62,7 +62,8 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
                 .select('*')
                 .gte('service_date', startDate)
                 .lte('service_date', endDate)
-                .neq('action_result', '정상출고'); // 🚩 정상출고 제외
+                .neq('action_result', '정상출고') // 🚩 정상출고 제외
+                .in('responsible_dept', ['물류사업1팀', '물류사업2팀']); // 🚩 귀책부서 필터
 
             if (error) throw error;
             setAccidents(data || []);
@@ -118,6 +119,16 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
         return Object.keys(stats).map(name => ({ name, value: stats[name] })).sort((a, b) => b.value - a.value).slice(0, 8);
     }, [accidents]);
 
+
+    // 🏢 5. 도급사/협력사별 이슈 건수
+    const handlerTeamData = useMemo(() => {
+        const stats = accidents.reduce((acc, curr) => {
+            const team = curr.handler_team ? String(curr.handler_team).trim() : '';
+            if (team && team !== '-') acc[team] = (acc[team] || 0) + 1;
+            return acc;
+        }, {});
+        return Object.keys(stats).map(name => ({ name, value: stats[name] })).sort((a, b) => b.value - a.value);
+    }, [accidents]);
 
     // 🤖 AI 리포트 생성 함수 (트리거)
     const handleGenerateAiReport = async () => {
@@ -216,12 +227,12 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
         <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] slide-up flex flex-col gap-5 w-full mx-auto pb-20">
 
             {/* 🎯 상단 헤더 및 필터 구역 */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 shrink-0 z-10 flex flex-col md:flex-row md:justify-between md:items-end gap-4 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 px-5 shrink-0 z-10 flex flex-col md:flex-row md:justify-between md:items-end gap-3 hover:shadow-md transition-shadow">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-900 font-sans flex items-center gap-2">
+                    <h3 className="text-base font-bold text-gray-900 font-sans flex items-center gap-2">
                         🕵️‍♂️ 물류 심층 분석 리포트
                         <span className="bg-purple-50 text-purple-600 text-[10px] px-2 py-0.5 rounded border border-purple-100 font-black tracking-wide">ADMIN</span>
-                    </h2>
+                    </h3>
                     <p className="text-xs text-gray-400 font-medium mt-1.5">조회 기간: {startDate} ~ {endDate}</p>
                 </div>
 
@@ -381,7 +392,30 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
                         </div>
                     </div>
 
-                    {/* ✨ 5. AI 인사이트 도출 영역 (Full Width) */}
+                    {/* 🏢 5. 도급사/협력사별 이슈 건수 */}
+                    <div className="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                        <div className="mb-4">
+                            <h3 className="font-bold text-gray-700 text-sm flex items-center gap-1.5">🏢 도급사·협력사별 이슈 건수</h3>
+                            <p className="text-[11px] text-gray-400 mt-0.5">조치 수행처(handler_team) 기준 이슈 발생 현황입니다.</p>
+                        </div>
+                        <div className="flex-1 min-h-[200px] flex flex-col justify-center space-y-3 px-2">
+                            {handlerTeamData.length > 0 ? handlerTeamData.map((item) => {
+                                const total = handlerTeamData.reduce((a, b) => a + b.value, 0);
+                                const percent = ((item.value / total) * 100).toFixed(1);
+                                return (
+                                    <div key={item.name} className="flex items-center text-sm group hover:bg-slate-50 p-1 -mx-1 rounded transition-colors">
+                                        <span className="w-36 shrink-0 text-gray-600 font-semibold truncate text-right mr-4 text-xs">{item.name}</span>
+                                        <div className="flex-1 h-5 rounded overflow-hidden bg-gray-100 relative">
+                                            <div className="h-full rounded-r transition-all duration-1000 ease-out" style={{ width: `${percent}%`, backgroundColor: '#06b6d4' }} />
+                                        </div>
+                                        <span className="w-20 text-right text-xs font-bold text-gray-500 ml-3">{item.value}건 ({percent}%)</span>
+                                    </div>
+                                );
+                            }) : <div className="text-center text-gray-400 font-bold text-xs">데이터가 없습니다.</div>}
+                        </div>
+                    </div>
+
+                    {/* ✨ 6. AI 인사이트 도출 영역 (Full Width) */}
                     <div className="lg:col-span-2 bg-gradient-to-br from-purple-50 to-indigo-50 p-6 rounded-xl shadow-sm border border-purple-100 flex flex-col relative overflow-hidden transition-all">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                             <div>
