@@ -107,12 +107,17 @@ Deno.serve(async (req) => {
 
     const geminiData = await geminiRes.json()
     if (!geminiData.candidates) {
-      // 원본 에러는 서버 로그에만 남기고, 클라이언트에는 일반 메시지만 노출
       const internalMsg = geminiData.error?.message || 'Gemini API 응답 없음'
       console.error('Gemini 에러:', internalMsg)
+      // 과부하·할당량 초과 에러 → 프론트엔드가 1회 재시도할 수 있도록 retryable 반환
+      const isRetryable = geminiRes.status === 503
+        || /high demand|overloaded|quota|rate.?limit|temporarily/i.test(internalMsg)
       return json({
         product_code: null,
-        message: '바코드 분석에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        retryable: isRetryable,
+        message: isRetryable
+          ? 'AI 서버가 일시적으로 혼잡합니다. 잠시 후 재시도합니다...'
+          : '바코드 분석에 실패했습니다. 잠시 후 다시 시도해주세요.',
       })
     }
 
