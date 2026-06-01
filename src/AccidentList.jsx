@@ -920,16 +920,6 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                     </button>
                 )}
 
-                <button
-                    onClick={() => setIsReportModalOpen(true)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-letusBlue border border-blue-300 bg-blue-50 rounded shadow-sm px-3 h-[32px] hover:bg-blue-100 transition-colors"
-                    title="현재 필터 기준 분석 보고서 출력">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    보고서
-                </button>
-
                 <button onClick={resetColSettings}
                     className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
                     title="컬럼 너비·순서를 기본값으로 초기화">
@@ -952,6 +942,17 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                         <>
                             <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)}></div>
                             <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+
+                                {/* 보고서 */}
+                                <button
+                                    onClick={() => { setIsActionMenuOpen(false); setIsReportModalOpen(true); }}
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between"
+                                >
+                                    보고서
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                </button>
+
+                                <div className="h-px bg-gray-100 my-1"></div>
 
                                 {/* AI 원인 분석 (기존) */}
                                 <button
