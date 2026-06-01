@@ -228,8 +228,8 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
     return (
         <div className="p-6 bg-slate-100 min-h-[calc(100vh-64px)] slide-up flex flex-col gap-5">
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 shrink-0 z-10 hover:shadow-md transition-shadow">
-                <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-6 gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 px-5 shrink-0 z-10 hover:shadow-md transition-shadow">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-3 gap-3">
                     <div>
                         <h3 className="text-base font-bold text-gray-900 font-sans flex items-center gap-2">
                             브랜드별 사고 처리 현황
@@ -272,7 +272,7 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                 </div>
 
                 {/* 브랜드별 통계 카드 (헤더 안으로 통합, 특이사항 대시보드와 동일한 디자인) */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-1.5">
                     {displayBrands.map(brand => {
                         const stats = brandStatsDetails[brand];
                         const isSelected = selectedBrands.includes(brand);
@@ -282,40 +282,40 @@ const AccidentDashboard = ({ userProfile, onDrillDown }) => {
                             <div
                                 key={brand}
                                 onClick={() => toggleBrand(brand)}
-                                className={`rounded-xl px-5 py-4 flex items-center border text-sm cursor-pointer transition-all ${isSelected
+                                className={`rounded-xl flex items-center border text-sm cursor-pointer transition-all ${isSelected
                                     ? 'bg-orange-50 border-orange-400 shadow-sm ring-1 ring-orange-400/50'
-                                    : 'bg-slate-50/60 border-gray-100 hover:border-gray-200 hover:bg-slate-100'
+                                    : 'bg-gray-50/60 border-gray-100 hover:border-gray-200 hover:bg-gray-100'
                                     }`}
                             >
-                                <div style={{ width: '31%' }} className={`font-bold tracking-tight whitespace-nowrap truncate pr-2 ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
+                                <div style={{ width: '28%' }} className={`px-4 py-2.5 font-bold tracking-tight whitespace-nowrap truncate ${isSelected ? 'text-orange-700' : 'text-gray-800'}`}>
                                     {brand}
                                 </div>
 
                                 <div className="flex items-center flex-1">
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center pr-3 sm:pr-4 border-r border-gray-200">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">파악 중</span>
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 py-2.5 border-r border-gray-200">
+                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">파악 중</span>
                                         <span
-                                            className={`font-bold text-base sm:text-lg cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-red-500' : 'text-gray-400'}`}
+                                            className={`font-bold text-sm cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-red-500' : 'text-gray-400'}`}
                                             onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], statuses: ['원인 파악 중'], startDate, endDate }); }}
                                         >
                                             {stats.pending}
                                         </span>
                                     </div>
 
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 sm:px-4 border-r border-gray-200">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">등록 완료</span>
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 py-2.5 border-r border-gray-200">
+                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">등록 완료</span>
                                         <span
-                                            className={`font-bold text-base sm:text-lg cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-green-500' : 'text-gray-400'}`}
+                                            className={`font-bold text-sm cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-green-500' : 'text-gray-400'}`}
                                             onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], statuses: ['등록 완료'], startDate, endDate }); }}
                                         >
                                             {stats.completed}
                                         </span>
                                     </div>
 
-                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center pl-3 sm:pl-4">
-                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs sm:text-sm">납기 지연</span>
+                                    <div style={{ width: '33.33%' }} className="flex justify-between items-center px-3 py-2.5">
+                                        <span className="text-gray-400 font-medium whitespace-nowrap text-xs">납기 지연</span>
                                         <span
-                                            className={`font-bold text-base sm:text-lg cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-orange-500' : 'text-gray-400'}`}
+                                            className={`font-bold text-sm cursor-pointer hover:underline ${isAllSelected || isSelected ? 'text-orange-500' : 'text-gray-400'}`}
                                             onClick={(e) => { e.stopPropagation(); if (onDrillDown) onDrillDown({ brands: [brand], isDelayed: '지연', startDate, endDate }); }}
                                         >
                                             {stats.delayed}
