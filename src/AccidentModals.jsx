@@ -709,76 +709,44 @@ export const AccidentUploadModal = ({ onClose, onFileUpload }) => {
     );
 };
 
-// 브랜드별 상세 아코디언 테이블 (이슈 유형 + 조치 내용 × 브랜드)
+// 브랜드별 상세 아코디언 — 브랜드마다 이슈유형(행) × 조치내용(열) 개별 피벗
 const BrandDetailTable = ({ items }) => {
     const [isOpen, setIsOpen] = useState(false);
 
-    const brands = useMemo(() => {
+    // 브랜드 목록 (건수 많은 순)
+    const brandPivots = useMemo(() => {
         const cnt = {};
         items.forEach(i => { if (i.brand) cnt[i.brand] = (cnt[i.brand] || 0) + 1; });
-        return Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([b]) => b);
+        const brands = Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([b]) => b);
+
+        return brands.map(brand => {
+            const bItems = items.filter(i => i.brand === brand);
+            const rowSet = new Set();
+            const colSet = new Set();
+            const matrix = {};
+            bItems.forEach(i => {
+                const r = i.action_result  || '미분류';
+                const c = i.action_content || '미입력';
+                rowSet.add(r); colSet.add(c);
+                if (!matrix[r]) matrix[r] = {};
+                matrix[r][c] = (matrix[r][c] || 0) + 1;
+            });
+            const rows = [...rowSet].sort((a, b) =>
+                Object.values(matrix[b]||{}).reduce((s,v)=>s+v,0) - Object.values(matrix[a]||{}).reduce((s,v)=>s+v,0)
+            );
+            const cols = [...colSet].sort((a, b) =>
+                rows.reduce((s,r)=>s+(matrix[r]?.[b]||0),0) - rows.reduce((s,r)=>s+(matrix[r]?.[a]||0),0)
+            );
+            return { brand, rows, cols, matrix, total: bItems.length };
+        });
     }, [items]);
 
-    const makeRows = (field) => {
-        const cnt = {};
-        items.forEach(i => {
-            const val = i[field];
-            if (!val) return;
-            const b = i.brand || '미분류';
-            if (!cnt[val]) cnt[val] = {};
-            cnt[val][b] = (cnt[val][b] || 0) + 1;
-        });
-        return Object.entries(cnt)
-            .sort((a, b) => Object.values(b[1]).reduce((s, v) => s + v, 0) - Object.values(a[1]).reduce((s, v) => s + v, 0))
-            .map(([name, bMap]) => ({ name, bMap }));
-    };
+    if (brandPivots.length === 0) return null;
 
-    const issueRows  = useMemo(() => makeRows('action_result'),  [items]);
-    const actionRows = useMemo(() => makeRows('action_content'), [items]);
-
-    const rowSum = (bMap) => Object.values(bMap).reduce((s, v) => s + v, 0);
-    const colSum = (brand, rows) => rows.reduce((s, r) => s + (r.bMap[brand] || 0), 0);
-
-    const thBase = 'px-2 py-2 text-center font-bold text-gray-600 border-b border-r border-gray-200 text-[11px] whitespace-nowrap bg-slate-50';
-    const tdBase = 'px-2 py-1.5 text-center border-r border-b border-gray-100 text-[11px]';
-
-    const renderGroup = (rows, label, accent, labelBg) => {
-        if (rows.length === 0) return null;
-        const total = rows.reduce((s, r) => s + rowSum(r.bMap), 0);
-        return (
-            <>
-                {rows.map((row, i) => (
-                    <tr key={`${label}-${row.name}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                        {i === 0 && (
-                            <td rowSpan={rows.length + 1}
-                                className={`text-center font-black text-[11px] border-r border-b border-gray-200 ${labelBg}`}
-                                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', padding: '8px 6px' }}>
-                                {label}
-                            </td>
-                        )}
-                        <td className="px-3 py-1.5 text-gray-700 border-r border-b border-gray-100 whitespace-nowrap text-[11px]">{row.name}</td>
-                        {brands.map(b => (
-                            <td key={b} className={tdBase}>
-                                {row.bMap[b]
-                                    ? <span className="font-bold" style={{ color: accent }}>{row.bMap[b]}</span>
-                                    : <span className="text-gray-200">-</span>}
-                            </td>
-                        ))}
-                        <td className="px-2 py-1.5 text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50 text-[11px]">{rowSum(row.bMap)}</td>
-                    </tr>
-                ))}
-                <tr className="font-black">
-                    <td className="px-3 py-2 text-gray-600 border-r border-t border-gray-200 text-[11px]">합계</td>
-                    {brands.map(b => (
-                        <td key={b} className="px-2 py-2 text-center border-r border-t border-gray-200 text-[11px]" style={{ color: accent }}>
-                            {colSum(b, rows) > 0 ? colSum(b, rows) : <span className="text-gray-300 font-normal">-</span>}
-                        </td>
-                    ))}
-                    <td className="px-2 py-2 text-center border-t border-gray-200 text-[11px]" style={{ color: accent }}>{total}</td>
-                </tr>
-            </>
-        );
-    };
+    const th = 'px-2 py-2 text-center font-bold text-gray-600 border-b border-r border-gray-200 text-[11px] whitespace-nowrap bg-slate-50';
+    const tdNum = (v) => v > 0
+        ? <span className="font-bold text-letusBlue">{v}</span>
+        : <span className="text-gray-200">-</span>;
 
     return (
         <div className="mt-3">
@@ -799,20 +767,57 @@ const BrandDetailTable = ({ items }) => {
                         </svg>
                         브랜드별 상세 접기
                     </button>
-                    <div className="overflow-x-auto">
-                        <table className="text-[11px] border-collapse" style={{ minWidth: '100%' }}>
-                            <thead>
-                                <tr>
-                                    <th className={thBase} colSpan={2}>상차이슈 구분</th>
-                                    {brands.map(b => <th key={b} className={thBase}>{b}</th>)}
-                                    <th className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-200 text-[11px] bg-gray-100 min-w-[48px]">합계</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {renderGroup(issueRows, '접수', '#3b82f6', 'text-blue-700 bg-blue-50/60')}
-                                {renderGroup(actionRows, '조치', '#f97316', 'text-orange-700 bg-orange-50/60')}
-                            </tbody>
-                        </table>
+
+                    <div className="p-4 space-y-5">
+                        {brandPivots.map(({ brand, rows, cols, matrix, total }) => {
+                            const colTotals = cols.map(c => rows.reduce((s,r) => s+(matrix[r]?.[c]||0), 0));
+                            const grandTotal = colTotals.reduce((s,v) => s+v, 0);
+                            return (
+                                <div key={brand}>
+                                    {/* 브랜드 헤더 */}
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="w-1 h-3.5 bg-letusBlue rounded-full" />
+                                        <span className="text-[12px] font-black text-gray-800">{brand}</span>
+                                        <span className="text-[10px] text-gray-400 font-medium">총 {total}건</span>
+                                    </div>
+                                    {/* 이슈유형(행) × 조치내용(열) 피벗 */}
+                                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                        <table className="text-[11px] border-collapse w-full">
+                                            <thead>
+                                                <tr>
+                                                    <th className={th} style={{ minWidth: 90 }}>이슈 유형</th>
+                                                    {cols.map(c => <th key={c} className={th} style={{ minWidth: 60 }}>{c}</th>)}
+                                                    <th className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-200 text-[11px] bg-gray-100 min-w-[48px]">합계</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {rows.map((r, ri) => {
+                                                    const rowTotal = cols.reduce((s,c) => s+(matrix[r]?.[c]||0), 0);
+                                                    return (
+                                                        <tr key={r} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                                            <td className="px-3 py-2 font-bold text-gray-700 border-r border-b border-gray-100 whitespace-nowrap">{r}</td>
+                                                            {cols.map(c => (
+                                                                <td key={c} className="px-2 py-2 text-center border-r border-b border-gray-100">
+                                                                    {tdNum(matrix[r]?.[c] || 0)}
+                                                                </td>
+                                                            ))}
+                                                            <td className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50">{rowTotal}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                <tr className="bg-gray-100 font-black text-gray-700">
+                                                    <td className="px-3 py-2 border-r border-t border-gray-200">합계</td>
+                                                    {colTotals.map((v, i) => (
+                                                        <td key={i} className="px-2 py-2 text-center border-r border-t border-gray-200">{v}</td>
+                                                    ))}
+                                                    <td className="px-2 py-2 text-center border-t border-gray-200 text-letusBlue">{grandTotal}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
