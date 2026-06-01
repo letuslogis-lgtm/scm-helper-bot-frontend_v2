@@ -71,6 +71,8 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
     const set = (field, value) => setForm(prev => {
         const next = { ...prev, [field]: value };
         if (field === 'receive_action' && value) next.is_completed = true;
+        // ② 센터 과/오출 선택 시 유형을 자동으로 회수품으로 변경
+        if (field === 'incident_reason' && value === '센터 과/오출') next.type = '회수품';
         return next;
     });
 
@@ -151,6 +153,8 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <StepIndicator row={form} />
+                            {form.type === '잔여품' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">잔여품</span>}
+                            {form.type === '회수품' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">회수품</span>}
                             {form.is_completed && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">완결</span>
                             )}
@@ -395,6 +399,7 @@ const PreDeliveryDetailModal = ({ row, onClose, onSaved, workplaceList, userProf
 const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
     const isAdmin = userProfile?.role === '관리자';
     const [form, setForm] = useState({
+        type: '잔여품',
         incident_date: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0],
         incident_center: isAdmin ? '' : (userProfile?.workplace || ''),
         writer: userProfile?.name || '',
@@ -427,7 +432,6 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
         try {
             const { error } = await supabase.from('logistics_returns').insert([{
                 ...form,
-                type: '회수품',
                 quantity: form.quantity !== '' ? parseInt(form.quantity, 10) : null,
             }]);
             if (error) throw error;
@@ -445,10 +449,24 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-lg border border-gray-100 overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-amber-100 bg-amber-50 flex justify-between items-center">
-                    <h3 className="font-black text-gray-900 text-sm">회수 건 등록</h3>
+                    <h3 className="font-black text-gray-900 text-sm">발생 건 등록</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
                 </div>
                 <div className="p-5 grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                        <label className={lbl}>유형 <span className="text-red-500">*</span></label>
+                        <div className="flex gap-6 mt-0.5">
+                            {['잔여품', '선출고'].map(t => (
+                                <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input type="radio" name="add_type" value={t}
+                                        checked={form.type === t}
+                                        onChange={() => set('type', t)}
+                                        className="accent-letusBlue w-4 h-4" />
+                                    <span className="text-xs font-bold text-gray-700">{t}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
                     <div><label className={lbl}>발생일 <span className="text-red-500">*</span></label><input type="date" value={form.incident_date} onChange={e => set('incident_date', e.target.value)} className={inp} /></div>
                     <div><label className={lbl}>발생센터 <span className="text-red-500">*</span></label>
                         <select value={form.incident_center} onChange={e => set('incident_center', e.target.value)} disabled={!isAdmin} className={sel}>
@@ -716,6 +734,8 @@ const ReturnsManagement = ({ userProfile }) => {
                     <td key={origIdx} className="p-4 text-center" style={{ width: colWidths[origIdx] }}>
                         {row.type === '선출고'
                             ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">선출고</span>
+                            : row.type === '잔여품'
+                            ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">잔여품</span>
                             : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">회수품</span>}
                     </td>
                 );
@@ -906,6 +926,7 @@ const ReturnsManagement = ({ userProfile }) => {
                         <label className="text-[11px] font-bold text-gray-600">유형</label>
                         <select value={draftFilters.type} onChange={e => setDraftFilters(p => ({ ...p, type: e.target.value }))} className={filterSel}>
                             <option value="전체">전체</option>
+                            <option value="잔여품">잔여품</option>
                             <option value="회수품">회수품</option>
                             <option value="선출고">선출고</option>
                         </select>
