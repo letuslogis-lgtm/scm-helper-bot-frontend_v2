@@ -709,6 +709,117 @@ export const AccidentUploadModal = ({ onClose, onFileUpload }) => {
     );
 };
 
+// 브랜드별 상세 아코디언 테이블 (이슈 유형 + 조치 내용 × 브랜드)
+const BrandDetailTable = ({ items }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const brands = useMemo(() => {
+        const cnt = {};
+        items.forEach(i => { if (i.brand) cnt[i.brand] = (cnt[i.brand] || 0) + 1; });
+        return Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([b]) => b);
+    }, [items]);
+
+    const makeRows = (field) => {
+        const cnt = {};
+        items.forEach(i => {
+            const val = i[field];
+            if (!val) return;
+            const b = i.brand || '미분류';
+            if (!cnt[val]) cnt[val] = {};
+            cnt[val][b] = (cnt[val][b] || 0) + 1;
+        });
+        return Object.entries(cnt)
+            .sort((a, b) => Object.values(b[1]).reduce((s, v) => s + v, 0) - Object.values(a[1]).reduce((s, v) => s + v, 0))
+            .map(([name, bMap]) => ({ name, bMap }));
+    };
+
+    const issueRows  = useMemo(() => makeRows('action_result'),  [items]);
+    const actionRows = useMemo(() => makeRows('action_content'), [items]);
+
+    const rowSum = (bMap) => Object.values(bMap).reduce((s, v) => s + v, 0);
+    const colSum = (brand, rows) => rows.reduce((s, r) => s + (r.bMap[brand] || 0), 0);
+
+    const thBase = 'px-2 py-2 text-center font-bold text-gray-600 border-b border-r border-gray-200 text-[11px] whitespace-nowrap bg-slate-50';
+    const tdBase = 'px-2 py-1.5 text-center border-r border-b border-gray-100 text-[11px]';
+
+    const renderGroup = (rows, label, accent, labelBg) => {
+        if (rows.length === 0) return null;
+        const total = rows.reduce((s, r) => s + rowSum(r.bMap), 0);
+        return (
+            <>
+                {rows.map((row, i) => (
+                    <tr key={`${label}-${row.name}`} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                        {i === 0 && (
+                            <td rowSpan={rows.length + 1}
+                                className={`text-center font-black text-[11px] border-r border-b border-gray-200 ${labelBg}`}
+                                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', padding: '8px 6px' }}>
+                                {label}
+                            </td>
+                        )}
+                        <td className="px-3 py-1.5 text-gray-700 border-r border-b border-gray-100 whitespace-nowrap text-[11px]">{row.name}</td>
+                        {brands.map(b => (
+                            <td key={b} className={tdBase}>
+                                {row.bMap[b]
+                                    ? <span className="font-bold" style={{ color: accent }}>{row.bMap[b]}</span>
+                                    : <span className="text-gray-200">-</span>}
+                            </td>
+                        ))}
+                        <td className="px-2 py-1.5 text-center font-black text-gray-700 border-b border-gray-100 bg-gray-50 text-[11px]">{rowSum(row.bMap)}</td>
+                    </tr>
+                ))}
+                <tr className="font-black">
+                    <td className="px-3 py-2 text-gray-600 border-r border-t border-gray-200 text-[11px]">합계</td>
+                    {brands.map(b => (
+                        <td key={b} className="px-2 py-2 text-center border-r border-t border-gray-200 text-[11px]" style={{ color: accent }}>
+                            {colSum(b, rows) > 0 ? colSum(b, rows) : <span className="text-gray-300 font-normal">-</span>}
+                        </td>
+                    ))}
+                    <td className="px-2 py-2 text-center border-t border-gray-200 text-[11px]" style={{ color: accent }}>{total}</td>
+                </tr>
+            </>
+        );
+    };
+
+    return (
+        <div className="mt-3">
+            {!isOpen ? (
+                <button onClick={() => setIsOpen(true)}
+                    className="w-full py-2 border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-400 hover:border-letusBlue hover:text-letusBlue transition-colors flex items-center justify-center gap-2">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    브랜드별 상세 펼치기
+                </button>
+            ) : (
+                <div className="rounded-lg border border-gray-200 overflow-hidden">
+                    <button onClick={() => setIsOpen(false)}
+                        className="w-full py-2 bg-slate-50 border-b border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                        브랜드별 상세 접기
+                    </button>
+                    <div className="overflow-x-auto">
+                        <table className="text-[11px] border-collapse" style={{ minWidth: '100%' }}>
+                            <thead>
+                                <tr>
+                                    <th className={thBase} colSpan={2}>상차이슈 구분</th>
+                                    {brands.map(b => <th key={b} className={thBase}>{b}</th>)}
+                                    <th className="px-2 py-2 text-center font-black text-gray-700 border-b border-gray-200 text-[11px] bg-gray-100 min-w-[48px]">합계</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {renderGroup(issueRows, '접수', '#3b82f6', 'text-blue-700 bg-blue-50/60')}
+                                {renderGroup(actionRows, '조치', '#f97316', 'text-orange-700 bg-orange-50/60')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // 4. 사고 현황 분석 보고서 모달
 export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
 
@@ -743,7 +854,7 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
     };
 
     const pivotBrandIssue  = useMemo(() => buildPivot('brand', 'action_result'),          [items]); // 2. 브랜드 × 이슈 유형
-    const pivotBrandAction = useMemo(() => buildPivot('brand', 'action_content'),         [items]); // 3. 브랜드 × 조치 내용
+    const pivotIssueAction = useMemo(() => buildPivot('action_result', 'action_content'),  [items]); // 3. 이슈 유형 × 조치 내용
     const pivotIssueDept   = useMemo(() => buildPivot('action_result', 'responsible_dept'), [items]); // 4. 이슈 × 귀책부서
 
     // AI 원인 분류 분포
@@ -897,13 +1008,14 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                         <PivotTable pivot={pivotBrandIssue} accent="#3b82f6" rowLabel="브랜드" />
                     </section>
 
-                    {/* Section 3: 브랜드별 이슈 조치내용 */}
+                    {/* Section 3: 이슈 유형 × 조치 내용 */}
                     <section>
                         <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 브랜드별 이슈 조치내용
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">브랜드별 사고에 어떤 조치가 이뤄졌나</span>
+                            <span className="w-1 h-3.5 bg-letusOrange rounded-full" /> 이슈 유형 × 조치 내용
+                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">어떤 사고에 어떤 조치가 이뤄졌나</span>
                         </h4>
-                        <PivotTable pivot={pivotBrandAction} accent="#f97316" rowLabel="브랜드" />
+                        <PivotTable pivot={pivotIssueAction} accent="#f97316" rowLabel="이슈 유형" />
+                        <BrandDetailTable items={items} />
                     </section>
 
                     {/* Section 4: 이슈별 귀책부서 */}
