@@ -86,6 +86,7 @@ export const MobileIssueRegister = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const [duplicateCheck, setDuplicateCheck] = useState(null); // { count, items } — 당일 중복 건
 
     const handlePhotoCapture = (e) => {
         const files = Array.from(e.target.files);
@@ -247,9 +248,7 @@ export const MobileIssueRegister = () => {
         }
     };
 
-    const handleSubmit = async () => {
-        if (!brand) return alert('브랜드를 선택해주세요.');
-        if (!issueType) return alert('이슈 유형을 선택해주세요.');
+    const doSubmit = async () => {
         setIsSubmitting(true);
         try {
             const [photoPayload, photoHqPayload] = await Promise.all([
@@ -270,6 +269,29 @@ export const MobileIssueRegister = () => {
         }
     };
 
+    const handleSubmit = async () => {
+        if (!brand) return alert('브랜드를 선택해주세요.');
+        if (!issueType) return alert('이슈 유형을 선택해주세요.');
+
+        // 당일 중복 체크 (product_code 있을 때만)
+        if (productCode.trim()) {
+            const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const { data } = await supabase
+                .from('logistics_issues')
+                .select('issue_type, reporter, created_at')
+                .eq('product_code', productCode.trim())
+                .gte('created_at', todayKST)
+                .lte('created_at', todayKST + 'T23:59:59');
+
+            if (data?.length > 0) {
+                setDuplicateCheck({ count: data.length, items: data });
+                return; // 팝업 표시 후 중단
+            }
+        }
+
+        await doSubmit();
+    };
+
     // 등록 완료 화면
     if (submitted) {
         return (
@@ -284,7 +306,7 @@ export const MobileIssueRegister = () => {
                 <button
                     onClick={() => {
                         setBrand(''); setIssueType(''); setProductCode(''); setVendor(''); setDetail('');
-                        setPhotos([]); setAiResult(null); setSimilarCodes(null); setSubmitted(false);
+                        setPhotos([]); setAiResult(null); setSubmitted(false); setDuplicateCheck(null);
                     }}
                     className="bg-letusOrange hover:bg-orange-500 active:bg-orange-600 text-white font-bold text-base px-8 py-4 rounded-xl shadow-md active:scale-95 transition-all"
                 >
@@ -546,6 +568,64 @@ export const MobileIssueRegister = () => {
                     </div>
                 </section>
             </div>
+
+            {/* 당일 중복 팝업 */}
+            {duplicateCheck && (
+                <>
+                    <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setDuplicateCheck(null)} />
+                    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl">
+                        <div className="flex justify-center pt-3 pb-1">
+                            <div className="w-10 h-1 rounded-full bg-slate-200" />
+                        </div>
+                        <div className="px-5 pt-2 pb-10 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl">⚠️</span>
+                                <div>
+                                    <p className="text-slate-800 font-black text-base leading-tight">당일 중복 등록 감지</p>
+                                    <p className="text-slate-400 text-xs mt-0.5">오늘 동일 품목코드로 <span className="font-bold text-letusOrange">{duplicateCheck.count}건</span>이 이미 등록되어 있습니다.</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+                                <div className="px-3 py-2 border-b border-amber-200">
+                                    <p className="text-xs font-bold text-amber-700">품목코드: <span className="font-mono">{productCode}</span></p>
+                                </div>
+                                <div className="divide-y divide-amber-100">
+                                    {duplicateCheck.items.map((item, idx) => {
+                                        const d = new Date(item.created_at);
+                                        const pad = n => String(n).padStart(2, '0');
+                                        const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                                        return (
+                                            <div key={idx} className="px-3 py-2 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-slate-700">{item.issue_type}</span>
+                                                    <span className="text-[11px] text-slate-400">{item.reporter}</span>
+                                                </div>
+                                                <span className="text-[11px] text-slate-400 font-mono">{timeStr}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2.5">
+                                <button
+                                    onClick={() => setDuplicateCheck(null)}
+                                    className="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm active:bg-slate-200 transition-colors"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={() => { setDuplicateCheck(null); doSubmit(); }}
+                                    className="flex-[2] py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors"
+                                >
+                                    그래도 등록
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* 하단 고정 등록 버튼 */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white/95 to-transparent pt-8">
