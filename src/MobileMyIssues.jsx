@@ -35,7 +35,8 @@ const daysAgo = (n) => {
 };
 
 
-const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, userProfile }) => {
+const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, onDelete, userProfile }) => {
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     if (!issue) return null;
     const canEdit = issue.status === '조치대기' && issue.reporter === userProfile?.name;
     return (
@@ -159,13 +160,44 @@ const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, userProfile }) =>
                     )}
 
                     {canEdit && (
-                        <button
-                            onClick={() => onEdit?.(issue)}
-                            className="w-full py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <span>✏️</span>
-                            수정하기
-                        </button>
+                        <>
+                            <button
+                                onClick={() => onEdit?.(issue)}
+                                className="w-full py-3.5 rounded-xl bg-letusOrange text-white font-bold text-sm active:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <span>✏️</span>
+                                수정하기
+                            </button>
+
+                            {!showDeleteConfirm ? (
+                                <button
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="w-full py-3.5 rounded-xl bg-red-50 text-red-500 border border-red-200 font-bold text-sm active:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span>🗑️</span>
+                                    삭제하기
+                                </button>
+                            ) : (
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                    <p className="text-red-700 font-bold text-sm text-center mb-1">이 특이사항을 삭제할까요?</p>
+                                    <p className="text-red-400 text-xs text-center mb-3">삭제 후 복구할 수 없습니다.</p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setShowDeleteConfirm(false)}
+                                            className="flex-1 py-3 rounded-xl bg-white border border-red-200 text-red-400 font-bold text-sm active:bg-red-50"
+                                        >
+                                            취소
+                                        </button>
+                                        <button
+                                            onClick={() => onDelete?.(issue)}
+                                            className="flex-[2] py-3 rounded-xl bg-red-500 text-white font-bold text-sm active:bg-red-600"
+                                        >
+                                            삭제 확인
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                     <button
                         onClick={onClose}
@@ -529,6 +561,21 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
         fetchIssues(range);
     };
 
+    const handleDelete = async (issue) => {
+        try {
+            const { error } = await supabase
+                .from('logistics_issues')
+                .delete()
+                .eq('id', issue.id)
+                .eq('reporter', userProfile.name); // 이중 검증: 본인 작성만
+            if (error) throw error;
+            setSelectedIssue(null);
+            fetchIssues();
+        } catch (err) {
+            alert('삭제 중 오류가 발생했습니다: ' + (err.message || ''));
+        }
+    };
+
     const filteredIssues = activeTab === '전체'
         ? issues
         : issues.filter(i => i.status === activeTab);
@@ -700,6 +747,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                 onClose={() => setSelectedIssue(null)}
                 onRespond={(issue) => setRespondingIssue(issue)}
                 onEdit={(issue) => setEditingIssue(issue)}
+                onDelete={handleDelete}
                 userProfile={userProfile}
             />
             {respondingIssue && (
