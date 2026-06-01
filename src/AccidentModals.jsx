@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
+import html2canvas from 'html2canvas';
 import { supabase, invokeFunction } from './supabaseClient.js';
 import { CloseIcon } from './SharedUI.jsx';
 
@@ -828,6 +829,68 @@ const BrandDetailTable = ({ items }) => {
 // 4. 사고 현황 분석 보고서 모달
 export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
 
+    const reportRef = useRef(null);
+    const [isCopying, setIsCopying] = useState(false);
+    const [copyDone, setCopyDone] = useState(false);
+
+    const handleCopyAsImage = async () => {
+        const el = reportRef.current;
+        if (!el) return;
+        setIsCopying(true);
+        try {
+            // overflow 제한 임시 해제 → 전체 콘텐츠 캡처
+            el.style.maxHeight = 'none';
+            el.style.overflow = 'visible';
+            const bodyEl = document.getElementById('accident-report-body');
+            if (bodyEl) {
+                bodyEl.style.maxHeight = 'none';
+                bodyEl.style.overflow = 'visible';
+                bodyEl.style.flex = 'none';
+            }
+
+            const canvas = await html2canvas(el, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+            });
+
+            // 스타일 복원
+            el.style.maxHeight = '';
+            el.style.overflow = '';
+            if (bodyEl) {
+                bodyEl.style.maxHeight = '';
+                bodyEl.style.overflow = '';
+                bodyEl.style.flex = '';
+            }
+
+            // 클립보드 복사 시도, 실패 시 PNG 다운로드 fallback
+            canvas.toBlob(async (blob) => {
+                try {
+                    await navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': blob })
+                    ]);
+                    setCopyDone(true);
+                    setTimeout(() => setCopyDone(false), 2500);
+                } catch {
+                    const link = document.createElement('a');
+                    link.download = '사고현황보고서.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                }
+            });
+        } catch (err) {
+            console.error('이미지 복사 실패:', err);
+            alert('이미지 복사에 실패했습니다.');
+            // 스타일 복원 (에러 시에도)
+            if (el) { el.style.maxHeight = ''; el.style.overflow = ''; }
+            const bodyEl = document.getElementById('accident-report-body');
+            if (bodyEl) { bodyEl.style.maxHeight = ''; bodyEl.style.overflow = ''; bodyEl.style.flex = ''; }
+        } finally {
+            setIsCopying(false);
+        }
+    };
+
     const total = items.length;
     const pending  = items.filter(i => i.status === '원인 파악 중').length;
     const delayed  = items.filter(i => i.is_delayed === '재일정(지연)').length;
@@ -955,7 +1018,7 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
     return ReactDOM.createPortal(
         <div id="accident-report-overlay" className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div id="accident-report-print"
+            <div id="accident-report-print" ref={reportRef}
                 className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 slide-up">
 
                 {/* 헤더 */}
@@ -1071,6 +1134,35 @@ export const AccidentReportModal = ({ items, startDate, endDate, onClose }) => {
                         <button onClick={onClose}
                             className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm transition-colors">
                             닫기
+                        </button>
+                        <button onClick={handleCopyAsImage} disabled={isCopying}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors border
+                                ${copyDone
+                                    ? 'bg-green-50 border-green-300 text-green-700'
+                                    : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                                } disabled:opacity-60 disabled:cursor-not-allowed`}>
+                            {copyDone ? (
+                                <>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    복사됨!
+                                </>
+                            ) : isCopying ? (
+                                <>
+                                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    처리 중...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    이미지 복사
+                                </>
+                            )}
                         </button>
                         <button onClick={() => window.print()}
                             className="px-5 py-1.5 bg-letusBlue text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5">
