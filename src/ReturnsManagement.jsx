@@ -403,7 +403,7 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
         incident_date: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0],
         incident_center: isAdmin ? '' : (userProfile?.workplace || ''),
         writer: userProfile?.name || '',
-        brand: '', item_code: '', color: '', quantity: '',
+        brand: '', item_code: '', color: '', quantity: '', note: '',
     });
     const [isSaving, setIsSaving]         = useState(false);
     const [isLooking, setIsLooking]       = useState(false);
@@ -496,6 +496,18 @@ const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
                     <div><label className={lbl}>브랜드</label><input type="text" value={form.brand} onChange={e => set('brand', e.target.value)} className={inp} /></div>
                     <div><label className={lbl}>색상</label><input type="text" value={form.color} onChange={e => set('color', e.target.value)} className={inp} /></div>
                     <div className="col-span-2"><label className={lbl}>수량 <span className="text-[10px] text-gray-400">(숫자만)</span></label><input type="number" value={form.quantity} onChange={e => set('quantity', e.target.value)} className={inp} /></div>
+                    {form.type === '선출고' && (
+                        <div className="col-span-2">
+                            <label className={lbl}>사유</label>
+                            <textarea
+                                value={form.note}
+                                onChange={e => set('note', e.target.value)}
+                                placeholder="선출고 발생 사유를 입력해 주세요"
+                                rows={3}
+                                className="w-full border border-gray-200 rounded-[3px] text-xs px-2.5 py-2 focus:outline-none focus:border-letusBlue text-gray-700 resize-none"
+                            />
+                        </div>
+                    )}
                 </div>
                 <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
                     <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold rounded-[3px] hover:bg-gray-100">취소</button>
