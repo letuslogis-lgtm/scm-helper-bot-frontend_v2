@@ -446,7 +446,51 @@ function subscribeRealtime() {
 }
 
 // ------------------------------------------------------------
-// 7. 메인 + 종료 처리
+// 7. 시작 시 기존 pending 런 처리 (worker 중단 중 쌓인 건 소진)
+// ------------------------------------------------------------
+async function drainPendingRuns() {
+    const { data, error: fetchErr } = await supabase
+        .from('rpa_runs')
+        .select('id, definition_id, triggered_by, params')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+
+    if (fetchErr) {
+        warn('drainPendingRuns: 조회 실패 —', fetchErr.message);
+        return;
+    }
+    if (!data || data.length === 0) {
+        log('drainPendingRuns: 미처리 pending 없음');
+        return;
+    }
+
+    log(`drainPendingRuns: ${data.length}건 pending 감지 — 순차 실행`);
+    for (const run of data) {
+        const { data: job } = await supabase
+            .from('rpa_jobs')
+            .select('*')
+            .eq('id', run.definition_id)
+            .single();
+
+        if (!job) {
+            warn(`drainPendingRuns: job ${run.definition_id} 없음 — run ${run.id} 스킵`);
+            continue;
+        }
+        if (job.runner_type !== 'local') {
+            log(`drainPendingRuns: run ${run.id} — runner_type='${job.runner_type}' 스킵`);
+            continue;
+        }
+
+        await executeJob(job, {
+            runId: run.id,
+            triggeredBy: run.triggered_by || 'manual',
+            runParams: run.params || {},
+        });
+    }
+}
+
+// ------------------------------------------------------------
+// 8. 메인 + 종료 처리
 // ------------------------------------------------------------
 async function main() {
     log('===== LetusLogis Local RPA Worker START =====');
@@ -455,6 +499,7 @@ async function main() {
 
     await loadAllJobs();
     subscribeRealtime();
+    await drainPendingRuns();
 
     // WMS 결품 미확인 30분 주기 체크
     cron.schedule('*/30 * * * *', () => {
