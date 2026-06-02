@@ -167,6 +167,7 @@ const UserAddModal = ({ onClose, onReload }) => {
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[11px] font-bold text-gray-700">권한 그룹</label>
                                     <select value={group} onChange={(e) => setGroup(e.target.value)} className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-[11px] focus:outline-none focus:border-letusBlue transition-all bg-white text-gray-800 font-medium cursor-pointer">
+                                        <option value="최고관리자">최고관리자</option>
                                         <option value="관리자">관리자</option>
                                         <option value="사용자">사용자</option>
                                     </select>
@@ -188,9 +189,9 @@ const UserAddModal = ({ onClose, onReload }) => {
                             <button
                                 type="button"
                                 onClick={() => setMenuModalOpen(true)}
-                                disabled={group === '관리자'}
-                                className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-[9px] rounded-[3px] border transition-colors ${group === '관리자' ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer'}`}
-                                title={group === '관리자' ? "관리자는 모든 메뉴에 접근 가능합니다." : "사용자가 볼 수 있는 메뉴를 설정합니다."}
+                                disabled={group?.includes('관리자')}
+                                className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-[9px] rounded-[3px] border transition-colors ${group?.includes('관리자') ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer'}`}
+                                title={group?.includes('관리자') ? "관리자는 모든 메뉴에 접근 가능합니다." : "사용자가 볼 수 있는 메뉴를 설정합니다."}
                             >
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                                 메뉴 권한 설정

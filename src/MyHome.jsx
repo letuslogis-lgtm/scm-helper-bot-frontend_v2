@@ -64,14 +64,14 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                 const myVendors = userProfile.managed_vendors ? userProfile.managed_vendors.split(',').map(s => s.trim()) : [];
 
                 let issueQuery = supabase.from('logistics_issues').select('id', { count: 'exact' }).in('status', ['조치대기', '이관 중', '처리 중', '이관부서 확인']);
-                if (userProfile.role !== '관리자') {
+                if (!userProfile.role?.includes('관리자')) {
                     if (myBrands.length > 0 && !myBrands.includes('전체')) issueQuery = issueQuery.in('brand', myBrands);
                     if (myVendors.length > 0) issueQuery = issueQuery.in('vendor', myVendors);
                 }
                 const { count: issueCount } = await issueQuery;
 
                 let accQuery = supabase.from('logistics_accidents').select('id', { count: 'exact' }).eq('status', '원인 파악 중');
-                if (userProfile.role !== '관리자' && userProfile.team) accQuery = accQuery.eq('responsible_dept', userProfile.team);
+                if (!userProfile.role?.includes('관리자') && userProfile.team) accQuery = accQuery.eq('responsible_dept', userProfile.team);
                 const { count: accCount } = await accQuery;
 
                 const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();

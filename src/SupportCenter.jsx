@@ -7,7 +7,7 @@ import { CloseIcon, ImageSlider, formatDateTime } from './SharedUI.jsx';
 
 // 🛠️ 고객지원 전용 모달들
 const SuggestionModal = ({ item, onClose, onReload, userProfile }) => {
- const isAdmin = userProfile?.role === '관리자';
+ const isAdmin = userProfile?.role?.includes('관리자');
  const isAuthor = userProfile?.name === item.user_name;
  const [answer, setAnswer] = useState(item.answer || '');
  const [status, setStatus] = useState(item.status || '대기중');
@@ -791,7 +791,7 @@ const SupportCenter = ({ userProfile }) => {
  const { data: faqData } = await supabase.from('faqs').select('*').order('id', { ascending: true });
  if (faqData) setFaqs(faqData);
 
- if (userProfile?.role === '관리자') {
+ if (userProfile?.role?.includes('관리자')) {
  const { data: sugData } = await supabase.from('suggestions').select('*').order('created_at', { ascending: false });
  if (sugData) setSuggestions(sugData);
  }
@@ -853,7 +853,7 @@ const SupportCenter = ({ userProfile }) => {
  <button onClick={() => setActiveTab('suggestion')} className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'suggestion' ? 'border-letusBlue text-letusBlue' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
  시스템 건의사항 접수
  </button>
- {userProfile?.role === '관리자' && (
+ {userProfile?.role?.includes('관리자') && (
  <button onClick={() => setActiveTab('admin')} className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ml-auto flex items-center gap-1 ${activeTab === 'admin' ? 'border-orange-500 text-orange-600' : 'border-transparent text-orange-400 hover:text-orange-600'}`}>
  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
  관리자 전용
@@ -959,7 +959,7 @@ const SupportCenter = ({ userProfile }) => {
  </div>
  )}
 
- {activeTab === 'admin' && userProfile?.role === '관리자' && (
+ {activeTab === 'admin' && userProfile?.role?.includes('관리자') && (
  <div className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden animate-fade-in">
  <div className="bg-orange-50 px-5 py-4 border-b border-orange-100 font-bold text-sm text-orange-700 flex justify-between items-center">
  <span>접수된 전체 건의사항 내역</span>

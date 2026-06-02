@@ -264,7 +264,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     };
 
     const handleDeleteSelected = async () => {
-        if (userProfile?.role !== '관리자') return alert('🚨 삭제 권한이 없습니다. 관리자에게 문의하세요.');
+        if (!userProfile?.role?.includes('관리자')) return alert('🚨 삭제 권한이 없습니다. 관리자에게 문의하세요.');
         if (selectedIds.length === 0) return alert('삭제할 항목을 체크해 주세요.');
         if (!window.confirm(`선택하신 ${selectedIds.length}건의 데이터를 정말 삭제하시겠습니까?\n이 작업은 영구적이며 복구할 수 없습니다.`)) return;
         try {

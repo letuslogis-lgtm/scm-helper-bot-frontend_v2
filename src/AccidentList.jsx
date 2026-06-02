@@ -410,7 +410,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
 
     // 🔥 신규 추가: 일괄 삭제 기능 (청크 처리 완료)
     const handleDeleteSelected = async () => {
-        if (userProfile?.role !== '관리자') return alert('🚨 삭제 권한이 없습니다. 관리자에게 문의하세요.');
+        if (!userProfile?.role?.includes('관리자')) return alert('🚨 삭제 권한이 없습니다. 관리자에게 문의하세요.');
         if (selectedIds.length === 0) return alert('삭제할 항목을 체크해 주세요.');
 
         if (!window.confirm(`선택하신 ${selectedIds.length}건의 데이터를 정말 삭제하시겠습니까?\n이 작업은 영구적이며 복구할 수 없습니다.`)) return;
@@ -890,7 +890,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                             </div>
 
                             {/* 🚩 AI 분석 뷰 토글 스위치 (관리자 전용, 가장 우측 배치) */}
-                            {userProfile?.role === '관리자' && (
+                            {userProfile?.role?.includes('관리자') && (
                                 <div className="flex items-center ml-auto pl-4 border-l border-gray-200 shrink-0">
                                     <button
                                         onClick={() => setIsAiView(!isAiView)}
@@ -914,7 +914,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
             {/* 2. 선택실행 (드롭다운) 구역 (사용자 관리 스타일로 통일) */}
             <div className="flex justify-end w-full px-2 z-30 -mt-1 mb-1 shrink-0 gap-3">
 
-                {userProfile?.role === '관리자' && (
+                {userProfile?.role?.includes('관리자') && (
                     <button onClick={() => setIsUploadModalOpen(true)} className="bg-white border border-green-600 text-green-600 px-4 py-[7px] rounded-[3px] text-[11px] font-bold flex items-center cursor-pointer hover:bg-green-50 transition-colors shadow-sm h-[32px]">
                         <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M21.17 3.25q.33 0 .59.25q.24.26.24.59v15.82q0 .33-.24.59q-.26.25-.59.25H2.83q-.33 0-.59-.25q-.24-.26-.24-.59V4.09q0-.33.24-.59q.26-.25.59-.25h18.34zm-8.25 10.9l3.52 4.67h2.7l-4.9-6.07 4.65-5.94h-2.65l-3.23 4.48-3.32-4.48H7.07l4.76 5.94-5 6.07h2.72l3.37-4.67z" /></svg> 데이터 통합 업로드 (Excel)
                     </button>
@@ -995,7 +995,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                 </button>
 
-                                {userProfile?.role === '관리자' && (
+                                {userProfile?.role?.includes('관리자') && (
                                     <>
                                         <div className="h-px bg-gray-100 my-1"></div>
                                         <button

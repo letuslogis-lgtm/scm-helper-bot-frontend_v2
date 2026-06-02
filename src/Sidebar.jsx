@@ -69,7 +69,7 @@ const Sidebar = ({ page, setPage, userProfile, isSidebarOpen, setIsSidebarOpen, 
 
                 {/* 🌟 MENU_DATA 대신 ALL_MENUS 사용 */}
                 {(activeTab === 'all' || !isSidebarOpen) && ALL_MENUS.map((menu) => {
-                    const isAdmin = userProfile?.role === '관리자';
+                    const isAdmin = userProfile?.role?.includes('관리자');
                     const userMenus = userProfile?.accessible_menus ? userProfile.accessible_menus.split(',') : [];
 
                     // 권한 있는 소메뉴만 필터링

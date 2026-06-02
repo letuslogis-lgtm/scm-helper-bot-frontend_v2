@@ -55,7 +55,7 @@ const StepIndicator = ({ row }) => {
 
 // ── 상세 / 편집 모달 ─────────────────────────────────────────────────────────
 const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }) => {
-    const isAdmin     = userProfile?.role === '관리자';
+    const isAdmin     = userProfile?.role?.includes('관리자');
     const myWorkplace = userProfile?.workplace;
     const myName      = userProfile?.name || '';
 
@@ -234,7 +234,7 @@ const ReturnDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }
 
 // ── 선출고 상세 / 편집 모달 ──────────────────────────────────────────────────
 const PreDeliveryDetailModal = ({ row, onClose, onSaved, workplaceList, userProfile }) => {
-    const isAdmin     = userProfile?.role === '관리자';
+    const isAdmin     = userProfile?.role?.includes('관리자');
     const myWorkplace = userProfile?.workplace;
     const myName      = userProfile?.name || '';
 
@@ -397,7 +397,7 @@ const PreDeliveryDetailModal = ({ row, onClose, onSaved, workplaceList, userProf
 
 // ── 신규 등록 모달 ──────────────────────────────────────────────────────────
 const AddReturnModal = ({ onClose, onSave, workplaceList, userProfile }) => {
-    const isAdmin = userProfile?.role === '관리자';
+    const isAdmin = userProfile?.role?.includes('관리자');
     const [form, setForm] = useState({
         type: '잔여품',
         incident_date: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -685,7 +685,7 @@ const ReturnsManagement = ({ userProfile }) => {
     const [appliedFilters, setAppliedFilters] = useState(initialFilters);
     const [searchTrigger, setSearchTrigger]   = useState(0);
 
-    const isAdmin = userProfile?.role === '관리자';
+    const isAdmin = userProfile?.role?.includes('관리자');
 
     useEffect(() => { fetchWorkplaces(); }, []);
     useEffect(() => { fetchData(); }, [appliedFilters, searchTrigger]);

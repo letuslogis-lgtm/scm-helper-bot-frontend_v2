@@ -177,7 +177,7 @@ const UserManagement = () => {
             case 'role':
                 return (
                     <td key={origIdx} className="p-4" style={{ width: colWidths[origIdx] }}>
-                        <span className={`px-2.5 py-1 rounded-[4px] font-bold text-[11px] ${user.role === '관리자' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'bg-slate-100 text-slate-600'}`}>
+                        <span className={`px-2.5 py-1 rounded-[4px] font-bold text-[11px] ${user.role === '최고관리자' ? 'bg-purple-50 text-purple-700 border border-purple-200' : user.role === '관리자' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'bg-slate-100 text-slate-600'}`}>
                             {user.role}
                         </span>
                     </td>
@@ -315,6 +315,7 @@ const UserManagement = () => {
                         <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">권한 그룹</label>
                         <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="border border-gray-200 rounded-[3px] text-xs px-2.5 h-[30px] focus:outline-none focus:border-letusOrange w-24 cursor-pointer text-gray-700">
                             <option value="">전체</option>
+                            <option value="최고관리자">최고관리자</option>
                             <option value="관리자">관리자</option>
                             <option value="사용자">사용자</option>
                         </select>

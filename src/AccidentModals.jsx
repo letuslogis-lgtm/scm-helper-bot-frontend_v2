@@ -12,7 +12,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
     const initDetail = match ? match[2] : initialCause;
 
     // 🔥 권한 체크 (사용자인지 여부 확인)
-    const isUser = userProfile?.role !== '관리자';
+    const isUser = !userProfile?.role?.includes('관리자');
 
     const [causeType, setCauseType] = useState(initType);
     const [causeDetail, setCauseDetail] = useState(initDetail);
@@ -268,7 +268,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
                         </div>
 
                         {/* 하단: 관리자 전용 구역 */}
-                        {userProfile?.role === '관리자' && (
+                        {userProfile?.role?.includes('관리자') && (
                             <div className="pt-5 border-t border-slate-200 slide-up">
                                 {/* 헤더 + AI 분류 버튼 */}
                                 <div className="flex items-center justify-between mb-3">
@@ -407,7 +407,7 @@ export const AccidentModal = ({ row, onClose, onReload, userProfile }) => {
 
 // 2. 사고 데이터 일괄 수정 모달
 export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProfile }) => {
-    const isUser = userProfile?.role !== '관리자';
+    const isUser = !userProfile?.role?.includes('관리자');
 
     const [causeType, setCauseType] = useState('');
     const [causeDetail, setCauseDetail] = useState('');
@@ -511,7 +511,7 @@ export const AccidentBulkEditModal = ({ selectedIds, onClose, onReload, userProf
                         </div>
 
                         {/* 하단: 관리자 전용 구역 */}
-                        {userProfile?.role === '관리자' && (
+                        {userProfile?.role?.includes('관리자') && (
                             <div className="pt-5 border-t border-slate-200 slide-up">
                                 <h5 className="text-[12px] font-black text-letusOrange mb-3 flex items-center gap-1.5">
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>

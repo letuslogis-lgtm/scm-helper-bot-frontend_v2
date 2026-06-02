@@ -443,7 +443,7 @@ const NoticeModal = ({ item, onClose, isAdmin, userProfile, onEdit, onDelete }) 
 };
 
 export const NoticeBoard = ({ userProfile }) => {
-    const isAdmin = userProfile?.role === '관리자';
+    const isAdmin = userProfile?.role?.includes('관리자');
     const [notices, setNotices] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [activeNotice, setActiveNotice] = useState(null);

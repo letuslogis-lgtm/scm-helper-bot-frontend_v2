@@ -174,7 +174,7 @@ const ProtectedMobileRoute = () => {
     const [returnsNotiCount, setReturnsNotiCount] = React.useState(0);
     const [adminPendingCount, setAdminPendingCount] = React.useState(0);
 
-    const isAdmin = userProfile?.role === '관리자';
+    const isAdmin = userProfile?.role?.includes('관리자');
 
     // 관리자: 미처리(조치대기) 건수 실시간 추적
     React.useEffect(() => {

@@ -1107,7 +1107,7 @@ const ActionModal = ({ aggRow, rawRows, userProfile, onClose, onSaved }) => {
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────
 export const WmsShortageList = ({ userProfile }) => {
-    const isAdmin = userProfile?.role === '관리자';
+    const isAdmin = userProfile?.role?.includes('관리자');
 
     const [rows, setRows]                   = useState([]);
     const [isLoading, setIsLoading]         = useState(false);
