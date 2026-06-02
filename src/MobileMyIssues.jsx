@@ -800,6 +800,19 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                                 <p className="text-slate-700 text-sm leading-snug line-clamp-2">
                                     {issue.request_content || '(내용 없음)'}
                                 </p>
+                                {/* 피드백 요청 배지: 조치완료 + is_notified + 미응답 */}
+                                {issue.status === '조치완료' && issue.is_notified && !issue.worker_responded_at && (
+                                    <div className="mt-2 flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5">
+                                        <span className="text-sm">📤</span>
+                                        <span className="text-xs font-bold text-green-700">조치 결과 전달 요청</span>
+                                    </div>
+                                )}
+                                {issue.status === '조치완료' && issue.worker_responded_at && (
+                                    <div className="mt-2 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                                        <span className="text-sm">✅</span>
+                                        <span className="text-xs font-bold text-slate-500">결과 전달 완료</span>
+                                    </div>
+                                )}
                                 <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
                                     <div className="flex items-center gap-2">
                                         <p className="text-slate-300 text-[11px] font-mono">{issue.reception_no}</p>
