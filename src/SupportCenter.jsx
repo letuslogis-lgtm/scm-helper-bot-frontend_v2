@@ -528,6 +528,11 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  const actionRef = React.useRef(null);
  React.useEffect(() => { autoResize(actionRef.current); }, []);
 
+ // 추가 확인 요청
+ const [additionalReqText, setAdditionalReqText] = useState('');
+ const [showReqInput, setShowReqInput] = useState(false);
+ const [isSendingReq, setIsSendingReq] = useState(false);
+
  // 아코디언: 상태값 기준 기본 열림 결정
  const hasRelay = !!row.relay_content;
  const hasReply = !!row.purchase_response;
@@ -546,6 +551,37 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
    {isOpen && <div className="p-3">{children}</div>}
   </div>
  );
+
+ const handleSendAdditionalRequest = async () => {
+  if (!additionalReqText.trim()) return alert('요청 내용을 입력해주세요.');
+  setIsSendingReq(true);
+  try {
+   const { error } = await supabase.from('logistics_issues').update({
+    additional_request: additionalReqText.trim(),
+    additional_request_at: new Date().toISOString(),
+    additional_feedback: null,
+    additional_feedback_at: null,
+   }).eq('id', row.id);
+   if (error) throw error;
+   // 작업자 푸시 알림 (실패해도 무시)
+   supabase.functions.invoke('send-push-notification', {
+    body: {
+     mode: 'direct',
+     user_name: row.reporter,
+     title: '📋 추가 확인 요청',
+     body: additionalReqText.trim(),
+     url: '/mobile/my-issues',
+    },
+   }).catch(() => {});
+   setShowReqInput(false);
+   setAdditionalReqText('');
+   await onReload();
+  } catch (e) {
+   alert('전송 중 오류가 발생했습니다.');
+  } finally {
+   setIsSendingReq(false);
+  }
+ };
 
  const handleComplete = async () => {
  setIsSaving(true);
@@ -602,6 +638,67 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
    <AccordionSection label="③ 유관부서 회신 내용" isOpen={openS3} onToggle={() => setOpenS3(v => !v)} labelColor="text-purple-600">
     <p className="text-sm text-purple-800">{row.purchase_response}</p>
    </AccordionSection>
+  )}
+
+  {/* 추가 확인 요청 */}
+  {!isDone && (
+   <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
+     <h4 className="text-sm font-bold text-gray-700">🔔 추가 확인 요청</h4>
+     {!showReqInput && !row.additional_request && (
+      <button
+       onClick={() => setShowReqInput(true)}
+       className="text-xs font-bold px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 transition-colors"
+      >
+       요청 작성
+      </button>
+     )}
+    </div>
+    <div className="p-3 space-y-2">
+     {row.additional_request ? (
+      <>
+       <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+        <p className="text-[10px] font-bold text-blue-400 mb-0.5">요청 내용</p>
+        <p className="text-sm text-blue-800">{row.additional_request}</p>
+       </div>
+       {row.additional_feedback ? (
+        <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+         <p className="text-[10px] font-bold text-green-500 mb-0.5">작업자 피드백</p>
+         <p className="text-sm text-green-800">{row.additional_feedback}</p>
+        </div>
+       ) : (
+        <p className="text-xs text-gray-400 text-center py-1">작업자 피드백 대기 중...</p>
+       )}
+      </>
+     ) : showReqInput ? (
+      <div className="flex flex-col gap-2">
+       <textarea
+        value={additionalReqText}
+        onChange={e => setAdditionalReqText(e.target.value)}
+        placeholder="작업자에게 추가로 확인할 내용을 입력하세요."
+        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 min-h-[70px] resize-none"
+       />
+       <div className="flex gap-2 justify-end">
+        <button
+         onClick={() => { setShowReqInput(false); setAdditionalReqText(''); }}
+         className="px-3 py-1.5 border border-gray-300 text-gray-500 text-xs font-bold rounded hover:bg-gray-100 transition-colors"
+        >
+         취소
+        </button>
+        <button
+         onClick={handleSendAdditionalRequest}
+         disabled={isSendingReq || !additionalReqText.trim()}
+         className="px-3 py-1.5 bg-letusBlue text-white text-xs font-bold rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+        >
+         {isSendingReq ? '전송 중...' : '전송'}
+        </button>
+       </div>
+      </div>
+     ) : (
+      <p className="text-xs text-gray-400 text-center py-1">요청이 없습니다.</p>
+     )}
+    </div>
+   </div>
   )}
 
   {/* ④ 이슈 유형 확정 + 조치 내용 입력 */}

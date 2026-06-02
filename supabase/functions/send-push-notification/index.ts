@@ -20,8 +20,42 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500, headers: corsHeaders })
     }
 
-    // Supabase Database Webhook 형식: { type, table, record, old_record }
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
+    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+
     const payload = await req.json()
+
+    // ── Direct push mode: { mode: 'direct', user_name, title, body, url } ──
+    if (payload.mode === 'direct') {
+      const { user_name, title, body: bodyText, url } = payload
+      if (!user_name || !title) {
+        return new Response(JSON.stringify({ error: 'user_name, title 필수' }), { status: 400, headers: corsHeaders })
+      }
+      const { data: subs } = await admin
+        .from('push_subscriptions')
+        .select('endpoint, p256dh, auth')
+        .eq('user_name', user_name)
+      if (!subs || subs.length === 0) {
+        return new Response(JSON.stringify({ ok: true, sent: 0 }), { headers: corsHeaders })
+      }
+      const notifPayload = JSON.stringify({ title, body: bodyText || '', url: url || '/mobile/my-issues' })
+      const results = await Promise.allSettled(
+        subs.map(sub =>
+          webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            notifPayload
+          )
+        )
+      )
+      const sent = results.filter(r => r.status === 'fulfilled').length
+      console.log(`[send-push-notification] direct → ${user_name}: ${sent}/${subs.length}`)
+      return new Response(JSON.stringify({ ok: true, sent }), { headers: corsHeaders })
+    }
+
+    // ── Supabase Database Webhook 형식: { type, table, record, old_record } ──
     const record = payload.record ?? payload
     const oldRecord = payload.old_record ?? {}
 
@@ -36,10 +70,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: true }), { headers: corsHeaders })
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-
     const { data: subs } = await admin
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth')
@@ -48,8 +78,6 @@ Deno.serve(async (req) => {
     if (!subs || subs.length === 0) {
       return new Response(JSON.stringify({ ok: true, sent: 0 }), { headers: corsHeaders })
     }
-
-    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 
     const notificationPayload = JSON.stringify({
       title: '✅ 이슈가 조치완료 되었습니다',

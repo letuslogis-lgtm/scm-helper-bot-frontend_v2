@@ -35,9 +35,32 @@ const daysAgo = (n) => {
 };
 
 
-const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, onDelete, userProfile }) => {
+const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, onDelete, userProfile, onFeedbackSent }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [feedbackText, setFeedbackText] = useState('');
+    const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
     if (!issue) return null;
+
+    const handleSubmitFeedback = async () => {
+        if (!feedbackText.trim()) return alert('피드백 내용을 입력해주세요.');
+        setIsSubmittingFeedback(true);
+        try {
+            const { error } = await supabase.from('logistics_issues').update({
+                additional_feedback: feedbackText.trim(),
+                additional_feedback_at: new Date().toISOString(),
+            }).eq('id', issue.id);
+            if (error) throw error;
+            setShowFeedbackInput(false);
+            setFeedbackText('');
+            onFeedbackSent?.();
+            onClose();
+        } catch (e) {
+            alert('저장 중 오류가 발생했습니다.');
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
+    };
     const canEdit = issue.status === '조치대기' && issue.reporter === userProfile?.name;
     return (
         <>
@@ -156,6 +179,56 @@ const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, onDelete, userPro
                                     조치 결과 전달하기
                                 </button>
                             )}
+                        </>
+                    )}
+
+                    {/* 추가 확인 요청 */}
+                    {issue.additional_request && (
+                        <>
+                            <div className="h-px bg-slate-100" />
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 space-y-2">
+                                <p className="text-[11px] font-bold text-blue-500 uppercase tracking-widest">📋 추가 확인 요청</p>
+                                <p className="text-slate-700 text-sm leading-relaxed">{issue.additional_request}</p>
+                                {issue.additional_feedback ? (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-1">
+                                        <p className="text-[10px] font-bold text-green-500 mb-0.5">내 피드백</p>
+                                        <p className="text-sm text-green-800">{issue.additional_feedback}</p>
+                                    </div>
+                                ) : showFeedbackInput ? (
+                                    <div className="flex flex-col gap-2 pt-1">
+                                        <textarea
+                                            value={feedbackText}
+                                            onChange={e => setFeedbackText(e.target.value)}
+                                            placeholder="담당자에게 전달할 내용을 입력하세요."
+                                            rows={3}
+                                            className="w-full border border-blue-200 rounded-xl px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-400 resize-none bg-white"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => { setShowFeedbackInput(false); setFeedbackText(''); }}
+                                                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-500 font-bold text-sm active:bg-slate-50"
+                                            >
+                                                취소
+                                            </button>
+                                            <button
+                                                onClick={handleSubmitFeedback}
+                                                disabled={isSubmittingFeedback || !feedbackText.trim()}
+                                                className="flex-[2] py-2.5 rounded-xl bg-blue-500 text-white font-bold text-sm active:bg-blue-600 disabled:opacity-50"
+                                            >
+                                                {isSubmittingFeedback ? '전송 중...' : '피드백 전송'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowFeedbackInput(true)}
+                                        className="w-full py-2.5 rounded-xl bg-blue-500 text-white font-bold text-sm active:bg-blue-600 transition-colors flex items-center justify-center gap-2 mt-1"
+                                    >
+                                        <span>💬</span>
+                                        피드백 작성하기
+                                    </button>
+                                )}
+                            </div>
                         </>
                     )}
 
@@ -749,6 +822,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                 onEdit={(issue) => setEditingIssue(issue)}
                 onDelete={handleDelete}
                 userProfile={userProfile}
+                onFeedbackSent={() => { setSelectedIssue(null); fetchIssues(); }}
             />
             {respondingIssue && (
                 <WorkerResponseSheet
