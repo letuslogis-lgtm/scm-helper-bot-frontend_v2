@@ -594,7 +594,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
         try {
             let query = supabase
                 .from('logistics_issues')
-                .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at, is_notified, worker_response, worker_response_photos, worker_responded_at')
+                .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at, is_notified, worker_response, worker_response_photos, worker_responded_at, additional_request, additional_feedback')
                 .order('created_at', { ascending: false })
                 .limit(200);
 
@@ -800,6 +800,19 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                                 <p className="text-slate-700 text-sm leading-snug line-clamp-2">
                                     {issue.request_content || '(내용 없음)'}
                                 </p>
+                                {/* 추가 확인 요청 배지 */}
+                                {issue.additional_request && !issue.additional_feedback && (
+                                    <div className="mt-2 flex items-center gap-1.5 bg-amber-50 border border-amber-300 rounded-lg px-2.5 py-1.5">
+                                        <span className="text-sm">📋</span>
+                                        <span className="text-xs font-bold text-amber-700">추가 확인 요청</span>
+                                    </div>
+                                )}
+                                {issue.additional_request && issue.additional_feedback && (
+                                    <div className="mt-2 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                                        <span className="text-sm">✅</span>
+                                        <span className="text-xs font-bold text-slate-500">추가 확인 완료</span>
+                                    </div>
+                                )}
                                 {/* 피드백 요청 배지: 조치완료 + is_notified + 미응답 */}
                                 {issue.status === '조치완료' && issue.is_notified && !issue.worker_responded_at && (
                                     <div className="mt-2 flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5">
