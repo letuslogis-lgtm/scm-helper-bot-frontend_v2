@@ -590,7 +590,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const fetchIssues = async (range = dateRange) => {
         if (!userProfile?.name) return;
         setIsLoading(true);
-        const isAdmin = userProfile?.role === '관리자';
+        const isAdmin = userProfile?.role === '관리자' || userProfile?.role === '최고관리자';
         try {
             let query = supabase
                 .from('logistics_issues')
@@ -676,7 +676,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                     </button>
                     <div className="flex-1">
                         <p className="text-slate-800 font-black text-base leading-none">입고 특이사항 조회</p>
-                        {userProfile?.role === '관리자' ? (
+                        {(userProfile?.role === '관리자' || userProfile?.role === '최고관리자') ? (
                             <p className="text-slate-400 text-xs mt-0.5">전체 팀 조회</p>
                         ) : userProfile?.team && (
                             <p className="text-slate-400 text-xs mt-0.5">{userProfile.team}</p>
