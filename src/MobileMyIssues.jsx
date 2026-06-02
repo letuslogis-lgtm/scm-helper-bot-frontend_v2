@@ -590,23 +590,28 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
     const fetchIssues = async (range = dateRange) => {
         if (!userProfile?.name) return;
         setIsLoading(true);
+        const isAdmin = userProfile?.role === '관리자';
         try {
-            let reporterNames = [userProfile.name];
-            if (userProfile.team) {
-                const { data: teammates } = await supabase
-                    .from('profiles')
-                    .select('name')
-                    .eq('team', userProfile.team)
-                    .eq('status', '재직');
-                if (teammates?.length) reporterNames = teammates.map(p => p.name);
-            }
-
             let query = supabase
                 .from('logistics_issues')
                 .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at, is_notified, worker_response, worker_response_photos, worker_responded_at')
-                .in('reporter', reporterNames)
                 .order('created_at', { ascending: false })
                 .limit(200);
+
+            if (!isAdmin) {
+                // 작업자: 같은 팀 이슈만 조회
+                let reporterNames = [userProfile.name];
+                if (userProfile.team) {
+                    const { data: teammates } = await supabase
+                        .from('profiles')
+                        .select('name')
+                        .eq('team', userProfile.team)
+                        .eq('status', '재직');
+                    if (teammates?.length) reporterNames = teammates.map(p => p.name);
+                }
+                query = query.in('reporter', reporterNames);
+            }
+            // 관리자: reporter 필터 없음 → 전체 조회
 
             if (range.start) query = query.gte('created_at', range.start);
             if (range.end)   query = query.lte('created_at', range.end + 'T23:59:59');
@@ -671,7 +676,9 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                     </button>
                     <div className="flex-1">
                         <p className="text-slate-800 font-black text-base leading-none">입고 특이사항 조회</p>
-                        {userProfile?.team && (
+                        {userProfile?.role === '관리자' ? (
+                            <p className="text-slate-400 text-xs mt-0.5">전체 팀 조회</p>
+                        ) : userProfile?.team && (
                             <p className="text-slate-400 text-xs mt-0.5">{userProfile.team}</p>
                         )}
                     </div>
