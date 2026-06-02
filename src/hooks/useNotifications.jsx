@@ -53,7 +53,8 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             let message = '';
             const currentStatus = newData.status || '조치대기';
 
-            if (currentStatus === '조치대기' && userProfile?.role?.includes('관리자') && (userBrands.includes('전체') || userBrands.includes(newData.brand))) {
+            // '조치대기'는 INSERT(신규 입고)에서만 처리 — UPDATE 이벤트에서는 skip하여 중복 방지
+            if (currentStatus === '조치대기' && type === '신규 입고' && userProfile?.role?.includes('관리자') && (userBrands.includes('전체') || userBrands.includes(newData.brand))) {
                 shouldAlert = true; message = `[신규] ${newData.brand} 브랜드의 새로운 이슈가 접수되었습니다. (${newData.reception_no})`;
             } else if (currentStatus === '이관 중' && userVendors.includes(newData.vendor)) {
                 shouldAlert = true; message = `[이관] 관리 중인 ${newData.vendor} 업체로 이슈가 이관되었습니다. (${newData.reception_no})`;
@@ -65,7 +66,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
 
             if (shouldAlert) {
                 const nowTime = new Date().getTime();
-                if (window.lastAlertMsg === message && nowTime - (window.lastAlertTime || 0) < 2000) return;
+                if (window.lastAlertMsg === message && nowTime - (window.lastAlertTime || 0) < 5000) return;
                 window.lastAlertMsg = message;
                 window.lastAlertTime = nowTime;
 
