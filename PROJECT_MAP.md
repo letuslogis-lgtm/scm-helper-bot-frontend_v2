@@ -101,7 +101,9 @@ LetusLogis/
 ├── rpa/                        # Python RPA 자동화
 │   ├── main_runner.py           # GitHub Actions용 실행자 (스크립트 다운로드 → 격리 실행 → 로그 수집)
 │   ├── wms_extract.py           # WMS CUT리스트 자동 추출 (5개 센터, Playwright)
-│   ├── erp_scraper_v2.py        # ERP 데이터 추출
+│   ├── wms_picking.py           # WMS PALLET HISTORY 추출 → logistics_accidents zone/shift/worker 보완
+│   ├── wms_stock_report.py      # WMS 재고보유현황 수집 → wms_stock_snapshots upsert (Playwright 로그인 + requests API)
+│   ├── erp_scraper_v2.py        # ERP 상차이슈 추출 → logistics_accidents INSERT
 │   ├── fursys_auth.json         # 퍼시스 인증 (Secrets)
 │   ├── fursys_login.json        # 로그인 정보 (Secrets)
 │   └── payload.json             # 봇 실행 파라미터 샘플
@@ -154,6 +156,7 @@ LetusLogis/
 | `logistics_issues` | 입고 특이사항 | status, brand, item_code, reporter, action_content, worker_response, purchase_response |
 | `logistics_returns` | 회수품 / 선출고 | is_recovered, is_completed, writer |
 | `wms_shortage_list` | D-2 결품 | item_code, vendor, shortage_qty, upload_date, upload_id |
+| `wms_stock_snapshots` | 창고별 재고 스냅샷 | snapshot_date, warehouse_id, warehouse_name, company_id, company_name, item_count, stock_qty, stock_amount, anomaly_count, unpriced_count |
 | `products` | 상품 마스터 | item_code, item_color, item_name, vendor, stock, product_type |
 | `vendor_aliases` | Vendor 정규화 | raw_name, canonical_name |
 | `profiles` | 사용자 프로필 | name, role, email |
