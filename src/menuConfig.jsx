@@ -35,6 +35,7 @@ export const ALL_MENUS = [
         children: [
             { id: 'logistics_closing', label: '물류 마감 자동화' },
             { id: 'attendance', label: '근무자 근태 관리' },
+            { id: 'wms_stock', label: '창고별 재고현황' },
         ]
     },
     {
