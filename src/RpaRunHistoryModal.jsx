@@ -47,6 +47,20 @@ export const RpaRunHistoryModal = ({ job, onClose }) => {
         }
     };
 
+    const handleForceStop = async (run) => {
+        if (!window.confirm(`실행 중인 "${job.rpa_name}" 을 강제 종료하시겠습니까?\n(실제 프로세스가 살아있다면 작업관리자에서도 종료해야 합니다.)`)) return;
+        try {
+            await supabase.from('rpa_runs').update({
+                status: 'failed',
+                finished_at: new Date().toISOString(),
+                error_message: '수동 강제 종료',
+            }).eq('id', run.id);
+            await supabase.from('rpa_jobs').update({ status: 'idle' }).eq('id', job.id);
+        } catch (err) {
+            alert('강제 종료 실패: ' + err.message);
+        }
+    };
+
     const toggleExpand = (runId) => {
         setExpandedIds((prev) => {
             const next = new Set(prev);
@@ -140,7 +154,18 @@ export const RpaRunHistoryModal = ({ job, onClose }) => {
                                     return (
                                         <React.Fragment key={run.id}>
                                             <tr className="hover:bg-blue-50/30 transition-colors">
-                                                <td className="p-3 pl-4"><StatusBadge status={run.status} /></td>
+                                                <td className="p-3 pl-4">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <StatusBadge status={run.status} />
+                                                        {run.status === 'running' && (
+                                                            <button
+                                                                onClick={() => handleForceStop(run)}
+                                                                className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-300 text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+                                                                title="강제 종료"
+                                                            >🛑 강제종료</button>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="p-3 font-mono text-[11px] text-gray-600">{formatDateTime(run.started_at || run.created_at)}</td>
                                                 <td className="p-3 text-right font-mono text-[11px] text-gray-500">{getDuration(run)}</td>
                                                 <td className="p-3 text-center text-[10px]">
