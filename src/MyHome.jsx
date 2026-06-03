@@ -261,7 +261,8 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                 description: savedEvent.description, collab_teams: savedEvent.collabTeams,
                 collaborators: savedEvent.collaborators,
                 location: savedEvent.location,
-                is_vacation: savedEvent.is_vacation ?? false
+                is_vacation: savedEvent.is_vacation ?? false,
+                is_personal: savedEvent.is_personal ?? true
             };
 
             if (editingEvent) {

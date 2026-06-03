@@ -25,6 +25,7 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
     const [isVacation, setIsVacation] = useState(eventToEdit?.is_vacation || false);
+    const [isShareToTeam, setIsShareToTeam] = useState(eventToEdit ? !eventToEdit.is_personal : false);
 
     const locationOptions = ['미사용', 'fursys Office', 'iloom office', 'sidiz office', 'letus office', '바로스 회의실', '바로스 관제실'];
 
@@ -74,11 +75,12 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
             title: title.trim(),
             isImportant,
             is_vacation: isVacation,
+            is_personal: !isShareToTeam,
             description: finalDescription,
             collabTeams,
             collaborators: finalCollaboratorsStr,
             location,
-            type: eventType // 🌟 2. 객체에 type 속성 추가!
+            type: eventType
         });
     };
 
@@ -142,10 +144,24 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
                                     🏖️ 휴가
                                 </label>
 
-                                {/* 중간 구분선 (선택사항, 필요 없으면 삭제하세요) */}
+                                {/* 구분선 */}
                                 <div className="w-px h-3 bg-gray-200"></div>
 
-                                {/* 2. 중요 체크박스 */}
+                                {/* 2. 팀 캘린더 공유 체크박스 */}
+                                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-blue-500 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors border border-transparent hover:border-blue-200">
+                                    <input
+                                        type="checkbox"
+                                        checked={isShareToTeam}
+                                        onChange={(e) => setIsShareToTeam(e.target.checked)}
+                                        className="w-3.5 h-3.5 accent-blue-500"
+                                    />
+                                    📅 팀 공유
+                                </label>
+
+                                {/* 구분선 */}
+                                <div className="w-px h-3 bg-gray-200"></div>
+
+                                {/* 3. 중요 체크박스 */}
                                 <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-red-500 hover:bg-red-50 px-2 py-0.5 rounded transition-colors border border-transparent hover:border-red-200">
                                     <input
                                         type="checkbox"

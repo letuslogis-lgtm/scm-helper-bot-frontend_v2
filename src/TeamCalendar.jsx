@@ -41,6 +41,7 @@ export const TeamCalendar = ({ userProfile }) => {
             const { data, error } = await supabase
                 .from('calendar_events')
                 .select('*')
+                .eq('is_personal', false)
                 .gte('start_date', startStr)
                 .lte('start_date', endStr)
                 .order('start_date', { ascending: true });
@@ -164,7 +165,8 @@ setHolidays(new Set((data || []).map(h => String(h.holiday_date).trim())));
             collaborators: eventData.collaborators,
             location: eventData.location,
             is_private: eventData.isPrivate ?? false,
-            is_vacation: eventData.is_vacation ?? false
+            is_vacation: eventData.is_vacation ?? false,
+            is_personal: false
         };
 
         try {
