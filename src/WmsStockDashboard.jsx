@@ -8,6 +8,29 @@ import { supabase } from './supabaseClient.js';
 const WAREHOUSE_ORDER = ['양지1물류센터', '양지2물류센터', '양지3물류센터', '안성물류센터', '평택물류센터'];
 const PIE_COLORS = ['#2563ab', '#38a169', '#d69e2e', '#e53e3e', '#805ad5', '#319795', '#c05621', '#3182ce'];
 
+const CustomBarTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg text-xs">
+            <p className="font-bold text-gray-700 mb-1">{label}</p>
+            <p className="text-letusBlue font-bold">{(payload[0].value ?? 0).toLocaleString('ko-KR')}원</p>
+        </div>
+    );
+};
+
+const CustomPieTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg text-xs">
+            <p className="font-bold text-gray-700">{payload[0].name}</p>
+            <p className="text-letusBlue font-bold">{(payload[0].value ?? 0).toLocaleString('ko-KR')}원</p>
+            {payload[0].percent != null && (
+                <p className="text-gray-400">{(payload[0].percent * 100).toFixed(1)}%</p>
+            )}
+        </div>
+    );
+};
+
 const fmt = (n) => (n ?? 0).toLocaleString('ko-KR');
 const fmtAmt = (n) => {
     if (!n || n === 0) return '0원';
@@ -62,14 +85,15 @@ export function WmsStockDashboard({ userProfile }) {
     // 날짜 목록 로드
     const loadDates = useCallback(async () => {
         const { data, error: err } = await supabase
-            .from('wms_stock_summary')
+            .from('wms_stock_snapshots')
             .select('snapshot_date')
             .order('snapshot_date', { ascending: false })
             .limit(30);
-        if (err) { setError(err.message); return; }
+        if (err) { setError(err.message); setIsLoading(false); return; }
         const dates = [...new Set((data || []).map(r => r.snapshot_date))];
         setAvailableDates(dates);
         if (dates.length > 0) setSelectedDate(dates[0]);
+        else setIsLoading(false);
     }, []);
 
     useEffect(() => { loadDates(); }, [loadDates]);
@@ -80,7 +104,7 @@ export function WmsStockDashboard({ userProfile }) {
         setIsLoading(true);
         setError(null);
         supabase
-            .from('wms_stock_summary')
+            .from('wms_stock_snapshots')
             .select('*')
             .eq('snapshot_date', selectedDate)
             .order('warehouse_name')
@@ -93,7 +117,6 @@ export function WmsStockDashboard({ userProfile }) {
 
     // 요약 카드 계산
     const summary = React.useMemo(() => {
-        const normal = snapshots.filter(r => r.anomaly_count === 0 || r.stock_amount > 0);
         return {
             totalAmt:     snapshots.reduce((s, r) => s + (r.stock_amount || 0), 0),
             totalQty:     snapshots.reduce((s, r) => s + (r.stock_qty || 0), 0),
@@ -187,14 +210,14 @@ export function WmsStockDashboard({ userProfile }) {
         const col = DEFAULT_COLUMNS[origIdx];
         const cls = 'border-b border-gray-100 text-center whitespace-nowrap';
         switch (col.key) {
-            case 'warehouse_name': return <td key={origIdx} className={`${cls} p-3 font-semibold text-letusBlue`}>{row.warehouse_name}</td>;
-            case 'company_id':    return <td key={origIdx} className={`${cls} p-3 text-gray-500`}>{row.company_id}</td>;
-            case 'company_name':  return <td key={origIdx} className={`${cls} p-3 font-medium`}>{row.company_name}</td>;
-            case 'item_count':    return <td key={origIdx} className={`${cls} p-3`}>{fmt(row.item_count)}</td>;
-            case 'stock_qty':     return <td key={origIdx} className={`${cls} p-3`}>{fmt(row.stock_qty)}</td>;
-            case 'stock_amount':  return <td key={origIdx} className={`${cls} p-3 font-bold text-letusBlue`}>{fmt(row.stock_amount)}원</td>;
+            case 'warehouse_name': return <td key={origIdx} className={`${cls} p-4 font-semibold text-letusBlue`}>{row.warehouse_name}</td>;
+            case 'company_id':    return <td key={origIdx} className={`${cls} p-4 text-gray-500`}>{row.company_id}</td>;
+            case 'company_name':  return <td key={origIdx} className={`${cls} p-4 font-medium`}>{row.company_name}</td>;
+            case 'item_count':    return <td key={origIdx} className={`${cls} p-4`}>{fmt(row.item_count)}</td>;
+            case 'stock_qty':     return <td key={origIdx} className={`${cls} p-4`}>{fmt(row.stock_qty)}</td>;
+            case 'stock_amount':  return <td key={origIdx} className={`${cls} p-4 font-bold text-letusBlue`}>{fmt(row.stock_amount)}원</td>;
             case 'anomaly_count': return (
-                <td key={origIdx} className={`${cls} p-3`}>
+                <td key={origIdx} className={`${cls} p-4`}>
                     {row.anomaly_count > 0
                         ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">{row.anomaly_count}건</span>
                         : <span className="text-gray-300">-</span>}
@@ -202,27 +225,6 @@ export function WmsStockDashboard({ userProfile }) {
             );
             default: return <td key={origIdx} className={cls} />;
         }
-    };
-
-    const CustomBarTooltip = ({ active, payload, label }) => {
-        if (!active || !payload?.length) return null;
-        return (
-            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg text-xs">
-                <p className="font-bold text-gray-700 mb-1">{label}</p>
-                <p className="text-letusBlue font-bold">{fmt(payload[0].value)}원</p>
-            </div>
-        );
-    };
-
-    const CustomPieTooltip = ({ active, payload }) => {
-        if (!active || !payload?.length) return null;
-        return (
-            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg text-xs">
-                <p className="font-bold text-gray-700">{payload[0].name}</p>
-                <p className="text-letusBlue font-bold">{fmt(payload[0].value)}원</p>
-                <p className="text-gray-400">{payload[0].payload.percent ? `${(payload[0].payload.percent * 100).toFixed(1)}%` : ''}</p>
-            </div>
-        );
     };
 
     return (
@@ -350,7 +352,7 @@ export function WmsStockDashboard({ userProfile }) {
                                     창고×화주 상세 ({snapshots.length}건)
                                 </h3>
                                 <button onClick={resetColSettings}
-                                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[30px] hover:bg-gray-50 transition-colors"
+                                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
                                     title="컬럼 초기화">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
