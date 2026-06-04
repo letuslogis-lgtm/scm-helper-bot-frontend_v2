@@ -98,9 +98,11 @@ def get_wms_cookies(headless: bool = True) -> dict:
             page.click('button#sendAuthCodeBtn')
             page.wait_for_load_state('networkidle')
 
-            current_url = page.url
-            if 'dashboard' not in current_url and 'v1' not in current_url:
-                raise RuntimeError(f'로그인 실패 - URL: {current_url}')
+            # 로그인 폼이 사라졌는지로 성공 판단 (WMS는 SPA — URL 변경 없음)
+            try:
+                page.wait_for_selector('input[name="loginId"]', state='hidden', timeout=5000)
+            except PWTimeout:
+                raise RuntimeError(f'로그인 실패 - 로그인 폼이 여전히 표시됨 (아이디/비밀번호 확인 필요)')
 
             cookies = {c['name']: c['value'] for c in context.cookies()}
             print(f'    로그인 성공 (쿠키 {len(cookies)}개)')

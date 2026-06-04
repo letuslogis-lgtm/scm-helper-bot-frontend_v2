@@ -281,15 +281,15 @@ export function WmsStockDashboard({ userProfile }) {
                         {/* 요약 카드 */}
                         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
                             {[
-                                { label: '총 재고금액', value: fmtAmt(summary.totalAmt), sub: '공장도가 기준', color: 'border-letusBlue' },
-                                { label: '총 재고수량', value: `${fmt(summary.totalQty)}개`, sub: '이상값 제외', color: 'border-green-500' },
-                                { label: '총 SKU 수', value: `${fmt(summary.totalSkus)}종`, sub: '이상값 제외', color: 'border-indigo-400' },
-                                { label: '관리 창고', value: `${summary.warehouseCnt}개`, sub: '물류센터', color: 'border-gray-400' },
-                                { label: '거래 화주', value: `${summary.companyCnt}개사`, sub: '화주사', color: 'border-gray-400' },
-                                { label: '이상값', value: `${fmt(summary.totalAnomalies)}건`, sub: '수량 10,000↑', color: summary.totalAnomalies > 0 ? 'border-orange-500' : 'border-gray-300' },
-                                { label: '단가 미등록', value: `${fmt(summary.totalUnpriced)}종`, sub: '금액 0원 처리', color: summary.totalUnpriced > 0 ? 'border-yellow-500' : 'border-gray-300' },
+                                { label: '총 재고금액', value: fmtAmt(summary.totalAmt), sub: '공장도가 기준', color: 'border-b-letusBlue' },
+                                { label: '총 재고수량', value: `${fmt(summary.totalQty)}개`, sub: '이상값 제외', color: 'border-b-green-500' },
+                                { label: '총 SKU 수', value: `${fmt(summary.totalSkus)}종`, sub: '이상값 제외', color: 'border-b-indigo-400' },
+                                { label: '관리 창고', value: `${summary.warehouseCnt}개`, sub: '물류센터', color: 'border-b-gray-400' },
+                                { label: '거래 화주', value: `${summary.companyCnt}개사`, sub: '화주사', color: 'border-b-gray-400' },
+                                { label: '이상값', value: `${fmt(summary.totalAnomalies)}건`, sub: '수량 10,000↑', color: summary.totalAnomalies > 0 ? 'border-b-orange-500' : 'border-b-gray-300' },
+                                { label: '단가 미등록', value: `${fmt(summary.totalUnpriced)}종`, sub: '금액 0원 처리', color: summary.totalUnpriced > 0 ? 'border-b-yellow-500' : 'border-b-gray-300' },
                             ].map((card, i) => (
-                                <div key={i} className={`bg-white rounded-xl p-4 shadow-sm border-l-4 ${card.color}`}>
+                                <div key={i} className={`bg-white rounded-xl p-5 shadow-sm border border-slate-200 border-b-4 ${card.color} hover:shadow-md transition-shadow flex flex-col justify-between`}>
                                     <p className="text-xs text-gray-400 mb-1">{card.label}</p>
                                     <p className="text-lg font-bold text-gray-800 leading-tight">{card.value}</p>
                                     <p className="text-xs text-gray-400 mt-1">{card.sub}</p>
@@ -300,11 +300,11 @@ export function WmsStockDashboard({ userProfile }) {
                         {/* 차트 영역 */}
                         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
                             {/* 창고별 막대 차트 */}
-                            <div className="xl:col-span-3 bg-white rounded-xl p-5 shadow-sm">
+                            <div className="xl:col-span-3 bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
                                 <h3 className="text-sm font-bold text-gray-600 mb-4">창고별 재고금액 현황</h3>
                                 <ResponsiveContainer width="100%" height={240}>
                                     <BarChart data={barData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                                         <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 100000000).toFixed(0)}억`} />
                                         <Tooltip content={<CustomBarTooltip />} />
@@ -314,7 +314,7 @@ export function WmsStockDashboard({ userProfile }) {
                             </div>
 
                             {/* 화주별 파이 차트 */}
-                            <div className="xl:col-span-2 bg-white rounded-xl p-5 shadow-sm">
+                            <div className="xl:col-span-2 bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
                                 <h3 className="text-sm font-bold text-gray-600 mb-4">화주별 재고금액 비중</h3>
                                 <ResponsiveContainer width="100%" height={240}>
                                     <PieChart>
@@ -325,7 +325,9 @@ export function WmsStockDashboard({ userProfile }) {
                                             innerRadius={55}
                                             outerRadius={90}
                                             dataKey="value"
-                                            paddingAngle={2}
+                                            paddingAngle={4}
+                                            cornerRadius={8}
+                                            stroke="none"
                                         >
                                             {pieData.map((_, i) => (
                                                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -342,7 +344,7 @@ export function WmsStockDashboard({ userProfile }) {
                         </div>
 
                         {/* 상세 테이블 */}
-                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                                 <h3 className="text-sm font-bold text-gray-600">
                                     창고×화주 상세 ({snapshots.length}건)
@@ -364,7 +366,7 @@ export function WmsStockDashboard({ userProfile }) {
                                                 const col = DEFAULT_COLUMNS[origIdx];
                                                 return (
                                                     <th key={origIdx}
-                                                        className={`relative p-3 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                                        className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                                         style={{ width: colWidths[origIdx] }}
                                                         onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
                                                         onDragOver={(e) => handleDragOver(e, visualIdx)}

@@ -26,7 +26,7 @@ async function checkAndGetInfo(
   console.log('[checkAndGetInfo] 조회 시도 —', JSON.stringify({ code, itemCode, itemColor }))
 
   try {
-    let query = admin.from('products').select('brand_category, brand, vendor, production_line, supplier')
+    let query = admin.from('products').select('brand_category, vendor, production_line')
     if (parts.length > 1) {
       query = query.eq('item_code', itemCode).eq('item_color', itemColor)
     } else {
@@ -42,7 +42,7 @@ async function checkAndGetInfo(
       return { is_valid: false, brand: null, vendor: null }
     }
     const brand = data.brand_category || data.brand || null
-    const vendor = data.vendor || data.production_line || data.supplier || null
+    const vendor = data.vendor || data.production_line || null
     return { is_valid: true, brand, vendor }
   } catch (e) {
     console.error('[checkAndGetInfo] 예외 — code:', code, '/', e)
