@@ -274,6 +274,7 @@ def run(snapshot_date: str, headless: bool = True):
             'warehouse_id':   wid,
             'warehouse_name': wname,
             'company_id':     oid,
+            'brand':          onm,
             'item_code':      item_code,
             'item_name':      item_name,
             'location':       str(r.get('locationId') or ''),

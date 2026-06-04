@@ -341,6 +341,7 @@ def main():
             'warehouse_id':   r.get('_wid', ''),
             'warehouse_name': r.get('_wname', ''),
             'company_id':     r.get('company_id') or '',
+            'brand':          r.get('company_id') or '',
             'item_code':      item_code,
             'item_name':      r.get('item_name') or '',
             'location':       r.get('location') or '',
