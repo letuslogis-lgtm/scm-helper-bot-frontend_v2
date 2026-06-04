@@ -97,6 +97,9 @@ export function WmsStockDashboard({ userProfile }) {
     const [selectedWarehouses, setSelectedWarehouses] = useState([]);
     const [selectedCompanies, setSelectedCompanies]   = useState([]);
 
+    // 창고별 브랜드 상세 아코디언
+    const [openWarehouses, setOpenWarehouses] = useState({});
+
     // 날짜 필터
     const [filterType, setFilterType] = useState('D');
     const getTodayStr = () => {
@@ -264,6 +267,32 @@ export function WmsStockDashboard({ userProfile }) {
             return true;
         });
     }, [snapshots, sortKey, sortAsc, selectedWarehouses, selectedCompanies]);
+
+    // 창고별 집계 (요약 카드 + 브랜드 상세용)
+    const warehouseGroups = React.useMemo(() => {
+        const totalAmt = snapshots.reduce((s, r) => s + (r.stock_amount || 0), 0);
+        const map = {};
+        snapshots.forEach(r => {
+            if (!map[r.warehouse_name]) {
+                map[r.warehouse_name] = { stock_amount: 0, stock_qty: 0, item_count: 0, companyIds: new Set(), brands: [] };
+            }
+            const wh = map[r.warehouse_name];
+            wh.brands.push(r);
+            wh.stock_amount += r.stock_amount || 0;
+            wh.stock_qty    += r.stock_qty    || 0;
+            wh.item_count   += r.item_count   || 0;
+            wh.companyIds.add(r.company_id);
+        });
+        return WAREHOUSE_ORDER.filter(w => map[w]).map(w => ({
+            name:         w,
+            stock_amount: map[w].stock_amount,
+            stock_qty:    map[w].stock_qty,
+            item_count:   map[w].item_count,
+            company_cnt:  map[w].companyIds.size,
+            pct: totalAmt > 0 ? (map[w].stock_amount / totalAmt * 100) : 0,
+            brands: map[w].brands.sort((a, b) => (b.stock_amount || 0) - (a.stock_amount || 0)),
+        }));
+    }, [snapshots]);
 
     const sortedDetail = React.useMemo(() => {
         return [...detailData].sort((a, b) => {
@@ -473,6 +502,43 @@ export function WmsStockDashboard({ userProfile }) {
                             ))}
                         </div>
 
+                        {/* 창고별 요약 카드 */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+                            {warehouseGroups.map(wh => (
+                                <div key={wh.name} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                    <h4 className="text-sm font-bold text-letusBlue mb-3 pb-2 border-b-2 border-blue-100">
+                                        {wh.name.replace('물류센터', '')}
+                                        <span className="text-xs font-normal text-gray-400 ml-1">물류센터</span>
+                                    </h4>
+                                    <div className="space-y-1.5 text-xs">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">재고금액</span>
+                                            <span className="font-bold text-letusBlue">{fmtAmt(wh.stock_amount)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">재고수량</span>
+                                            <span className="font-semibold">{fmt(wh.stock_qty)}개</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">상품수(SKU)</span>
+                                            <span className="font-semibold">{fmt(wh.item_count)}종</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">거래 회사수</span>
+                                            <span className="font-semibold">{wh.company_cnt}개사</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-400">전체 비중</span>
+                                            <span className="font-bold text-gray-700">{wh.pct.toFixed(1)}%</span>
+                                        </div>
+                                    </div>
+                                    <div className="mt-2.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-letusBlue rounded-full transition-all" style={{ width: `${wh.pct}%` }} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
                         {/* 차트 영역 */}
                         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
                             {/* 창고별 막대 차트 */}
@@ -523,6 +589,82 @@ export function WmsStockDashboard({ userProfile }) {
                                         <Legend formatter={(value) => <span className="text-xs text-gray-600">{value}</span>} wrapperStyle={{ fontSize: '11px' }} />
                                     </PieChart>
                                 </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* 창고별 브랜드 상세 아코디언 */}
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-600 mb-3 pb-2 border-b-2 border-gray-200">📊 창고별 브랜드 상세</h2>
+                            <div className="space-y-2">
+                                {warehouseGroups.map(wh => {
+                                    const isOpen = !!openWarehouses[wh.name];
+                                    return (
+                                        <div key={wh.name} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                            {/* 아코디언 헤더 */}
+                                            <div
+                                                className="flex items-center justify-between px-5 py-3.5 cursor-pointer select-none"
+                                                style={{ background: 'linear-gradient(90deg,#1a3a6b,#2d60b5)' }}
+                                                onClick={() => setOpenWarehouses(prev => ({ ...prev, [wh.name]: !prev[wh.name] }))}
+                                            >
+                                                <div className="flex items-center gap-4 flex-wrap">
+                                                    <span className="text-sm font-bold text-white">📦 {wh.name}</span>
+                                                    <div className="flex gap-4 text-xs text-white/90 flex-wrap">
+                                                        <span>재고금액 <span className="font-bold text-sm text-white">{fmtAmt(wh.stock_amount)}</span></span>
+                                                        <span>수량 <span className="font-bold text-white">{fmt(wh.stock_qty)}개</span></span>
+                                                        <span>SKU <span className="font-bold text-white">{fmt(wh.item_count)}종</span></span>
+                                                        <span>브랜드 <span className="font-bold text-white">{wh.company_cnt}개사</span></span>
+                                                    </div>
+                                                </div>
+                                                <span className={`text-white text-xs transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                                            </div>
+                                            {/* 아코디언 바디 */}
+                                            {isOpen && (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-xs whitespace-nowrap">
+                                                        <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold">
+                                                            <tr>
+                                                                <th className="p-3 text-center w-10">#</th>
+                                                                <th className="p-3 text-left">브랜드명</th>
+                                                                <th className="p-3 text-center">회사ID</th>
+                                                                <th className="p-3 text-right">상품수(SKU)</th>
+                                                                <th className="p-3 text-right">재고수량(개)</th>
+                                                                <th className="p-3 text-right">재고금액(원)</th>
+                                                                <th className="p-3 text-center" style={{ minWidth: 160 }}>창고 내 비중</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {wh.brands.map((brand, i) => {
+                                                                const rank = i + 1;
+                                                                const pct  = wh.stock_amount > 0 ? (brand.stock_amount || 0) / wh.stock_amount * 100 : 0;
+                                                                const badgeCls = rank === 1 ? 'bg-[#e6a817]' : rank === 2 ? 'bg-gray-400' : rank === 3 ? 'bg-[#b87333]' : 'bg-letusBlue';
+                                                                return (
+                                                                    <tr key={brand.company_id || i} className="border-b border-gray-100 last:border-0 hover:bg-blue-50/30 transition-colors">
+                                                                        <td className="p-3 text-center">
+                                                                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[10px] font-bold ${badgeCls}`}>{rank}</span>
+                                                                        </td>
+                                                                        <td className="p-3 font-semibold">{brand.brand || brand.company_id || '-'}</td>
+                                                                        <td className="p-3 text-center text-gray-400 font-mono">{brand.company_id}</td>
+                                                                        <td className="p-3 text-right">{fmt(brand.item_count)}</td>
+                                                                        <td className="p-3 text-right">{fmt(brand.stock_qty)}</td>
+                                                                        <td className="p-3 text-right font-semibold text-letusBlue">{fmt(brand.stock_amount)}</td>
+                                                                        <td className="p-3">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden" style={{ minWidth: 80 }}>
+                                                                                    <div className="h-full bg-letusBlue rounded-full" style={{ width: `${pct}%` }} />
+                                                                                </div>
+                                                                                <span className="text-letusBlue font-bold w-10 text-right">{pct.toFixed(1)}%</span>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
