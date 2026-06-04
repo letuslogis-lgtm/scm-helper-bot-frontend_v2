@@ -232,8 +232,8 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
                       .gt('factory_price', 0)
                       .execute())
             for r in (result.data or []):
-                code  = (r.get('item_code') or '').strip()
-                color = (r.get('item_color') or '').strip()
+                code  = (r.get('item_code') or '').strip().upper()
+                color = (r.get('item_color') or '').strip().upper()
                 price = r.get('factory_price')
                 if not code or not price:
                     continue
@@ -332,7 +332,7 @@ def main():
             anomaly_cnt += 1
             continue
 
-        price = price_map.get(item_code, 0)
+        price = price_map.get(item_code.upper(), 0)
         if price <= 0:
             unpriced_cnt += 1
 
