@@ -4,6 +4,7 @@ import {
     PieChart, Pie, Cell
 } from 'recharts';
 import { supabase } from './supabaseClient.js';
+import { DateRangeInput } from './SharedUI.jsx';
 
 const WAREHOUSE_ORDER = ['양지1물류센터', '양지2물류센터', '양지3물류센터', '안성물류센터', '평택물류센터'];
 const PIE_COLORS = ['#2563ab', '#38a169', '#d69e2e', '#e53e3e', '#805ad5', '#319795', '#c05621', '#3182ce'];
@@ -64,6 +65,40 @@ export function WmsStockDashboard({ userProfile }) {
     const [sortAsc, setSortAsc]     = useState(true);
     const [selectedWarehouse, setSelectedWarehouse] = useState(null);
     const [selectedCompany, setSelectedCompany]     = useState(null);
+
+    // 날짜 필터
+    const [filterType, setFilterType] = useState('D'); // 'D' | 'W' | 'M' | 'CUSTOM'
+    const getTodayStr = () => {
+        const d = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+    const [customDate, setCustomDate] = useState({ start: getTodayStr(), end: getTodayStr() });
+
+    const getFilterDates = () => {
+        const now = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        const format = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        if (filterType === 'D') {
+            const today = format(now);
+            return { startDate: today, endDate: today, label: '당일 기준' };
+        } else if (filterType === 'W') {
+            const day = now.getDay();
+            const monday = new Date(now);
+            monday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            return { startDate: format(monday), endDate: format(sunday), label: '이번 주 기준' };
+        } else if (filterType === 'M') {
+            const first = new Date(now.getFullYear(), now.getMonth(), 1);
+            const last  = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            return { startDate: format(first), endDate: format(last), label: '이번 달 기준' };
+        } else {
+            return { startDate: customDate.start, endDate: customDate.end, label: '직접 지정' };
+        }
+    };
+    const { startDate, endDate, label: filterLabel } = getFilterDates();
+
     const resizingRef   = useRef(null);
     const dragSrcRef    = useRef(null);
     const wasDraggedRef = useRef(false);
@@ -90,17 +125,27 @@ export function WmsStockDashboard({ userProfile }) {
             .from('wms_stock_summary')
             .select('snapshot_date')
             .order('snapshot_date', { ascending: false })
-            .limit(30);
+            .limit(90);
         if (err) { setError(err.message); setIsLoading(false); return; }
         const dates = [...new Set((data || []).map(r => r.snapshot_date))];
         setAvailableDates(dates);
-        if (dates.length > 0) setSelectedDate(dates[0]);
-        else setIsLoading(false);
         setSelectedWarehouse(null);
         setSelectedCompany(null);
     }, []);
 
     useEffect(() => { loadDates(); }, [loadDates]);
+
+    // 선택 기간 내 스냅샷 날짜 필터
+    const periodDates = React.useMemo(() =>
+        availableDates.filter(d => d >= startDate && d <= endDate),
+        [availableDates, startDate, endDate]
+    );
+
+    // 기간 변경 시 가장 최근 날짜 자동 선택
+    useEffect(() => {
+        if (periodDates.length > 0) setSelectedDate(periodDates[0]);
+        else { setSelectedDate(''); setSnapshots([]); setIsLoading(false); }
+    }, [periodDates]);
 
     // 선택 날짜 데이터 로드
     useEffect(() => {
@@ -252,50 +297,81 @@ export function WmsStockDashboard({ userProfile }) {
 
             <div className="flex-1 overflow-auto p-6 space-y-5">
                 {/* 날짜 필터 카드 */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 px-5 hover:shadow-md transition-shadow flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-gray-500">기준일</span>
-                        {availableDates.length > 0 && (
-                            <select
-                                value={selectedDate}
-                                onChange={e => { setSelectedDate(e.target.value); setSelectedWarehouse(null); setSelectedCompany(null); }}
-                                className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-letusBlue/30"
-                            >
-                                {availableDates.map(d => (
-                                    <option key={d} value={d}>{d}</option>
-                                ))}
-                            </select>
-                        )}
-                        <button
-                            onClick={() => { loadDates(); setSelectedWarehouse(null); setSelectedCompany(null); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-letusBlue rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            새로고침
-                        </button>
-                    </div>
-                    {(selectedWarehouse || selectedCompany) && (
-                        <div className="flex items-center gap-2">
-                            {selectedWarehouse && (
-                                <span className="flex items-center gap-1 text-xs font-bold bg-letusBlue/10 text-letusBlue px-2.5 py-1 rounded-full">
-                                    {selectedWarehouse}
-                                    <button onClick={() => setSelectedWarehouse(null)} className="hover:text-blue-800 leading-none">×</button>
-                                </span>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 px-5 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between gap-4">
+                        {/* 좌측: 기준일 선택 + 활성 필터 칩 */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-sm font-bold text-gray-700">기준 스냅샷</span>
+                                    <span className="text-xs font-bold text-letusBlue bg-letusBlue/10 px-2 py-0.5 rounded-full">{filterLabel}</span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    조회 기간: {startDate} ~ {endDate}
+                                    {periodDates.length > 0
+                                        ? ` · ${periodDates.length}개 스냅샷`
+                                        : ' · 수집 데이터 없음'}
+                                </p>
+                            </div>
+                            {periodDates.length > 1 && (
+                                <select
+                                    value={selectedDate}
+                                    onChange={e => { setSelectedDate(e.target.value); setSelectedWarehouse(null); setSelectedCompany(null); }}
+                                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-letusBlue/30"
+                                >
+                                    {periodDates.map(d => (
+                                        <option key={d} value={d}>{d}</option>
+                                    ))}
+                                </select>
                             )}
-                            {selectedCompany && (
-                                <span className="flex items-center gap-1 text-xs font-bold bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">
-                                    {selectedCompany}
-                                    <button onClick={() => setSelectedCompany(null)} className="hover:text-indigo-800 leading-none">×</button>
-                                </span>
+                            {(selectedWarehouse || selectedCompany) && (
+                                <div className="flex items-center gap-2">
+                                    {selectedWarehouse && (
+                                        <span className="flex items-center gap-1 text-xs font-bold bg-letusBlue/10 text-letusBlue px-2.5 py-1 rounded-full">
+                                            {selectedWarehouse}
+                                            <button onClick={() => setSelectedWarehouse(null)} className="hover:text-blue-800 leading-none">×</button>
+                                        </span>
+                                    )}
+                                    {selectedCompany && (
+                                        <span className="flex items-center gap-1 text-xs font-bold bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">
+                                            {selectedCompany}
+                                            <button onClick={() => setSelectedCompany(null)} className="hover:text-indigo-800 leading-none">×</button>
+                                        </span>
+                                    )}
+                                    <button onClick={() => { setSelectedWarehouse(null); setSelectedCompany(null); }}
+                                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors">전체 초기화</button>
+                                </div>
                             )}
-                            <button
-                                onClick={() => { setSelectedWarehouse(null); setSelectedCompany(null); }}
-                                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                            >전체 초기화</button>
                         </div>
-                    )}
+                        {/* 우측: 기간 버튼 + 직접지정 날짜 입력 */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            {filterType === 'CUSTOM' && (
+                                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 shadow-sm">
+                                    <DateRangeInput
+                                        startDate={customDate.start}
+                                        endDate={customDate.end}
+                                        onStartChange={v => setCustomDate(prev => ({ ...prev, start: v }))}
+                                        onEndChange={v => setCustomDate(prev => ({ ...prev, end: v }))}
+                                    />
+                                </div>
+                            )}
+                            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                                {[{ id: 'D', name: '당일' }, { id: 'W', name: '주간' }, { id: 'M', name: '월간' }, { id: 'CUSTOM', name: '직접지정' }].map(btn => (
+                                    <button key={btn.id}
+                                        onClick={() => setFilterType(btn.id)}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterType === btn.id ? 'bg-white text-letusBlue shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800'}`}
+                                    >{btn.name}</button>
+                                ))}
+                            </div>
+                            <button onClick={() => { loadDates(); setSelectedWarehouse(null); setSelectedCompany(null); }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-letusBlue rounded-lg hover:bg-blue-700 transition-colors">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                새로고침
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {error && (
