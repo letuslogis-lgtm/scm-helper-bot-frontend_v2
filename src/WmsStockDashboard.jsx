@@ -62,6 +62,8 @@ export function WmsStockDashboard({ userProfile }) {
     const [dragOverIdx, setDragOverIdx] = useState(null);
     const [sortKey, setSortKey]     = useState('warehouse_name');
     const [sortAsc, setSortAsc]     = useState(true);
+    const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+    const [selectedCompany, setSelectedCompany]     = useState(null);
     const resizingRef   = useRef(null);
     const dragSrcRef    = useRef(null);
     const wasDraggedRef = useRef(false);
@@ -94,6 +96,8 @@ export function WmsStockDashboard({ userProfile }) {
         setAvailableDates(dates);
         if (dates.length > 0) setSelectedDate(dates[0]);
         else setIsLoading(false);
+        setSelectedWarehouse(null);
+        setSelectedCompany(null);
     }, []);
 
     useEffect(() => { loadDates(); }, [loadDates]);
@@ -167,13 +171,22 @@ export function WmsStockDashboard({ userProfile }) {
         });
     }, [snapshots, sortKey, sortAsc]);
 
+    // 차트 클릭 필터링
+    const filteredRows = React.useMemo(() => {
+        return sortedRows.filter(row => {
+            if (selectedWarehouse && row.warehouse_name !== selectedWarehouse) return false;
+            if (selectedCompany && (row.company_name || row.company_id) !== selectedCompany) return false;
+            return true;
+        });
+    }, [sortedRows, selectedWarehouse, selectedCompany]);
+
     const requestSort = (key) => {
         if (sortKey === key) setSortAsc(prev => !prev);
         else { setSortKey(key); setSortAsc(true); }
     };
 
     const getSortIcon = (key) => {
-        if (sortKey !== key) return <span className="text-gray-300 ml-0.5">↕</span>;
+        if (sortKey !== key) return null;
         return <span className="text-letusBlue font-black ml-0.5">{sortAsc ? '↑' : '↓'}</span>;
     };
 
@@ -212,7 +225,7 @@ export function WmsStockDashboard({ userProfile }) {
         switch (col.key) {
             case 'warehouse_name': return <td key={origIdx} className={`${cls} p-4 font-semibold text-letusBlue`}>{row.warehouse_name}</td>;
             case 'company_id':    return <td key={origIdx} className={`${cls} p-4 text-gray-500`}>{row.company_id}</td>;
-            case 'company_name':  return <td key={origIdx} className={`${cls} p-4 font-medium`}>{row.company_name}</td>;
+            case 'company_name':  return <td key={origIdx} className={`${cls} p-4 font-medium`}>{row.company_name || row.company_id || '-'}</td>;
             case 'item_count':    return <td key={origIdx} className={`${cls} p-4`}>{fmt(row.item_count)}</td>;
             case 'stock_qty':     return <td key={origIdx} className={`${cls} p-4`}>{fmt(row.stock_qty)}</td>;
             case 'stock_amount':  return <td key={origIdx} className={`${cls} p-4 font-bold text-letusBlue`}>{fmt(row.stock_amount)}원</td>;
@@ -230,36 +243,61 @@ export function WmsStockDashboard({ userProfile }) {
     return (
         <div className="flex flex-col h-full bg-slate-50">
             {/* 헤더 */}
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center shrink-0">
                 <div>
                     <h1 className="text-lg font-bold text-gray-800">창고별 재고보유현황</h1>
                     <p className="text-xs text-gray-400 mt-0.5">WMS 자동 수집 | 공장도가 기준 재고금액</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    {availableDates.length > 0 && (
-                        <select
-                            value={selectedDate}
-                            onChange={e => setSelectedDate(e.target.value)}
-                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-letusBlue/30"
-                        >
-                            {availableDates.map(d => (
-                                <option key={d} value={d}>{d} 기준</option>
-                            ))}
-                        </select>
-                    )}
-                    <button
-                        onClick={loadDates}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-letusBlue rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        새로고침
-                    </button>
-                </div>
             </div>
 
             <div className="flex-1 overflow-auto p-6 space-y-5">
+                {/* 날짜 필터 카드 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 px-5 hover:shadow-md transition-shadow flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-500">기준일</span>
+                        {availableDates.length > 0 && (
+                            <select
+                                value={selectedDate}
+                                onChange={e => { setSelectedDate(e.target.value); setSelectedWarehouse(null); setSelectedCompany(null); }}
+                                className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-letusBlue/30"
+                            >
+                                {availableDates.map(d => (
+                                    <option key={d} value={d}>{d}</option>
+                                ))}
+                            </select>
+                        )}
+                        <button
+                            onClick={() => { loadDates(); setSelectedWarehouse(null); setSelectedCompany(null); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-letusBlue rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            새로고침
+                        </button>
+                    </div>
+                    {(selectedWarehouse || selectedCompany) && (
+                        <div className="flex items-center gap-2">
+                            {selectedWarehouse && (
+                                <span className="flex items-center gap-1 text-xs font-bold bg-letusBlue/10 text-letusBlue px-2.5 py-1 rounded-full">
+                                    {selectedWarehouse}
+                                    <button onClick={() => setSelectedWarehouse(null)} className="hover:text-blue-800 leading-none">×</button>
+                                </span>
+                            )}
+                            {selectedCompany && (
+                                <span className="flex items-center gap-1 text-xs font-bold bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">
+                                    {selectedCompany}
+                                    <button onClick={() => setSelectedCompany(null)} className="hover:text-indigo-800 leading-none">×</button>
+                                </span>
+                            )}
+                            <button
+                                onClick={() => { setSelectedWarehouse(null); setSelectedCompany(null); }}
+                                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                            >전체 초기화</button>
+                        </div>
+                    )}
+                </div>
+
                 {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
                         데이터 로드 실패: {error}
@@ -314,7 +352,18 @@ export function WmsStockDashboard({ userProfile }) {
                                         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                                         <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 100000000).toFixed(0)}억`} />
                                         <Tooltip content={<CustomBarTooltip />} />
-                                        <Bar dataKey="amount" fill="#2563ab" radius={[4, 4, 0, 0]} name="재고금액" />
+                                        <Bar dataKey="amount" radius={[4, 4, 0, 0]} name="재고금액" style={{ cursor: 'pointer' }}
+                                            onClick={(data) => {
+                                                const full = WAREHOUSE_ORDER.find(w => w.replace('물류센터', '') === data.name);
+                                                setSelectedWarehouse(prev => prev === full ? null : full);
+                                                setSelectedCompany(null);
+                                            }}
+                                        >
+                                            {barData.map((entry, i) => {
+                                                const full = WAREHOUSE_ORDER.find(w => w.replace('물류센터', '') === entry.name);
+                                                return <Cell key={i} fill={!selectedWarehouse || selectedWarehouse === full ? '#2563ab' : '#cbd5e1'} />;
+                                            })}
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -334,9 +383,14 @@ export function WmsStockDashboard({ userProfile }) {
                                             paddingAngle={4}
                                             cornerRadius={8}
                                             stroke="none"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={(data) => {
+                                                setSelectedCompany(prev => prev === data.name ? null : data.name);
+                                                setSelectedWarehouse(null);
+                                            }}
                                         >
-                                            {pieData.map((_, i) => (
-                                                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                            {pieData.map((entry, i) => (
+                                                <Cell key={i} fill={!selectedCompany || selectedCompany === entry.name ? PIE_COLORS[i % PIE_COLORS.length] : '#e2e8f0'} />
                                             ))}
                                         </Pie>
                                         <Tooltip content={<CustomPieTooltip />} />
@@ -353,7 +407,7 @@ export function WmsStockDashboard({ userProfile }) {
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                                 <h3 className="text-sm font-bold text-gray-600">
-                                    창고×화주 상세 ({snapshots.length}건)
+                                    창고×화주 상세 ({filteredRows.length}건{(selectedWarehouse || selectedCompany) ? ' · 필터 적용 중' : ''})
                                 </h3>
                                 <button onClick={resetColSettings}
                                     className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
@@ -372,21 +426,17 @@ export function WmsStockDashboard({ userProfile }) {
                                                 const col = DEFAULT_COLUMNS[origIdx];
                                                 return (
                                                     <th key={origIdx}
-                                                        className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                                        className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                                         style={{ width: colWidths[origIdx] }}
+                                                        draggable
                                                         onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                                        onDragStart={(e) => handleDragStart(e, visualIdx)}
+                                                        onDragEnd={handleDragEnd}
                                                         onDragOver={(e) => handleDragOver(e, visualIdx)}
                                                         onDrop={(e) => handleDrop(e, visualIdx)}
                                                         onDragLeave={() => setDragOverIdx(null)}
                                                     >
                                                         <div className="flex items-center justify-center gap-1">
-                                                            <span
-                                                                draggable
-                                                                onDragStart={(e) => handleDragStart(e, visualIdx)}
-                                                                onDragEnd={handleDragEnd}
-                                                                onClick={e => e.stopPropagation()}
-                                                                className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
-                                                                title="드래그로 순서 변경">⠿</span>
                                                             {col.label}
                                                             {col.key && getSortIcon(col.key)}
                                                         </div>
@@ -407,7 +457,7 @@ export function WmsStockDashboard({ userProfile }) {
                                                     데이터가 없습니다
                                                 </td>
                                             </tr>
-                                        ) : sortedRows.map((row, i) => (
+                                        ) : filteredRows.map((row, i) => (
                                             <tr key={`${row.warehouse_id}-${row.company_id}-${i}`}
                                                 className="hover:bg-blue-50/30 transition-colors">
                                                 {colOrder.map(origIdx => renderCell(origIdx, row))}

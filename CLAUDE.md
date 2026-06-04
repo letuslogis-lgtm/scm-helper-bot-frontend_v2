@@ -125,10 +125,13 @@ const renderCell = (origIdx, row) => {
 ```
 
 #### 6. thead 구조
+> **기준 구현체: IssueList.jsx** — `<th>` 자체에 `draggable` 적용. 별도 ⠿ span 사용하지 않음.
+> `getSortIcon`은 활성 컬럼에만 ↑/↓ 반환, 비활성은 `null` 반환.
+
 ```jsx
 <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
     <tr>
-        {/* 체크박스: 항상 고정 첫 번째 */}
+        {/* 체크박스: 항상 고정 첫 번째 (행 선택이 있는 테이블만) */}
         <th className="p-4 pl-6 w-10 text-center shrink-0">
             <input type="checkbox" ... className="w-4 h-4 accent-letusBlue cursor-pointer" />
         </th>
@@ -136,18 +139,17 @@ const renderCell = (origIdx, row) => {
             const col = DEFAULT_COLUMNS[origIdx];
             return (
                 <th key={origIdx}
-                    className={`relative p-4 text-center select-none transition-colors ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                    className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                     style={{ width: colWidths[origIdx] }}
+                    draggable
                     onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                    onDragStart={(e) => handleDragStart(e, visualIdx)}
+                    onDragEnd={handleDragEnd}
                     onDragOver={(e) => handleDragOver(e, visualIdx)}
                     onDrop={(e) => handleDrop(e, visualIdx)}
                     onDragLeave={() => setDragOverIdx(null)}
                 >
                     <div className="flex items-center justify-center gap-1">
-                        <span draggable onDragStart={(e) => handleDragStart(e, visualIdx)} onDragEnd={handleDragEnd}
-                            onClick={e => e.stopPropagation()}
-                            className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
-                            title="드래그로 순서 변경">⠿</span>
                         {col.label}
                         {col.key && getSortIcon(col.key)}
                     </div>
@@ -188,7 +190,7 @@ const renderCell = (origIdx, row) => {
 - `<table>` className: `w-full text-left whitespace-nowrap table-fixed`
 - scroll container: `p-0 overflow-auto flex-1 custom-scrollbar outline-none`
 - 로딩/빈 상태 `colSpan`: `{colOrder.length + 1}` (체크박스 포함)
-- `getSortIcon(key)` 함수: `↑`/`↓` 유니코드, `text-letusBlue font-black`
+- `getSortIcon(key)` 함수: 활성 컬럼만 `↑`/`↓` (`text-letusBlue font-black`), 비활성은 `null` 반환
 - 행 선택 스타일: `bg-blue-50` (선택), `hover:bg-blue-50/30` (hover)
 
 ---
