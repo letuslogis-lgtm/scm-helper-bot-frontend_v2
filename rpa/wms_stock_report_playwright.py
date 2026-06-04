@@ -60,6 +60,7 @@ EXCEL_TO_DB = {
     'OWNER':        'company_id',
     'LOCATION ID':  'location',
     '품목ID':       'item_code',
+    '품목명':       'item_name',
     '현 재고 수량': 'stock_qty',
 }
 
@@ -209,22 +210,28 @@ def parse_excel(file_path: Path, center_label: str, warehouse_id: str) -> list[d
 
 
 # ---------------------------------------------------------------------------
-# 3. 집계 (창고×화주 단위) + 단가 적용
+# 3. 단가 조회 (WMS item_code 목록 기준으로만 조회)
 # ---------------------------------------------------------------------------
-def load_factory_prices() -> dict:
-    print('[단가 조회] Supabase products.factory_price 로드 중...')
+def load_prices_for_items(item_codes: list[str]) -> dict:
+    """WMS에서 수집한 item_code에 해당하는 단가만 조회 (전체 스캔 방지)"""
+    if not item_codes:
+        return {}
+
+    # WMS item_code(A1234-BK) → base code(A1234) 추출
+    base_codes = list({code.split('-')[0] for code in item_codes if code})
+    print(f'[단가 조회] 대상 품목 {len(item_codes)}개 (base code {len(base_codes)}개) 단가 조회 중...')
+
     price_map = {}
     try:
-        offset, chunk = 0, 1000
-        while True:
+        CHUNK = 500
+        for i in range(0, len(base_codes), CHUNK):
             result = (supabase.from_('products')
                       .select('item_code, item_color, factory_price')
+                      .in_('item_code', base_codes[i:i + CHUNK])
                       .not_.is_('factory_price', 'null')
                       .gt('factory_price', 0)
-                      .range(offset, offset + chunk - 1)
                       .execute())
-            rows = result.data or []
-            for r in rows:
+            for r in (result.data or []):
                 code  = (r.get('item_code') or '').strip()
                 color = (r.get('item_color') or '').strip()
                 price = r.get('factory_price')
@@ -234,70 +241,24 @@ def load_factory_prices() -> dict:
                 price_map[combined] = float(price)
                 if color:
                     price_map.setdefault(code, float(price))
-            if len(rows) < chunk:
-                break
-            offset += chunk
     except Exception as e:
-        print(f'    단가 조회 실패 (재고금액 0원 처리): {e}')
+        print(f'    단가 조회 실패: {e}')
+
     print(f'    단가 로드: {len(price_map):,}건')
     return price_map
 
 
-def aggregate(raw_rows: list[dict], price_map: dict) -> tuple[list[dict], int, int]:
-    wh_map: dict[tuple, dict] = {}
-    total_anomaly = total_unpriced = 0
-
-    for r in raw_rows:
-        wid   = r.get('_wid', '')
-        wname = r.get('_wname', '')
-        oid   = r.get('company_id', '')
-        onm   = r.get('company_name', oid)
-        qty   = r.get('stock_qty', 0.0)
-        item  = r.get('item_code', '')
-
-        wkey = (wid, wname, oid, onm)
-        if wkey not in wh_map:
-            wh_map[wkey] = {
-                'item_count': 0, 'stock_qty': 0, 'stock_amount': 0,
-                'anomaly_count': 0, 'unpriced_count': 0,
-            }
-        rec = wh_map[wkey]
-
-        if qty > ANOMALY_QTY_THRESHOLD:
-            rec['anomaly_count'] += 1
-            total_anomaly += 1
-            continue
-
-        price = price_map.get(item, 0.0)
-        if price <= 0:
-            rec['unpriced_count'] += 1
-            total_unpriced += 1
-
-        rec['item_count']    += 1
-        rec['stock_qty']     += int(qty)
-        rec['stock_amount']  += int(qty * price)
-
-    snapshot_rows = [
-        {'warehouse_id': wid, 'warehouse_name': wname, 'company_id': oid, 'company_name': onm, **v}
-        for (wid, wname, oid, onm), v in wh_map.items()
-    ]
-    return snapshot_rows, total_anomaly, total_unpriced
-
-
 # ---------------------------------------------------------------------------
-# 4. Supabase upsert
+# 3-2. Supabase upsert
 # ---------------------------------------------------------------------------
-def upsert_snapshots(snapshot_date: str, rows: list[dict]):
+def upsert_snapshots(rows: list[dict]):
     print(f'[upsert] {len(rows)}건 → wms_stock_snapshots')
-    for r in rows:
-        r['snapshot_date'] = snapshot_date
-
-    CHUNK = 200
+    CHUNK = 500
     for i in range(0, len(rows), CHUNK):
         supabase.from_('wms_stock_snapshots') \
-            .upsert(rows[i:i + CHUNK], on_conflict='snapshot_date,warehouse_id,company_id') \
+            .upsert(rows[i:i + CHUNK], on_conflict='snapshot_date,warehouse_id,company_id,item_code') \
             .execute()
-    print(f'    저장 완료: {snapshot_date} / {len(rows)}건')
+    print(f'    저장 완료: {len(rows)}건')
 
 
 # ---------------------------------------------------------------------------
@@ -316,10 +277,10 @@ def main():
     print('=' * 60)
     start = time.time()
 
-    price_map = load_factory_prices()
+    # ── Phase 1: WMS 데이터 수집 ──────────────────────────────────────────
     all_raw: list[dict] = []
-
     MAX_RETRIES = 3
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         for center_label, warehouse_id in CENTERS:
             print(f'\n── {center_label} ──')
@@ -351,18 +312,48 @@ def main():
             if last_error or file_path is None:
                 continue
 
-            rows = parse_excel(file_path, center_label, warehouse_id)
-            print(f'    유효 행: {len(rows)}건')
-            all_raw.extend(rows)
+            raw_rows = parse_excel(file_path, center_label, warehouse_id)
+            print(f'    유효 행: {len(raw_rows)}건')
+            all_raw.extend(raw_rows)
 
-    print(f'\n[집계] 전체 {len(all_raw)}건 집계 중...')
-    snapshot_rows, anomaly_cnt, unpriced_cnt = aggregate(all_raw, price_map)
-    total_amt = sum(r['stock_amount'] for r in snapshot_rows)
-    print(f'    창고×화주 조합: {len(snapshot_rows)}건 | '
-          f'이상값: {anomaly_cnt}건 | 단가 미등록: {unpriced_cnt}건 | '
+    # ── Phase 2: 수집된 item_code로만 단가 조회 ───────────────────────────
+    item_codes = list({r.get('item_code') or '' for r in all_raw if r.get('item_code')})
+    price_map = load_prices_for_items(item_codes)
+
+    # ── Phase 3: 레코드 구성 + upsert ─────────────────────────────────────
+    all_records: list[dict] = []
+    anomaly_cnt = unpriced_cnt = 0
+
+    for r in all_raw:
+        item_code = r.get('item_code') or ''
+        qty = r.get('stock_qty', 0.0)
+
+        if qty > ANOMALY_QTY_THRESHOLD:
+            anomaly_cnt += 1
+            continue
+
+        price = price_map.get(item_code, 0)
+        if price <= 0:
+            unpriced_cnt += 1
+
+        all_records.append({
+            'snapshot_date':  args.date,
+            'warehouse_id':   r.get('_wid', ''),
+            'warehouse_name': r.get('_wname', ''),
+            'company_id':     r.get('company_id') or '',
+            'item_code':      item_code,
+            'item_name':      r.get('item_name') or '',
+            'stock_qty':      int(qty),
+            'factory_price':  int(price),
+            'stock_amount':   int(qty * price),
+        })
+
+    total_amt = sum(r['stock_amount'] for r in all_records)
+    print(f'\n[결과] 품목 단위: {len(all_records)}건 | '
+          f'이상값 제외: {anomaly_cnt}건 | 단가 미등록: {unpriced_cnt}건 | '
           f'총 재고금액: {total_amt:,.0f}원')
 
-    upsert_snapshots(args.date, snapshot_rows)
+    upsert_snapshots(all_records)
 
     print('=' * 60)
     print(f'완료! ({time.time() - start:.1f}초)')

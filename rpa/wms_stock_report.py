@@ -151,9 +151,10 @@ def fetch_stock_data(cookies: dict) -> list[dict]:
                 valid = [r for r in rows
                          if not str(r.get('locationId', '')).upper().startswith('Y')]
                 for r in valid:
-                    r['_wid']   = wid
-                    r['_wname'] = wname
+                    r['_wid']      = wid
+                    r['_wname']    = wname
                     r['_owner_nm'] = owner_map.get(r.get('ownerId', ''), r.get('ownerId', '미확인'))
+                    r['_item_nm']  = r.get('itemNm') or r.get('itemName') or r.get('itemNm2') or ''
                 all_rows.extend(valid)
                 print(f'    {wname}: {len(valid):,}건')
         except Exception as e:
@@ -166,139 +167,58 @@ def fetch_stock_data(cookies: dict) -> list[dict]:
 # ---------------------------------------------------------------------------
 # 3. Supabase products.factory_price 로드 (item_code + item_color 기반 조회)
 # ---------------------------------------------------------------------------
-def load_factory_prices() -> dict:
-    """
-    Supabase products에서 factory_price 로드.
-    반환: {wms_item_id: factory_price}
-      - wms_item_id 형식: "item_code-item_color" 또는 "item_code" (color 없을 때)
-    """
-    print('[3/5] Supabase 단가 조회 중...')
+def load_prices_for_items(item_codes: list[str]) -> dict:
+    """WMS에서 수집한 item_code에 해당하는 단가만 조회 (전체 스캔 방지)"""
+    if not item_codes:
+        return {}
+
+    base_codes = list({code.split('-')[0] for code in item_codes if code})
+    print(f'[3/5] 대상 품목 {len(item_codes)}개 (base code {len(base_codes)}개) 단가 조회 중...')
+
     price_map = {}
     try:
-        offset = 0
-        chunk = 1000
-        while True:
+        CHUNK = 500
+        for i in range(0, len(base_codes), CHUNK):
             result = (supabase.from_('products')
                       .select('item_code, item_color, factory_price')
+                      .in_('item_code', base_codes[i:i + CHUNK])
                       .not_.is_('factory_price', 'null')
                       .gt('factory_price', 0)
-                      .range(offset, offset + chunk - 1)
                       .execute())
-            rows = result.data or []
-            for r in rows:
+            for r in (result.data or []):
                 code  = (r.get('item_code') or '').strip()
                 color = (r.get('item_color') or '').strip()
                 price = r.get('factory_price')
                 if not code or not price:
                     continue
-                # WMS itemId 는 "코드-색상" 형식이 일반적
                 combined = f'{code}-{color}' if color else code
                 price_map[combined] = float(price)
-                # 색상 없는 코드로도 등록 (일부 WMS 아이템이 색상 없이 오는 경우)
                 if color:
                     price_map.setdefault(code, float(price))
-            if len(rows) < chunk:
-                break
-            offset += chunk
-        print(f'    단가 로드: {len(price_map):,}건')
     except Exception as e:
-        print(f'    단가 조회 실패 (재고금액 0원 처리): {e}')
+        print(f'    단가 조회 실패: {e}')
+
+    print(f'    단가 로드: {len(price_map):,}건')
     return price_map
 
 
 # ---------------------------------------------------------------------------
 # 4. 집계 (창고×화주×SKU) → 이상값 분리 → 창고×화주 합산
 # ---------------------------------------------------------------------------
-def aggregate(raw_rows: list[dict], price_map: dict) -> tuple[list[dict], int, int]:
-    """
-    Returns:
-        snapshot_rows: 창고×화주 단위 집계 결과 (upsert 대상)
-        total_anomaly: 이상값 건수
-        total_unpriced: 단가 미등록 SKU 수
-    """
-    # SKU 레벨 집계 (같은 창고+화주+상품의 로케이션 합산)
-    sku_map: dict[tuple, dict] = {}
-    for r in raw_rows:
-        wid     = r.get('_wid', '')
-        wname   = r.get('_wname', '')
-        oid     = r.get('ownerId', '')
-        onm     = r.get('_owner_nm', oid)
-        item_id = str(r.get('itemId', '')).strip()
-        try:
-            qty = float(r.get('stockQty') or 0)
-        except (TypeError, ValueError):
-            qty = 0.0
-
-        key = (wid, wname, oid, onm, item_id)
-        if key not in sku_map:
-            sku_map[key] = {'qty': 0.0}
-        sku_map[key]['qty'] += qty
-
-    # 창고×화주 단위 합산
-    wh_map: dict[tuple, dict] = {}
-
-    total_anomaly  = 0
-    total_unpriced = 0
-
-    for (wid, wname, oid, onm, item_id), v in sku_map.items():
-        qty = v['qty']
-        wkey = (wid, wname, oid, onm)
-        if wkey not in wh_map:
-            wh_map[wkey] = {
-                'item_count': 0,
-                'stock_qty': 0,
-                'stock_amount': 0,
-                'anomaly_count': 0,
-                'unpriced_count': 0,
-            }
-        rec = wh_map[wkey]
-
-        # 이상값 탐지
-        if qty > ANOMALY_QTY_THRESHOLD:
-            rec['anomaly_count'] += 1
-            total_anomaly += 1
-            continue  # 이상값은 금액 집계 제외
-
-        # 단가 조회
-        price = price_map.get(item_id, 0.0)
-        if price <= 0:
-            rec['unpriced_count'] += 1
-            total_unpriced += 1
-
-        rec['item_count'] += 1
-        rec['stock_qty']  += int(qty)
-        rec['stock_amount'] += int(qty * price)
-
-    snapshot_rows = []
-    for (wid, wname, oid, onm), v in wh_map.items():
-        snapshot_rows.append({
-            'warehouse_id':   wid,
-            'warehouse_name': wname,
-            'company_id':     oid,
-            'company_name':   onm,
-            **v,
-        })
-
-    return snapshot_rows, total_anomaly, total_unpriced
-
-
 # ---------------------------------------------------------------------------
-# 5. Supabase upsert
+# 4. Supabase upsert (품목 단위)
 # ---------------------------------------------------------------------------
-def upsert_snapshots(snapshot_date: str, rows: list[dict]):
+def upsert_snapshots(rows: list[dict]):
     print(f'[5/5] Supabase upsert 중... ({len(rows)}건)')
-    for r in rows:
-        r['snapshot_date'] = snapshot_date
-
-    CHUNK = 200
+    CHUNK = 500
     for i in range(0, len(rows), CHUNK):
         chunk = rows[i:i + CHUNK]
         result = (supabase.from_('wms_stock_snapshots')
-                  .upsert(chunk, on_conflict='snapshot_date,warehouse_id,company_id')
+                  .upsert(chunk, on_conflict='snapshot_date,warehouse_id,company_id,item_code')
                   .execute())
         if hasattr(result, 'error') and result.error:
             raise RuntimeError(f'upsert 오류: {result.error}')
-    print(f'    저장 완료: {snapshot_date} / {len(rows)}건')
+    print(f'    저장 완료: {len(rows)}건')
 
 
 # ---------------------------------------------------------------------------
@@ -310,18 +230,63 @@ def run(snapshot_date: str, headless: bool = True):
     print('=' * 60)
     start = time.time()
 
-    cookies       = get_wms_cookies(headless=headless)
-    raw_rows      = fetch_stock_data(cookies)
-    price_map     = load_factory_prices()
+    # ── Phase 1: WMS 데이터 수집 ──────────────────────────────────────────
+    cookies  = get_wms_cookies(headless=headless)
+    raw_rows = fetch_stock_data(cookies)
 
-    print('[4/5] 이상값 탐지 및 집계 중...')
-    snapshot_rows, anomaly_cnt, unpriced_cnt = aggregate(raw_rows, price_map)
-    total_amt = sum(r['stock_amount'] for r in snapshot_rows)
-    print(f'    창고×화주 조합: {len(snapshot_rows)}건 | '
-          f'이상값: {anomaly_cnt}건 | 단가 미등록: {unpriced_cnt}건 | '
+    # ── Phase 2: 수집된 item_code로만 단가 조회 ───────────────────────────
+    item_codes = list({str(r.get('itemId', '')).strip() for r in raw_rows if r.get('itemId')})
+    price_map  = load_prices_for_items(item_codes)
+
+    # ── Phase 3: 레코드 구성 ──────────────────────────────────────────────
+    print('[4/5] 품목별 레코드 구성 중...')
+    all_records = []
+    anomaly_cnt = unpriced_cnt = 0
+
+    for r in raw_rows:
+        wid      = r.get('_wid', '')
+        wname    = r.get('_wname', '')
+        oid      = r.get('ownerId', '')
+        onm      = r.get('_owner_nm', oid)
+        item_code = str(r.get('itemId', '')).strip()
+        item_name = r.get('_item_nm', '')
+        loc       = str(r.get('locationId', '')).upper()
+
+        # Y로 시작하는 로케이션 제외
+        if loc.startswith('Y'):
+            continue
+
+        try:
+            qty = float(r.get('stockQty') or 0)
+        except (TypeError, ValueError):
+            qty = 0.0
+
+        if qty > ANOMALY_QTY_THRESHOLD:
+            anomaly_cnt += 1
+            continue
+
+        price = price_map.get(item_code, 0.0)
+        if price <= 0:
+            unpriced_cnt += 1
+
+        all_records.append({
+            'snapshot_date':  snapshot_date,
+            'warehouse_id':   wid,
+            'warehouse_name': wname,
+            'company_id':     oid,
+            'item_code':      item_code,
+            'item_name':      item_name,
+            'stock_qty':      int(qty),
+            'factory_price':  int(price),
+            'stock_amount':   int(qty * price),
+        })
+
+    total_amt = sum(r['stock_amount'] for r in all_records)
+    print(f'    품목 단위: {len(all_records)}건 | '
+          f'이상값 제외: {anomaly_cnt}건 | 단가 미등록: {unpriced_cnt}건 | '
           f'총 재고금액: {total_amt:,.0f}원')
 
-    upsert_snapshots(snapshot_date, snapshot_rows)
+    upsert_snapshots(all_records)
 
     elapsed = time.time() - start
     print('=' * 60)
