@@ -85,7 +85,7 @@ export function WmsStockDashboard({ userProfile }) {
     // 날짜 목록 로드
     const loadDates = useCallback(async () => {
         const { data, error: err } = await supabase
-            .from('wms_stock_snapshots')
+            .from('wms_stock_summary')
             .select('snapshot_date')
             .order('snapshot_date', { ascending: false })
             .limit(30);
@@ -104,7 +104,7 @@ export function WmsStockDashboard({ userProfile }) {
         setIsLoading(true);
         setError(null);
         supabase
-            .from('wms_stock_snapshots')
+            .from('wms_stock_summary')
             .select('*')
             .eq('snapshot_date', selectedDate)
             .order('warehouse_name')
