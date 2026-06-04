@@ -176,7 +176,7 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
     print(f'[3/5] 대상 품목 {len(item_codes)}개 (base code {len(base_codes)}개) 단가 조회 중...')
 
     price_map = {}
-    CHUNK = 500
+    CHUNK = 20  # 청크 작게 → 중복행 많아도 limit 안에 수용, GROUP BY 불필요
     for i in range(0, len(base_codes), CHUNK):
         try:
             result = (supabase.from_('products')

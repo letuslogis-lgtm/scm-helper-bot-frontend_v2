@@ -134,23 +134,24 @@ def download_stock_excel(
 
             stock_page.click('button.dfBtn._sizeL._orangeLine')  # 조회하기
             stock_page.wait_for_load_state('networkidle')
-            stock_page.wait_for_timeout(1000)
+            stock_page.wait_for_timeout(3000)  # 대용량 데이터 렌더링 여유
 
             # ── 엑셀 다운로드 ─────────────────────────────────────────────
             print('  [5/5] 엑셀 다운로드 중...')
             export_btn = stock_page.locator('button.exportXlsxBtn').first
             try:
-                export_btn.wait_for(state='visible', timeout=90000)
+                export_btn.wait_for(state='visible', timeout=120000)
             except PWTimeout:
                 print(f'    [{center_label}] 엑셀 버튼 미표시 → 조회 결과 없음, 스킵')
                 return None
 
             export_btn.scroll_into_view_if_needed()
-            stock_page.wait_for_timeout(500)
 
             try:
-                with stock_page.expect_download(timeout=60000) as dl_info:
-                    export_btn.click()
+                with stock_page.expect_download(timeout=300000) as dl_info:
+                    # timeout=600000: 로딩 스피너(오버레이)가 사라질 때까지 최대 10분 대기 후 클릭
+                    # force 없이 Playwright가 자동으로 clickable 상태를 기다림
+                    export_btn.click(timeout=600000)
                     try:
                         save_btn = stock_page.get_by_role('button', name='저장', exact=True)
                         save_btn.wait_for(state='visible', timeout=15000)
@@ -219,10 +220,9 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
 
     # WMS item_code(A1234-BK) → base code(A1234) 추출
     base_codes = list({code.split('-')[0] for code in item_codes if code})
-    print(f'[단가 조회] 대상 품목 {len(item_codes)}개 (base code {len(base_codes)}개) 단가 조회 중...')
-
     price_map = {}
-    CHUNK = 500
+    CHUNK = 20  # 청크 작게 → 중복행 많아도 limit 안에 수용, GROUP BY 불필요
+    print(f'[단가 조회] 대상 품목 {len(item_codes)}개 (base code {len(base_codes)}개) / {(len(base_codes)+CHUNK-1)//CHUNK}개 청크 단가 조회 중...')
     for i in range(0, len(base_codes), CHUNK):
         try:
             result = (supabase.from_('products')
