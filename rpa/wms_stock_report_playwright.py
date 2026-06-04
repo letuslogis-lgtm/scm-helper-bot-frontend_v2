@@ -256,7 +256,7 @@ def upsert_snapshots(rows: list[dict]):
     CHUNK = 500
     for i in range(0, len(rows), CHUNK):
         supabase.from_('wms_stock_snapshots') \
-            .upsert(rows[i:i + CHUNK], on_conflict='snapshot_date,warehouse_id,company_id,item_code') \
+            .upsert(rows[i:i + CHUNK], on_conflict='snapshot_date,warehouse_id,company_id,item_code,location') \
             .execute()
     print(f'    저장 완료: {len(rows)}건')
 
@@ -343,6 +343,7 @@ def main():
             'company_id':     r.get('company_id') or '',
             'item_code':      item_code,
             'item_name':      r.get('item_name') or '',
+            'location':       r.get('location') or '',
             'stock_qty':      int(qty),
             'factory_price':  int(price),
             'stock_amount':   int(qty * price),

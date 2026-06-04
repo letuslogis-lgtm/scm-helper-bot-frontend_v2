@@ -214,7 +214,7 @@ def upsert_snapshots(rows: list[dict]):
     for i in range(0, len(rows), CHUNK):
         chunk = rows[i:i + CHUNK]
         result = (supabase.from_('wms_stock_snapshots')
-                  .upsert(chunk, on_conflict='snapshot_date,warehouse_id,company_id,item_code')
+                  .upsert(chunk, on_conflict='snapshot_date,warehouse_id,company_id,item_code,location')
                   .execute())
         if hasattr(result, 'error') and result.error:
             raise RuntimeError(f'upsert 오류: {result.error}')
@@ -276,6 +276,7 @@ def run(snapshot_date: str, headless: bool = True):
             'company_id':     oid,
             'item_code':      item_code,
             'item_name':      item_name,
+            'location':       str(r.get('locationId') or ''),
             'stock_qty':      int(qty),
             'factory_price':  int(price),
             'stock_amount':   int(qty * price),
