@@ -43,7 +43,7 @@ const fmtAmt = (n) => {
 const DEFAULT_COLUMNS = [
     { label: '창고명', key: 'warehouse_name', w: 140 },
     { label: '화주 코드', key: 'company_id', w: 110 },
-    { label: '화주명', key: 'company_name', w: 140 },
+    { label: '화주명', key: 'brand', w: 140 },
     { label: 'SKU 수', key: 'item_count', w: 90 },
     { label: '재고수량', key: 'stock_qty', w: 110 },
     { label: '재고금액', key: 'stock_amount', w: 130 },
@@ -193,7 +193,7 @@ export function WmsStockDashboard({ userProfile }) {
     const pieData = React.useMemo(() => {
         const cmap = {};
         snapshots.forEach(r => {
-            const key = r.company_name || r.company_id;
+            const key = r.brand || r.company_id;
             if (!cmap[key]) cmap[key] = 0;
             cmap[key] += r.stock_amount || 0;
         });
@@ -220,7 +220,7 @@ export function WmsStockDashboard({ userProfile }) {
     const filteredRows = React.useMemo(() => {
         return sortedRows.filter(row => {
             if (selectedWarehouse && row.warehouse_name !== selectedWarehouse) return false;
-            if (selectedCompany && (row.company_name || row.company_id) !== selectedCompany) return false;
+            if (selectedCompany && (row.brand || row.company_id) !== selectedCompany) return false;
             return true;
         });
     }, [sortedRows, selectedWarehouse, selectedCompany]);
@@ -270,7 +270,7 @@ export function WmsStockDashboard({ userProfile }) {
         switch (col.key) {
             case 'warehouse_name': return <td key={origIdx} className={`${cls} p-4 font-semibold text-letusBlue`}>{row.warehouse_name}</td>;
             case 'company_id':    return <td key={origIdx} className={`${cls} p-4 text-gray-500`}>{row.company_id}</td>;
-            case 'company_name':  return <td key={origIdx} className={`${cls} p-4 font-medium`}>{row.company_name || row.company_id || '-'}</td>;
+            case 'brand':         return <td key={origIdx} className={`${cls} p-4 font-medium`}>{row.brand || row.company_id || '-'}</td>;
             case 'item_count':    return <td key={origIdx} className={`${cls} p-4`}>{fmt(row.item_count)}</td>;
             case 'stock_qty':     return <td key={origIdx} className={`${cls} p-4`}>{fmt(row.stock_qty)}</td>;
             case 'stock_amount':  return <td key={origIdx} className={`${cls} p-4 font-bold text-letusBlue`}>{fmt(row.stock_amount)}원</td>;
