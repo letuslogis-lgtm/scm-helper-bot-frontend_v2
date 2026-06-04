@@ -145,6 +145,7 @@ export const RpaRunHistoryModal = ({ job, onClose }) => {
                                     <th className="p-3 w-16 text-center">exit</th>
                                     <th className="p-3">에러 / 메시지</th>
                                     <th className="p-3 w-12 text-center">로그</th>
+                                    <th className="p-3 w-16 text-center">중지</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-gray-700">
@@ -154,18 +155,7 @@ export const RpaRunHistoryModal = ({ job, onClose }) => {
                                     return (
                                         <React.Fragment key={run.id}>
                                             <tr className="hover:bg-blue-50/30 transition-colors">
-                                                <td className="p-3 pl-4">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <StatusBadge status={run.status} />
-                                                        {run.status === 'running' && (
-                                                            <button
-                                                                onClick={() => handleForceStop(run)}
-                                                                className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-300 text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
-                                                                title="강제 종료"
-                                                            >🛑 강제종료</button>
-                                                        )}
-                                                    </div>
-                                                </td>
+                                                <td className="p-3 pl-4"><StatusBadge status={run.status} /></td>
                                                 <td className="p-3 font-mono text-[11px] text-gray-600">{formatDateTime(run.started_at || run.created_at)}</td>
                                                 <td className="p-3 text-right font-mono text-[11px] text-gray-500">{getDuration(run)}</td>
                                                 <td className="p-3 text-center text-[10px]">
@@ -188,10 +178,19 @@ export const RpaRunHistoryModal = ({ job, onClose }) => {
                                                         </button>
                                                     ) : <span className="text-gray-300">-</span>}
                                                 </td>
+                                                <td className="p-3 text-center">
+                                                    {run.status === 'running' ? (
+                                                        <button
+                                                            onClick={() => handleForceStop(run)}
+                                                            className="text-[10px] font-bold px-2 py-0.5 rounded border border-red-300 text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+                                                            title="강제 종료"
+                                                        >🛑 중지</button>
+                                                    ) : <span className="text-gray-300">-</span>}
+                                                </td>
                                             </tr>
                                             {isExpanded && hasLog && (
                                                 <tr className="bg-slate-50/70">
-                                                    <td colSpan={7} className="p-4 border-l-4 border-letusBlue">
+                                                    <td colSpan={8} className="p-4 border-l-4 border-letusBlue">
                                                         {run.stdout_log && (
                                                             <div className="mb-3">
                                                                 <div className="text-[10px] font-bold text-gray-500 mb-1">📤 stdout</div>
