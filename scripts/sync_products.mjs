@@ -93,7 +93,8 @@ async function syncProducts() {
                 출고창고,
                 공장도가,
                 재고구분,
-                제품구분
+                제품구분,
+                사용구분
             FROM [group].[DM_단품마스터+소속법인사별단품마스터]
         `);
 
@@ -122,6 +123,7 @@ async function syncProducts() {
                 display_vendor: resolveDisplayVendor(vendorVal, prodLine, aliasMap),
                 stock_type: clean(row['재고구분']) || null,
                 product_type: clean(row['제품구분']) || null,
+                item_status: clean(row['사용구분']) || null,
             });
         });
         const uniqueData = Array.from(uniqueMap.values());

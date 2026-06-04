@@ -184,6 +184,7 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
                       .in_('item_code', base_codes[i:i + CHUNK])
                       .not_.is_('factory_price', 'null')
                       .gt('factory_price', 0)
+                      .neq('item_status', '단종')
                       .limit(10000)
                       .execute())
             for r in (result.data or []):
