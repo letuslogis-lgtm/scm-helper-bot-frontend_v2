@@ -211,16 +211,35 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
 # 4. Supabase upsert (품목 단위)
 # ---------------------------------------------------------------------------
 def upsert_snapshots(rows: list[dict]):
-    print(f'[5/5] Supabase upsert 중... ({len(rows)}건)')
+    if not rows:
+        print('[5/5] 저장할 데이터 없음, 스킵')
+        return
+
+    snapshot_date = rows[0]['snapshot_date']
+    print(f'[5/5] Supabase 저장 중... ({len(rows)}건) | 기준일: {snapshot_date}')
+
+    # 기존 데이터 삭제 (같은 날짜)
+    print(f'    기존 데이터 삭제 중...')
+    del_result = (supabase.from_('wms_stock_snapshots')
+                  .delete()
+                  .eq('snapshot_date', snapshot_date)
+                  .execute())
+    if hasattr(del_result, 'error') and del_result.error:
+        raise RuntimeError(f'DELETE 오류: {del_result.error}')
+    print(f'    삭제 완료')
+
+    # 신규 INSERT (충돌 체크 없음 → UPSERT보다 빠름)
     CHUNK = 500
     for i in range(0, len(rows), CHUNK):
         chunk = rows[i:i + CHUNK]
-        result = (supabase.from_('wms_stock_snapshots')
-                  .upsert(chunk, on_conflict='snapshot_date,warehouse_id,company_id,item_code,location')
-                  .execute())
-        if hasattr(result, 'error') and result.error:
-            raise RuntimeError(f'upsert 오류: {result.error}')
-    print(f'    저장 완료: {len(rows)}건')
+        ins_result = (supabase.from_('wms_stock_snapshots')
+                      .insert(chunk)
+                      .execute())
+        if hasattr(ins_result, 'error') and ins_result.error:
+            raise RuntimeError(f'INSERT 오류 (chunk {i}): {ins_result.error}')
+        print(f'    저장 중... {min(i + CHUNK, len(rows)):,}/{len(rows):,}건', end='\r')
+
+    print(f'    저장 완료: {len(rows):,}건                    ')
 
 
 # ---------------------------------------------------------------------------
