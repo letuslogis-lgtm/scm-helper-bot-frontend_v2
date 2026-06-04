@@ -125,7 +125,7 @@ export const MobileIssueRegister = () => {
                 const meta = await exifr.parse(file, { tiff: true, xmp: false, icc: false, iptc: false, jfif: false, pick: ['Orientation'] });
                 orientation = meta?.Orientation ?? 1;
             } catch {}
-            await new Promise((resolve) => {
+            await new Promise((resolve, reject) => {
                 const img = new Image();
                 const objectUrl = URL.createObjectURL(file);
                 const cleanup = () => URL.revokeObjectURL(objectUrl);
@@ -145,7 +145,7 @@ export const MobileIssueRegister = () => {
                     cleanup();
                     resolve();
                 };
-                img.onerror = () => { cleanup(); resolve(); };
+                img.onerror = () => { cleanup(); reject(new Error('이미지 로드 실패')); };
                 img.src = objectUrl;
             });
         }
