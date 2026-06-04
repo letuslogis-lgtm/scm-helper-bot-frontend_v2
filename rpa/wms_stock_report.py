@@ -176,9 +176,9 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
     print(f'[3/5] 대상 품목 {len(item_codes)}개 (base code {len(base_codes)}개) 단가 조회 중...')
 
     price_map = {}
-    try:
-        CHUNK = 500
-        for i in range(0, len(base_codes), CHUNK):
+    CHUNK = 500
+    for i in range(0, len(base_codes), CHUNK):
+        try:
             result = (supabase.from_('products')
                       .select('item_code, item_color, factory_price')
                       .in_('item_code', base_codes[i:i + CHUNK])
@@ -196,8 +196,8 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
                 price_map[combined] = float(price)
                 if color:
                     price_map.setdefault(code, float(price))
-    except Exception as e:
-        print(f'    단가 조회 실패: {e}')
+        except Exception as e:
+            print(f'    [WARN] 청크 {i // CHUNK + 1} 단가 조회 실패 (스킵): {e}')
 
     print(f'    단가 로드: {len(price_map):,}건')
     return price_map
