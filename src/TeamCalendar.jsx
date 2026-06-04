@@ -152,6 +152,33 @@ setHolidays(new Set((data || []).map(h => String(h.holiday_date).trim())));
     };
 
     const handleSaveEvent = async (eventData) => {
+        // 반복 일정: eventData가 배열로 전달됨
+        if (Array.isArray(eventData)) {
+            const payloads = eventData.map(ev => ({
+                creator_name: userProfile?.name || '시스템',
+                title: ev.title,
+                start_date: ev.startDate,
+                end_date: ev.endDate,
+                start_time: ev.startTime ? `${ev.startTime}:00` : null,
+                end_time: ev.endTime ? `${ev.endTime}:00` : null,
+                is_important: ev.isImportant ?? false,
+                description: ev.description,
+                collab_teams: ev.collabTeams,
+                collaborators: ev.collaborators,
+                location: ev.location,
+                is_private: false,
+                is_vacation: ev.is_vacation ?? false,
+                is_personal: false,
+            }));
+            try {
+                const { error } = await supabase.from('calendar_events').insert(payloads);
+                if (error) { alert(`DB 저장 오류: ${error.message}`); return; }
+                setIsModalOpen(false);
+                fetchEvents();
+            } catch (err) { console.error(err); }
+            return;
+        }
+
         const payload = {
             creator_name: userProfile?.name || '시스템',
             title: eventData.title,

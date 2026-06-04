@@ -3,6 +3,36 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient.js';
 import { CloseIcon } from './SharedUI.jsx';
 
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+const computeOccurrences = (startDate, endDate, repeatDays, repeatEndDate) => {
+    const selectedNums = new Set(repeatDays.map(d => DAY_LABELS.indexOf(d)));
+    const [sy, sm, sd] = startDate.split('-').map(Number);
+    const [ey, em, ed] = repeatEndDate.split('-').map(Number);
+    const [oey, oem, oed] = endDate.split('-').map(Number);
+
+    const firstStart = new Date(sy, sm - 1, sd);
+    const firstEnd = new Date(oey, oem - 1, oed);
+    const durationDays = Math.round((firstEnd - firstStart) / (1000 * 60 * 60 * 24));
+
+    const repeatEnd = new Date(ey, em - 1, ed);
+    const pad = n => String(n).padStart(2, '0');
+    const results = [];
+    const cursor = new Date(sy, sm - 1, sd);
+
+    while (cursor <= repeatEnd && results.length < 200) {
+        if (selectedNums.has(cursor.getDay())) {
+            const occStartStr = `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`;
+            const occEndDate = new Date(cursor);
+            occEndDate.setDate(occEndDate.getDate() + durationDays);
+            const occEndStr = `${occEndDate.getFullYear()}-${pad(occEndDate.getMonth() + 1)}-${pad(occEndDate.getDate())}`;
+            results.push({ startDate: occStartStr, endDate: occEndStr });
+        }
+        cursor.setDate(cursor.getDate() + 1);
+    }
+    return results;
+};
+
 export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave, currentUser }) => {
     const [startDate, setStartDate] = useState(eventToEdit ? eventToEdit.startDate : selectedDate || '');
     const [endDate, setEndDate] = useState(eventToEdit ? eventToEdit.endDate : selectedDate || '');
@@ -14,17 +44,18 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
     const [location, setLocation] = useState(eventToEdit ? eventToEdit.location : '미사용');
     const [collabTeams, setCollabTeams] = useState(eventToEdit ? eventToEdit.collabTeams : '');
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-
     const [collaborators, setCollaborators] = useState(eventToEdit ? eventToEdit.collaborators : '');
-
     const [isAttending, setIsAttending] = useState(() => {
         if (eventToEdit) return (eventToEdit.collaborators || '').includes(currentUser);
         return true;
     });
-
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-
     const [isVacation, setIsVacation] = useState(eventToEdit?.is_vacation || false);
+
+    // 반복 일정
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [repeatDays, setRepeatDays] = useState([]);
+    const [repeatEndDate, setRepeatEndDate] = useState('');
 
     const locationOptions = ['미사용', 'fursys Office', 'iloom office', 'sidiz office', 'letus office', '바로스 회의실', '바로스 관제실'];
 
@@ -38,26 +69,34 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
         return opts;
     }, []);
 
-    // 🌟 1. 파라미터(eventType)를 받도록 수정
+    const toggleRepeatDay = (day) => {
+        setRepeatDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+    };
+
+    const toggleRecurring = () => {
+        setIsRecurring(p => !p);
+        setRepeatDays([]);
+        setRepeatEndDate('');
+    };
+
+    const occurrenceCount = useMemo(() => {
+        if (!isRecurring || repeatDays.length === 0 || !repeatEndDate || !startDate || !endDate) return 0;
+        if (repeatEndDate < startDate) return 0;
+        try { return computeOccurrences(startDate, endDate, repeatDays, repeatEndDate).length; } catch { return 0; }
+    }, [isRecurring, repeatDays, repeatEndDate, startDate, endDate]);
+
     const handleSave = (eventType) => {
-        if (!startDate || !endDate || !title.trim()) {
-            return alert('날짜와 일정명을 필수로 입력해 주세요.');
-        }
-        if (startDate > endDate) {
-            return alert('종료일이 시작일보다 빠를 수 없습니다.');
-        }
+        if (!startDate || !endDate || !title.trim()) return alert('날짜와 일정명을 필수로 입력해 주세요.');
+        if (startDate > endDate) return alert('종료일이 시작일보다 빠를 수 없습니다.');
 
-        // 휴가 종류 자동 계산 로직 (시간 데이터 활용)
         let finalDescription = description;
-
         if (isVacation) {
-            const sTime = startTime || "08:30";
-            const eTime = endTime || "17:30";
-
-            if (sTime <= "08:30" && eTime >= "17:30") finalDescription = "연차";
-            else if (sTime <= "08:30" && eTime <= "12:30") finalDescription = "오전반차";
-            else if (sTime >= "13:30" && eTime >= "17:30") finalDescription = "오후반차";
-            else finalDescription = "반반차";
+            const sTime = startTime || '08:30';
+            const eTime = endTime || '17:30';
+            if (sTime <= '08:30' && eTime >= '17:30') finalDescription = '연차';
+            else if (sTime <= '08:30' && eTime <= '12:30') finalDescription = '오전반차';
+            else if (sTime >= '13:30' && eTime >= '17:30') finalDescription = '오후반차';
+            else finalDescription = '반반차';
         }
 
         let finalCollaboratorsList = collaborators ? collaborators.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -68,9 +107,8 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
         }
         const finalCollaboratorsStr = finalCollaboratorsList.join(', ');
 
-        onSave({
-            id: eventToEdit ? eventToEdit.id : null,
-            startDate, endDate, startTime, endTime,
+        const baseEvent = {
+            startTime, endTime,
             title: title.trim(),
             isImportant,
             is_vacation: isVacation,
@@ -79,8 +117,19 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
             collabTeams,
             collaborators: finalCollaboratorsStr,
             location,
-            type: eventType
-        });
+            type: eventType,
+        };
+
+        if (!eventToEdit && isRecurring) {
+            if (repeatDays.length === 0) return alert('반복 요일을 하나 이상 선택해 주세요.');
+            if (!repeatEndDate) return alert('반복 종료일을 입력해 주세요.');
+            if (repeatEndDate < startDate) return alert('반복 종료일이 시작일보다 빠를 수 없습니다.');
+            const occurrences = computeOccurrences(startDate, endDate, repeatDays, repeatEndDate);
+            if (occurrences.length === 0) return alert('선택한 요일에 해당하는 날짜가 없습니다. 시작일과 반복 요일을 확인해 주세요.');
+            onSave(occurrences.map(({ startDate: sd, endDate: ed }) => ({ ...baseEvent, startDate: sd, endDate: ed, id: null })));
+        } else {
+            onSave({ ...baseEvent, id: eventToEdit ? eventToEdit.id : null, startDate, endDate });
+        }
     };
 
     return (
@@ -99,7 +148,9 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
                     {/* 날짜 */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-bold text-gray-700">시작일 <span className="text-red-500">*</span></label>
+                            <label className="text-xs font-bold text-gray-700">
+                                {!eventToEdit && isRecurring ? '첫 번째 일정일' : '시작일'} <span className="text-red-500">*</span>
+                            </label>
                             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-letusBlue" />
                         </div>
                         <div className="flex flex-col gap-1.5">
@@ -127,38 +178,19 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
                     {/* 일정명 */}
                     <div className="flex flex-col gap-1.5">
                         <div className="flex justify-between items-end">
-                            {/* 왼쪽: 일정명 라벨 */}
                             <label className="text-xs font-bold text-gray-700">일정명 <span className="text-red-500">*</span></label>
-
-                            {/* 🌟 오른쪽: 체크박스 그룹 (flex와 gap으로 묶어줌) */}
                             <div className="flex items-center gap-3">
-                                {/* 1. 휴가 체크박스 */}
                                 <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-orange-500 hover:bg-orange-50 px-2 py-0.5 rounded transition-colors border border-transparent hover:border-orange-200">
-                                    <input
-                                        type="checkbox"
-                                        checked={isVacation}
-                                        onChange={(e) => setIsVacation(e.target.checked)}
-                                        className="w-3.5 h-3.5 accent-orange-500"
-                                    />
+                                    <input type="checkbox" checked={isVacation} onChange={(e) => setIsVacation(e.target.checked)} className="w-3.5 h-3.5 accent-orange-500" />
                                     🏖️ 휴가
                                 </label>
-
-                                {/* 구분선 */}
                                 <div className="w-px h-3 bg-gray-200"></div>
-
-                                {/* 2. 중요 체크박스 */}
                                 <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-red-500 hover:bg-red-50 px-2 py-0.5 rounded transition-colors border border-transparent hover:border-red-200">
-                                    <input
-                                        type="checkbox"
-                                        checked={isImportant}
-                                        onChange={e => setIsImportant(e.target.checked)}
-                                        className="w-3.5 h-3.5 accent-red-500"
-                                    />
+                                    <input type="checkbox" checked={isImportant} onChange={e => setIsImportant(e.target.checked)} className="w-3.5 h-3.5 accent-red-500" />
                                     🚨 중요(긴급)
                                 </label>
                             </div>
                         </div>
-
                         <input
                             type="text"
                             value={title}
@@ -167,6 +199,72 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
                             className="border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-letusBlue w-full"
                         />
                     </div>
+
+                    {/* 반복 일정 (신규 등록 시에만 표시) */}
+                    {!eventToEdit && (
+                        <div className="flex flex-col gap-2">
+                            <button
+                                type="button"
+                                onClick={toggleRecurring}
+                                className={`flex items-center gap-2 w-fit text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isRecurring ? 'text-violet-600 bg-violet-50 border-violet-300' : 'text-gray-500 bg-gray-50 border-gray-200 hover:border-gray-300'}`}
+                            >
+                                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                반복 일정
+                                <span className={`w-8 h-4 rounded-full transition-colors flex items-center px-0.5 shrink-0 ${isRecurring ? 'bg-violet-500' : 'bg-gray-300'}`}>
+                                    <span className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isRecurring ? 'translate-x-4' : 'translate-x-0'}`}></span>
+                                </span>
+                            </button>
+
+                            {isRecurring && (
+                                <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex flex-col gap-3">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[11px] font-bold text-violet-700">반복 요일</label>
+                                        <div className="flex gap-1.5">
+                                            {DAY_LABELS.map((day, i) => (
+                                                <button
+                                                    key={day}
+                                                    type="button"
+                                                    onClick={() => toggleRepeatDay(day)}
+                                                    className={`w-9 h-9 rounded-full text-xs font-bold border transition-all ${
+                                                        repeatDays.includes(day)
+                                                            ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
+                                                            : i === 0
+                                                                ? 'text-red-500 border-red-200 bg-white hover:bg-red-50'
+                                                                : i === 6
+                                                                    ? 'text-blue-500 border-blue-200 bg-white hover:bg-blue-50'
+                                                                    : 'text-gray-600 border-gray-200 bg-white hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    {day}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[11px] font-bold text-violet-700">반복 종료일</label>
+                                        <input
+                                            type="date"
+                                            value={repeatEndDate}
+                                            min={startDate}
+                                            onChange={e => setRepeatEndDate(e.target.value)}
+                                            className="border border-violet-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-violet-500 bg-white"
+                                        />
+                                    </div>
+                                    {occurrenceCount > 0 && (
+                                        <div className="flex items-center gap-2 bg-white border border-violet-200 rounded-lg px-3 py-2">
+                                            <span className="text-violet-500 font-black text-lg leading-none">{occurrenceCount}</span>
+                                            <span className="text-xs font-bold text-gray-600">개 일정이 생성됩니다</span>
+                                            {occurrenceCount >= 200 && (
+                                                <span className="text-[10px] font-bold text-orange-500 ml-auto">최대 200개 제한</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {!isVacation && (
                         <div className="space-y-4">
@@ -219,7 +317,6 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
                     )}
                 </div>
 
-                {/* --- 🌟 하단 버튼 영역 복구 --- */}
                 <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 shrink-0">
                     <button onClick={onClose} className="px-5 py-2 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm">취소</button>
 
@@ -247,7 +344,6 @@ export const CalendarEventModal = ({ selectedDate, eventToEdit, onClose, onSave,
             {isUserModalOpen && (
                 <UserSearchModal initialUsers={collaborators} onApply={setCollaborators} onClose={() => setIsUserModalOpen(false)} />
             )}
-
         </div>
     );
 };

@@ -255,6 +255,41 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
 
     const handleSaveEvent = async (savedEvent) => {
         try {
+            // 반복 일정: savedEvent가 배열로 전달됨
+            if (Array.isArray(savedEvent)) {
+                const payloads = savedEvent.map(ev => ({
+                    creator_name: userProfile.name,
+                    title: ev.title,
+                    start_date: ev.startDate,
+                    end_date: ev.endDate,
+                    start_time: ev.startTime,
+                    end_time: ev.endTime,
+                    is_important: ev.isImportant,
+                    description: ev.description,
+                    collab_teams: ev.collabTeams,
+                    collaborators: ev.collaborators,
+                    location: ev.location,
+                    is_vacation: ev.is_vacation ?? false,
+                    is_personal: ev.is_personal ?? true,
+                }));
+                const { data, error } = await supabase.from('calendar_events').insert(payloads).select();
+                if (error) throw error;
+                const newEvents = (data || []).map(ev => ({
+                    id: ev.id, title: ev.title,
+                    startDate: ev.start_date, endDate: ev.end_date,
+                    startTime: ev.start_time ? ev.start_time.substring(0, 5) : '00:00',
+                    endTime: ev.end_time ? ev.end_time.substring(0, 5) : '23:30',
+                    isImportant: ev.is_important, description: ev.description,
+                    collabTeams: ev.collab_teams, collaborators: ev.collaborators,
+                    location: ev.location, is_vacation: ev.is_vacation,
+                }));
+                setCalendarEvents(prev => [...prev, ...newEvents]);
+                alert(`✅ ${newEvents.length}개의 반복 일정이 등록되었습니다.`);
+                setIsCalendarModalOpen(false);
+                setEditingEvent(null);
+                return;
+            }
+
             const payload = {
                 title: savedEvent.title, start_date: savedEvent.startDate, end_date: savedEvent.endDate,
                 start_time: savedEvent.startTime, end_time: savedEvent.endTime, is_important: savedEvent.isImportant,
