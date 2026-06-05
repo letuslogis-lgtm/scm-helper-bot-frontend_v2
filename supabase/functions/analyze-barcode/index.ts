@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'
-    console.error('🚨 에러:', message)
-    return json({ error: message }, 500)
+    console.error('🚨 analyze-barcode 에러:', message)
+    return json({ error: '바코드 분석 중 오류가 발생했습니다.' }, 500)
   }
 })
