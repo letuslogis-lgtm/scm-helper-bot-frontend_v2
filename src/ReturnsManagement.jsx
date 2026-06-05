@@ -830,8 +830,8 @@ const ReturnsManagement = ({ userProfile }) => {
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
         return sortConfig.direction === 'asc'
-            ? <span className="ml-1 text-letusBlue">↑</span>
-            : <span className="ml-1 text-letusBlue">↓</span>;
+            ? <span className="ml-1 text-letusBlue font-black">↑</span>
+            : <span className="ml-1 text-letusBlue font-black">↓</span>;
     };
 
     const sortedItems = useMemo(() => {

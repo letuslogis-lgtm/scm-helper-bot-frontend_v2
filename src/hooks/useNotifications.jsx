@@ -123,7 +123,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); supabase.removeChannel(wmsChannel); };
-    }, [session, userProfile, fetchIssues]);
+    }, [session, userProfile?.id, userProfile?.role, userProfile?.managed_brands, userProfile?.managed_vendors, fetchIssues]);
 
     // 🌟 캘린더 30분 전 알림 로직
     useEffect(() => {
@@ -206,7 +206,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             clearInterval(intervalId);
             supabase.removeChannel(calendarChannel);
         };
-    }, [session, userProfile]);
+    }, [session, userProfile?.id, userProfile?.name]);
 
     // 🌟 공지사항 실시간 타겟팅 알림 로직
     useEffect(() => {
@@ -257,7 +257,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             .subscribe();
 
         return () => { supabase.removeChannel(noticeChannel); };
-    }, [session, userProfile]);
+    }, [session, userProfile?.name, userProfile?.team]);
 
     // logistics_returns 알림 (관리자 전용)
     useEffect(() => {
@@ -318,7 +318,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
             .subscribe();
 
         return () => { supabase.removeChannel(returnsChannel); };
-    }, [session, userProfile]);
+    }, [session, userProfile?.id, userProfile?.role]);
 
     const handleMarkAllAsRead = () => {
         const now = new Date().getTime();

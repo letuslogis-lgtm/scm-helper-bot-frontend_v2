@@ -271,7 +271,10 @@ Deno.serve(async (req) => {
     }
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !GEMINI_API_KEY) {
+      console.error('[analyze-accidents] missing env vars')
       return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -287,12 +290,23 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    // ──────────────────────────────────────────────────────────
 
-    const supabase = createClient(
-      SUPABASE_URL,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+    // 관리자 권한 체크 — AI 분석은 관리자만 가능
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', caller.id)
+      .single()
+    const isAdmin = callerProfile?.role === '관리자' || callerProfile?.role === '최고관리자'
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: 'Forbidden: admin only' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    // ──────────────────────────────────────────────────────────
 
     let ids: string[] | null = null
     let forceReanalyze = false
@@ -324,8 +338,7 @@ Deno.serve(async (req) => {
     const targetRecords = records.slice(0, MAX_LIMIT)
     const truncated = records.length > MAX_LIMIT
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!apiKey) throw new Error('GEMINI_API_KEY가 등록되지 않았습니다.')
+    const apiKey = GEMINI_API_KEY
 
     // ========================================================
     // 📚 Few-shot 보정 사례 조회 (v5 핵심: 실제 정답 예시 주입)

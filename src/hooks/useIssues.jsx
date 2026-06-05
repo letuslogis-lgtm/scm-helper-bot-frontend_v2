@@ -44,11 +44,11 @@ export const useIssues = (session, userProfile) => {
     }, [userProfile?.role, userProfile?.managed_brands, userProfile?.managed_vendors]);
 
     useEffect(() => {
-        // userProfile 로드 완료 후 한 번만 조회 (역할 기반 필터 정확히 적용)
+        // userProfile 로드 또는 권한 변경 시 재조회 (역할 기반 필터 반영)
         if (session && userProfile) {
             fetchIssues();
         }
-    }, [session, userProfile?.id]);
+    }, [session, userProfile?.id, fetchIssues]);
 
     return {
         issues,
