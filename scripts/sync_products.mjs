@@ -134,6 +134,7 @@ async function syncProducts() {
         //    - 기존 SELECT → 비교 → INSERT/UPDATE 의 3단계 호출이 1단계로 줄어듦
         //    - 변경 안 된 row 도 UPSERT 되지만, PostgreSQL 의 동일값 UPDATE 는 매우 저렴함
         let processed = 0;
+        const failedChunks = [];
         for (let i = 0; i < uniqueData.length; i += CHUNK_SIZE) {
             const chunk = uniqueData.slice(i, i + CHUNK_SIZE);
 
@@ -149,22 +150,31 @@ async function syncProducts() {
                 await new Promise(r => setTimeout(r, 1000 * attempt));
             }
             if (lastError) {
-                console.error(`Upsert failed at chunk starting ${i.toLocaleString()} after 3 retries:`, lastError);
-                throw lastError;
+                // 즉시 throw 하지 않고 실패 청크 누적 → 끝까지 시도
+                console.error(`Chunk@${i.toLocaleString()} 실패 (3회 재시도 후) — 다음 청크로 진행:`, lastError.message);
+                failedChunks.push({ startIndex: i, size: chunk.length, error: lastError.message });
+            } else {
+                processed += chunk.length;
             }
-
-            processed += chunk.length;
             // 타임아웃 방지: 청크 사이 100ms 대기
             await new Promise(r => setTimeout(r, 100));
-            if (processed % 10000 === 0 || processed >= uniqueData.length) {
+            if (processed % 10000 === 0 || (processed + failedChunks.reduce((s, f) => s + f.size, 0)) >= uniqueData.length) {
                 const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
                 console.log(`Progress: ${processed.toLocaleString()} / ${uniqueData.length.toLocaleString()} (${elapsed}s elapsed)`);
             }
         }
 
         const totalSec = ((Date.now() - startedAt) / 1000).toFixed(1);
-        console.log(`\n[${new Date().toISOString()}] Sync Completed Successfully in ${totalSec}s.`);
+        console.log(`\n[${new Date().toISOString()}] Sync Finished in ${totalSec}s.`);
         console.log(`- Total fetched from MS-SQL: ${rawData.length.toLocaleString()}`);
+        console.log(`- Successfully upserted    : ${processed.toLocaleString()}`);
+
+        if (failedChunks.length > 0) {
+            const failedCount = failedChunks.reduce((s, f) => s + f.size, 0);
+            console.error(`\n❌ 부분 실패: ${failedChunks.length}개 청크 (${failedCount.toLocaleString()}건) 동기화 실패`);
+            failedChunks.forEach(f => console.error(`  - chunk@${f.startIndex} (${f.size}건): ${f.error}`));
+            process.exit(1);
+        }
         console.log(`- Unique items upserted    : ${uniqueData.length.toLocaleString()}`);
 
     } catch (err) {

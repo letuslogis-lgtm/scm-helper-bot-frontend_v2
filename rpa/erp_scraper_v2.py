@@ -379,13 +379,19 @@ def run(ctx):
 
         except Exception as e:
             ctx.log(f"❌ 상차이슈 추출 오류: {e}")
-            _dump_debug(erp_page, ctx, tag="acc_extraction_failed")
-
-        try:
-            context.close()
-            browser.close()
-        except Exception:
-            pass
+            try:
+                _dump_debug(erp_page, ctx, tag="acc_extraction_failed")
+            except Exception as dump_err:
+                ctx.log(f"⚠️ 디버그 덤프 실패: {dump_err}")
+        finally:
+            try:
+                context.close()
+            except Exception as ce:
+                ctx.log(f"⚠️ context.close 실패: {ce}")
+            try:
+                browser.close()
+            except Exception as be:
+                ctx.log(f"⚠️ browser.close 실패: {be}")
 
     # ---------------------------------------------------------------
     # 9. Supabase 업로드 (브라우저 종료 후)

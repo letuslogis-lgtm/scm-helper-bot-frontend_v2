@@ -367,6 +367,7 @@ def main():
 
     print('[3/3] 센터별 CUT리스트 처리 중...')
     total = 0
+    failed_centers = []
     for center in centers:
         warehouse_id = WID_MAP.get(center, center)
         print(f'\n── {center} ({warehouse_id}) ──')
@@ -379,9 +380,16 @@ def main():
             uploaded = parse_and_upload(rows, start_date, center, owner_map, supabase, alias_map)
             total += uploaded
         except Exception as e:
-            print(f'    오류: {e}')
+            print(f'    ❌ 오류: {e}')
+            failed_centers.append((center, str(e)))
 
-    print(f'\n=== 완료: 전체 {total}건 업로드 ===')
+    success_count = len(centers) - len(failed_centers)
+    print(f'\n=== 완료: 전체 {total}건 업로드, 성공 {success_count}/{len(centers)} 센터 ===')
+    if failed_centers:
+        print(f'❌ 실패 센터:')
+        for c, err in failed_centers:
+            print(f'  - {c}: {err}')
+        sys.exit(1)
 
 
 if __name__ == '__main__':

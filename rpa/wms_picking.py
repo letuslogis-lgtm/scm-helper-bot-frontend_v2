@@ -289,6 +289,7 @@ def main():
 
     print('[2/3] PALLET HISTORY API 호출 중...')
     all_records = []
+    failed_centers = []
     for center_label, warehouse_id in CENTERS:
         print(f'\n── {center_label} ──')
         try:
@@ -298,12 +299,20 @@ def main():
             print(f'    집계 결과: {len(records)}건')
             all_records.extend(records)
         except Exception as e:
-            print(f'    오류: {e}')
+            print(f'    ❌ 오류: {e}')
+            failed_centers.append((center_label, str(e)))
 
-    print(f'\n=== 전체 집계: {len(all_records)}건 ===')
+    success_count = len(CENTERS) - len(failed_centers)
+    print(f'\n=== 전체 집계: {len(all_records)}건, 성공 {success_count}/{len(CENTERS)} 센터 ===')
     print('[3/3] logistics_accidents 업데이트 중...')
     update_accidents(all_records)
     print('=== 완료 ===')
+
+    if failed_centers:
+        print(f'\n❌ 실패 센터:')
+        for c, err in failed_centers:
+            print(f'  - {c}: {err}')
+        sys.exit(1)
 
 
 if __name__ == '__main__':
