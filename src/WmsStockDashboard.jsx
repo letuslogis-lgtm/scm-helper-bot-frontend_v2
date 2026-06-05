@@ -100,9 +100,6 @@ export function WmsStockDashboard({ userProfile }) {
     // 창고별 브랜드 상세 아코디언
     const [openWarehouses, setOpenWarehouses] = useState({});
 
-    // 이상값·단가 미등록 알림
-    const [anomalyData, setAnomalyData]   = useState([]);
-    const [unpricedData, setUnpricedData] = useState([]);
 
     // 날짜 필터
     const [filterType, setFilterType] = useState('D');
@@ -225,24 +222,6 @@ export function WmsStockDashboard({ userProfile }) {
         });
     }, [activeTab, selectedDate, selectedWarehouses, selectedCompanies]);
 
-    // 이상값 & 단가 미등록 로드
-    useEffect(() => {
-        if (!selectedDate) return;
-        supabase
-            .from('wms_stock_snapshots')
-            .select('warehouse_name, item_code, brand, location, stock_qty')
-            .eq('snapshot_date', selectedDate)
-            .gte('stock_qty', 10000)
-            .order('stock_qty', { ascending: false })
-            .then(({ data }) => setAnomalyData(data || []));
-        supabase
-            .from('wms_stock_snapshots')
-            .select('warehouse_name, brand, item_code, factory_price')
-            .eq('snapshot_date', selectedDate)
-            .or('factory_price.is.null,factory_price.eq.0')
-            .order('warehouse_name')
-            .then(({ data }) => setUnpricedData(data || []));
-    }, [selectedDate]);
 
     const summary = React.useMemo(() => ({
         totalAmt:       snapshots.reduce((s, r) => s + (r.stock_amount || 0), 0),
@@ -691,67 +670,6 @@ export function WmsStockDashboard({ userProfile }) {
                             </div>
                         </div>
 
-                        {/* ④ 이상값 경고 */}
-                        {anomalyData.length > 0 && (
-                            <div className="bg-orange-50 border-2 border-orange-400 rounded-xl p-5">
-                                <h3 className="text-sm font-bold text-orange-700 mb-2">⚠️ 이상값 경고 · {anomalyData.length}건</h3>
-                                <p className="text-xs text-orange-700 mb-3 bg-orange-100 border-l-4 border-orange-400 px-3 py-2 rounded leading-relaxed">
-                                    재고수량 10,000개 이상 품목입니다. 수량 오류 가능성이 있으므로 확인이 필요합니다. (전체 집계에서 제외됨)
-                                </p>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-xs whitespace-nowrap border-collapse">
-                                        <thead>
-                                            <tr className="bg-orange-200 text-orange-900 font-bold">
-                                                <th className="p-2.5 text-center border border-orange-300">창고명</th>
-                                                <th className="p-2.5 text-center border border-orange-300">품목코드</th>
-                                                <th className="p-2.5 text-center border border-orange-300">화주명</th>
-                                                <th className="p-2.5 text-center border border-orange-300">LOCATION</th>
-                                                <th className="p-2.5 text-right border border-orange-300">재고수량</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {anomalyData.map((row, i) => (
-                                                <tr key={i} className="border-b border-orange-100 hover:bg-orange-100/60 transition-colors">
-                                                    <td className="p-2.5 text-center border border-orange-100">{row.warehouse_name}</td>
-                                                    <td className="p-2.5 text-center font-mono border border-orange-100">{row.item_code}</td>
-                                                    <td className="p-2.5 text-center border border-orange-100">{row.brand || '-'}</td>
-                                                    <td className="p-2.5 text-center text-gray-500 border border-orange-100">{row.location || '-'}</td>
-                                                    <td className="p-2.5 text-right font-bold text-orange-700 border border-orange-100">{fmt(row.stock_qty)}개</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ⑤ 단가 미등록 알림 */}
-                        {unpricedData.length > 0 && (
-                            <div className="bg-yellow-50 border border-yellow-400 rounded-xl p-5">
-                                <h3 className="text-sm font-bold text-yellow-800 mb-2">📋 단가 미등록 알림 · {unpricedData.length}개 품목</h3>
-                                <p className="text-xs text-yellow-700 mb-3">공장도가가 미등록(0원 또는 미입력) 상태입니다. 재고금액 집계 시 0원으로 처리됩니다.</p>
-                                <div className="overflow-x-auto max-h-52 overflow-y-auto">
-                                    <table className="w-full text-xs whitespace-nowrap border-collapse">
-                                        <thead className="sticky top-0">
-                                            <tr className="bg-yellow-200 text-yellow-900 font-bold">
-                                                <th className="p-2.5 text-left border border-yellow-300">창고명</th>
-                                                <th className="p-2.5 text-left border border-yellow-300">화주명</th>
-                                                <th className="p-2.5 text-left border border-yellow-300">품목코드</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {unpricedData.map((row, i) => (
-                                                <tr key={i} className="border-b border-yellow-100 hover:bg-yellow-100/60 transition-colors">
-                                                    <td className="p-2.5 border border-yellow-100">{row.warehouse_name}</td>
-                                                    <td className="p-2.5 border border-yellow-100">{row.brand || '-'}</td>
-                                                    <td className="p-2.5 font-mono border border-yellow-100">{row.item_code}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
 
                         {/* 테이블 영역 */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
