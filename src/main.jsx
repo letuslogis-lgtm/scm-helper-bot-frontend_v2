@@ -189,7 +189,7 @@ const ProtectedMobileRoute = () => {
             .then(({ count }) => setAdminPendingCount(count || 0));
 
         // 실시간 구독
-        const channel = supabase.channel('admin_pending_count')
+        const channel = supabase.channel(`admin_pending_count_${userProfile.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_issues' },
                 (payload) => {
                     const newStatus = payload.new?.status;
@@ -213,7 +213,7 @@ const ProtectedMobileRoute = () => {
     React.useEffect(() => {
         if (!userProfile?.name) return;
 
-        const channel = supabase.channel('mobile_issue_updates')
+        const channel = supabase.channel(`mobile_issue_updates_${userProfile.name}`)
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
@@ -227,12 +227,12 @@ const ProtectedMobileRoute = () => {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [userProfile]);
+    }, [userProfile?.name]);
 
     React.useEffect(() => {
         if (!userProfile?.name) return;
 
-        const channel = supabase.channel('mobile_returns_updates')
+        const channel = supabase.channel(`mobile_returns_updates_${userProfile.name}`)
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
@@ -248,7 +248,7 @@ const ProtectedMobileRoute = () => {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [userProfile]);
+    }, [userProfile?.name]);
 
     if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center font-bold text-blue-300">세션 확인 중...</div>;
     if (!session) return <MobileLoginView />;

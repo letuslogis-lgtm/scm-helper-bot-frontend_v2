@@ -255,13 +255,26 @@ function runChildProcess(command, cwd, timeoutMs = CHILD_PROCESS_TIMEOUT_MS) {
         // 타임아웃 가드 — 일정 시간 초과 시 강제 종료
         const killTimer = setTimeout(() => {
             timedOut = true;
-            warn(`Child process timeout (${timeoutMs}ms) → killing pid=${proc.pid}`);
+            const pid = proc.pid;
+            warn(`Child process timeout (${timeoutMs}ms) → killing pid=${pid}`);
             try {
                 proc.kill('SIGTERM');
                 // 5초 후에도 안 죽으면 SIGKILL
                 setTimeout(() => {
                     if (!proc.killed) {
                         try { proc.kill('SIGKILL'); } catch (_) {}
+                        // SIGKILL 후 3초 추가 대기 후 좀비 여부 확인
+                        setTimeout(() => {
+                            try {
+                                process.kill(pid, 0); // 시그널 0 → 프로세스 생존 여부 확인
+                                warn(`⚠️ SIGKILL 후에도 pid=${pid}가 생존 중 (좀비 가능성). 수동 확인 필요.`);
+                            } catch (e) {
+                                if (e.code !== 'ESRCH') {
+                                    warn(`pid=${pid} 상태 확인 중 오류: ${e.message}`);
+                                }
+                                // ESRCH = 프로세스 없음 = 정상 종료됨
+                            }
+                        }, 3000);
                     }
                 }, 5000);
             } catch (e) {
@@ -269,15 +282,23 @@ function runChildProcess(command, cwd, timeoutMs = CHILD_PROCESS_TIMEOUT_MS) {
             }
         }, timeoutMs);
 
+        // 라인 단위로 timestamp + level prefix를 붙여 미러링
+        const prefixLines = (text, marker) => {
+            const ts = new Date().toISOString();
+            return text
+                .split('\n')
+                .map((line, idx, arr) => (idx === arr.length - 1 && line === '') ? line : `  ${marker} [${ts}] ${line}`)
+                .join('\n');
+        };
         proc.stdout.on('data', (chunk) => {
             const text = chunk.toString();
             stdout += text;
-            process.stdout.write(`  | ${text}`); // 실시간 미러링 (들여쓰기)
+            process.stdout.write(prefixLines(text, '|'));
         });
         proc.stderr.on('data', (chunk) => {
             const text = chunk.toString();
             stderr += text;
-            process.stderr.write(`  ! ${text}`);
+            process.stderr.write(prefixLines(text, '!'));
         });
 
         proc.on('close', (code) => {

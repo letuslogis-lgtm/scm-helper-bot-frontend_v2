@@ -524,7 +524,7 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
         ctx.log("  업로드할 신규 레코드 없음")
         return
 
-    # 5. INSERT (100건 청크)
+    # 5. INSERT (100건 청크) — existing_keys 사전 필터링으로 중복 방지
     CHUNK = 100
     inserted = 0
     for i in range(0, len(records), CHUNK):
