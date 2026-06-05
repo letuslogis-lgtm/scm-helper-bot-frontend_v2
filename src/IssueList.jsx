@@ -454,7 +454,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                                     <button onClick={() => { setIsActionMenuOpen(false); handleSendFeedback(); }} disabled={isSendingFeedback} className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors ${isSendingFeedback ? 'text-gray-400 cursor-not-allowed bg-gray-50' : 'text-gray-700 hover:text-letusBlue hover:bg-blue-50'}`}>
                                         {isSendingFeedback ? '전송 중...' : '피드백 전송'}
                                     </button>
-                                    {userProfile?.role === '관리자' && (
+                                    {userProfile?.role?.includes('관리자') && (
                                         <>
                                             <div className="h-px bg-gray-100 my-1"></div>
                                             <button

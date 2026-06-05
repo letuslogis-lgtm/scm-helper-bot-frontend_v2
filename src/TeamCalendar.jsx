@@ -80,7 +80,7 @@ export const TeamCalendar = ({ userProfile }) => {
             }).filter(ev => {
                 if (ev._parsedDate < startStr || ev._parsedDate > endStr) return false;
                 if (ev.is_private) return false;
-                return ev._isMine || ev._isSameTeam || ev._isTagged || userProfile?.role === '관리자';
+                return ev._isMine || ev._isSameTeam || ev._isTagged || userProfile?.role?.includes('관리자');
             });
 
             setEvents(processedEvents);
