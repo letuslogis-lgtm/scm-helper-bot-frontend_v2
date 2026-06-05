@@ -175,6 +175,7 @@ async function syncProducts() {
             failedChunks.forEach(f => console.error(`  - chunk@${f.startIndex} (${f.size}건): ${f.error}`));
             process.exit(1);
         }
+        // 모든 청크 성공 시에만 도달
         console.log(`- Unique items upserted    : ${uniqueData.length.toLocaleString()}`);
 
     } catch (err) {
