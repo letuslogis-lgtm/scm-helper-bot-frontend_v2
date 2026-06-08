@@ -319,7 +319,13 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl slide-up border border-gray-100 overflow-hidden flex flex-col">
  <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
  <div>
- <h3 className="font-bold text-gray-900">현장 특이사항 접수/이관 ({row.reception_no})</h3>
+ <h3 className="font-bold text-gray-900">
+   현장 특이사항 접수/이관 ({row.reception_no}
+   {row.product_code && (
+     <span className="ml-1 text-gray-400 font-normal text-sm">/ {row.product_code}</span>
+   )}
+   )
+ </h3>
  <div className="flex items-center gap-1 mt-1 text-[11px]">
  <span className={stepStyle(isWaiting, !isWaiting)}>① 접수</span>
  <span className="text-gray-300">›</span>
