@@ -94,8 +94,14 @@ async function syncProducts() {
                 공장도가,
                 재고구분,
                 제품구분,
-                사용구분
+                사용구분,
+                [최종변경일시(단품)]
             FROM [group].[DM_단품마스터+소속법인사별단품마스터]
+            WHERE 사용구분 <> '단종'
+              AND (
+                [최종변경일시(단품)] >= DATEADD(YEAR, -1, GETDATE())
+                OR [최종변경일시(단품)] IS NULL
+              )
         `);
 
         const rawData = result.recordset;
@@ -124,6 +130,9 @@ async function syncProducts() {
                 stock_type: clean(row['재고구분']) || null,
                 product_type: clean(row['제품구분']) || null,
                 item_status: clean(row['사용구분']) || null,
+                item_updated_at: row['최종변경일시(단품)'] != null
+                    ? new Date(row['최종변경일시(단품)']).toISOString()
+                    : null,
             });
         });
         const uniqueData = Array.from(uniqueMap.values());
