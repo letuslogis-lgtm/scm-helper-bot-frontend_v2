@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     const { data: admins } = await admin
       .from('profiles')
       .select('slack_email')
-      .eq('role', '관리자')
+      .in('role', ['관리자', '최고관리자'])
       .eq('status', '정상')
       .not('slack_email', 'is', null)
 

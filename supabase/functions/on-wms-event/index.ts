@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       let sent = 0
       for (const p of profiles) {
         if (!p.slack_email) continue
-        const isAdmin = p.role === '관리자'
+        const isAdmin = p.role === '관리자' || p.role === '최고관리자'
         const isUser  = p.role === '사용자'
 
         const shouldNotify =
@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
 
       let sent = 0
       for (const p of profiles) {
-        if (!p.slack_email || p.role !== '관리자') continue
+        if (!p.slack_email || (p.role !== '관리자' && p.role !== '최고관리자')) continue
         if (brandMatch(p, brand)) {
           if (await sendSlack(SUPABASE_URL, SERVICE_KEY, p.slack_email, title, message)) sent++
         }
