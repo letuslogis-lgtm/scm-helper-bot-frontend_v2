@@ -40,9 +40,11 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
                 is_active:       form.is_active,
             };
             if (isEdit) {
-                await supabase.from(TABLE).update(payload).eq('id', initial.id);
+                const { error } = await supabase.from(TABLE).update(payload).eq('id', initial.id);
+                if (error) throw error;
             } else {
-                await supabase.from(TABLE).insert(payload);
+                const { error } = await supabase.from(TABLE).insert(payload);
+                if (error) throw error;
             }
             onSaved();
         } catch (e) {
@@ -157,7 +159,8 @@ const ErpInboundConfigPanel = () => {
     // 데이터 로드
     const fetchRows = useCallback(async () => {
         setLoading(true);
-        const { data } = await supabase.from(TABLE).select('*').order('sort_order').order('id');
+        const { data, error } = await supabase.from(TABLE).select('*').order('sort_order').order('id');
+        if (error) console.error('[ErpInboundConfig] fetchRows error:', error.message, error);
         setRows(data || []);
         setLoading(false);
     }, []);
