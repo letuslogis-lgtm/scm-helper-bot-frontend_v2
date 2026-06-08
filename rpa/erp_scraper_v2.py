@@ -529,7 +529,13 @@ def _parse_and_upload(ctx, xls_path, start_date: str, end_date: str, t0):
     inserted = 0
     for i in range(0, len(records), CHUNK):
         chunk = records[i:i + CHUNK]
-        supa.table('logistics_accidents').insert(chunk).execute()
+        try:
+            result = supa.table('logistics_accidents').insert(chunk).execute()
+            if hasattr(result, 'error') and result.error:
+                raise RuntimeError(f"INSERT 실패 (청크 {i // CHUNK + 1}): {result.error}")
+        except Exception as e:
+            ctx.log(f"  ❌ INSERT 실패 (청크 {i // CHUNK + 1}/{(len(records) + CHUNK - 1) // CHUNK}): {e}")
+            raise
         inserted += len(chunk)
         ctx.log(f"  → {inserted}/{len(records)}건 INSERT")
 

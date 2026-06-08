@@ -235,7 +235,11 @@ def update_accidents(all_records: list[dict]):
         print('[DB] 매칭되는 logistics_accidents 레코드 없음')
         return
 
-    pick_map = {(r['order_no'], r['item_code']): r for r in all_records}
+    pick_map = {
+        (r['order_no'], r['item_code']): r
+        for r in all_records
+        if r.get('order_no') and r.get('item_code')
+    }
 
     to_update = []
     for acc in existing:

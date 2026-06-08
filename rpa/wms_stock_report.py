@@ -172,7 +172,7 @@ def load_prices_for_items(item_codes: list[str]) -> dict:
     if not item_codes:
         return {}
 
-    base_codes = list({code.split('-')[0] for code in item_codes if code})
+    base_codes = list({code.split('-')[0].upper() for code in item_codes if code})
     print(f'[3/5] 대상 품목 {len(item_codes)}개 (base code {len(base_codes)}개) 단가 조회 중...')
 
     price_map = {}
