@@ -93,7 +93,8 @@ const ImageSlider = ({ imageUrlString, imageUrlHqString }) => {
     const [currentIndex, setCurrentIndex] = React.useState(0);
     const [lightboxOpen, setLightboxOpen] = React.useState(false);
     const [rotation, setRotation] = React.useState(0);
-    React.useEffect(() => { setRotation(0); }, [currentIndex]);
+    const [imageError, setImageError] = React.useState(false);
+    React.useEffect(() => { setRotation(0); setImageError(false); }, [currentIndex]);
 
     const prev = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.max(0, i - 1)); };
     const next = (e) => { e?.stopPropagation(); setCurrentIndex(i => Math.min(urls.length - 1, i + 1)); };
@@ -129,12 +130,20 @@ const ImageSlider = ({ imageUrlString, imageUrlHqString }) => {
                 tabIndex={0}
                 onKeyDown={handleKeyDown}
             >
-                <img
-                    src={urls[currentIndex]}
-                    alt={`현장사진 ${currentIndex + 1}`}
-                    className="w-full h-full object-contain transition-opacity duration-300 cursor-zoom-in"
-                    onClick={() => setLightboxOpen(true)}
-                />
+                {imageError ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 text-sm gap-1">
+                        <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3l18 18M4 4h16v16H4z" /></svg>
+                        이미지를 불러올 수 없습니다
+                    </div>
+                ) : (
+                    <img
+                        src={urls[currentIndex]}
+                        alt={`현장사진 ${currentIndex + 1}`}
+                        className="w-full h-full object-contain transition-opacity duration-300 cursor-zoom-in"
+                        onClick={() => setLightboxOpen(true)}
+                        onError={() => setImageError(true)}
+                    />
+                )}
 
                 {urls.length > 1 && (
                     <div className="absolute top-4 right-4 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-md backdrop-blur-sm">

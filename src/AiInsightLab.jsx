@@ -105,13 +105,22 @@ export const AiInsightLab = () => {
                 : l.source_menu === 'MobileBarcode'
         ), [logs, activeTab]);
 
+    const toLocalDateStr = (iso) => {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const pad = n => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+
     const filteredLogs = useMemo(() => {
         return tabLogs.filter(row => {
             if (confidenceFilter !== '전체' && row.ai_confidence !== confidenceFilter) return false;
             if (reviewFilter === '검토 완료' && !row.is_reviewed) return false;
             if (reviewFilter === '미검토' && row.is_reviewed) return false;
-            if (dateFilter.start && row.created_at.slice(0, 10) < dateFilter.start) return false;
-            if (dateFilter.end && row.created_at.slice(0, 10) > dateFilter.end) return false;
+            const rowDateStr = toLocalDateStr(row.created_at);
+            if (dateFilter.start && rowDateStr < dateFilter.start) return false;
+            if (dateFilter.end && rowDateStr > dateFilter.end) return false;
             if (searchValue) {
                 const term = searchValue.toLowerCase();
                 const textMatch = row.original_text?.toLowerCase().includes(term);

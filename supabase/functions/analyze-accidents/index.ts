@@ -316,17 +316,21 @@ Deno.serve(async (req) => {
       forceReanalyze = body.forceReanalyze === true
     } catch (_) {}
 
+    const MAX_LIMIT = Number(Deno.env.get('MAX_BATCH_SIZE') ?? 50)
+    let truncated = false
+
     let query = supabase.from('logistics_accidents').select('*')
     if (ids && ids.length > 0) {
-      query = query.in('id', ids)
+      if (ids.length > MAX_LIMIT) truncated = true
+      query = query.in('id', ids.slice(0, MAX_LIMIT))
       if (!forceReanalyze) query = query.is('ai_cause_detail', null)
     } else {
-      query = query.eq('status', '등록 완료').is('ai_cause_detail', null).limit(50)
+      query = query.eq('status', '등록 완료').is('ai_cause_detail', null).limit(MAX_LIMIT)
     }
 
     const { data: records, error: fetchError } = await query
     if (fetchError) throw fetchError
-    
+
     if (!records || records.length === 0) {
       return new Response(
         JSON.stringify({ message: '분석할 대기 데이터가 없습니다.', processed_count: 0 }),
@@ -334,9 +338,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const MAX_LIMIT = 50 // 프론트와 맞춘 50건 제한
     const targetRecords = records.slice(0, MAX_LIMIT)
-    const truncated = records.length > MAX_LIMIT
 
     const apiKey = GEMINI_API_KEY
 

@@ -40,7 +40,7 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
     }, [userProfile?.workplace]);
 
     const compressImage = (file, maxWidth = 1024, quality = 0.6) =>
-        new Promise((resolve) => {
+        new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
@@ -50,6 +50,7 @@ export const MobilePreDeliveryManage = ({ userProfile }) => {
                 canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
                 resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
             };
+            img.onerror = () => reject(new Error('이미지 로드 실패'));
             img.src = URL.createObjectURL(file);
         });
 

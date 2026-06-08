@@ -57,7 +57,7 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
         setAiReport(null);
 
         try {
-            const { data, error } = await window.supabase
+            const { data, error } = await supabase
                 .from('logistics_accidents')
                 .select('*')
                 .gte('service_date', startDate)
@@ -146,11 +146,11 @@ const AccidentAnalyticsReport = ({ userProfile, onDrillDown }) => {
 
         try {
             // Supabase 세션을 가져와 Edge Function 호출 (fetch 직접 사용으로 스트리밍 처리)
-            const { data: { session } } = await window.supabase.auth.getSession();
+            const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
-            
+
             // Supabase 프로젝트의 URL을 파싱하여 Edge Function 주소 생성
-            const supabaseUrl = window.supabase.supabaseUrl;
+            const supabaseUrl = supabase.supabaseUrl;
             const functionUrl = `${supabaseUrl}/functions/v1/generate-insight-report`;
 
             const response = await fetch(functionUrl, {

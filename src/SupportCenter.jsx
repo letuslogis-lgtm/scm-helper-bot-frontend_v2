@@ -294,7 +294,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  }).eq('id', row.id);
  if (error) throw error;
  await onReload(); onClose();
- } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
+ } catch (e) { alert(`오류: ${e.message}`); } finally { setIsSaving(false); }
  };
 
  const handleDirectAction = async () => {
@@ -306,7 +306,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  if (error) throw error;
  await onReload();
  onDirectHandle?.({ ...row, status: '처리 중' });
- } catch (e) { alert('오류가 발생했습니다.'); } finally { setIsSaving(false); }
+ } catch (e) { alert(`오류: ${e.message}`); } finally { setIsSaving(false); }
  };
 
 
