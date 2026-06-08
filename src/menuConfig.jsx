@@ -26,7 +26,8 @@ export const ALL_MENUS = [
             { id: 'worker_management', label: '근무자 관리' },
             { id: 'loading_map', label: '상차 맵 관리' },
             { id: 'db_map', label: '시스템 데이터 맵' },
-            { id: 'product_manager', label: 'ITEM DB 수동 업데이트' }
+            { id: 'product_manager', label: 'ITEM DB 수동 업데이트' },
+            { id: 'erp_inbound_config', label: 'ERP 입고예정생성 설정' }
         ]
     },
     {

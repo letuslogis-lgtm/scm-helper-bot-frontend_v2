@@ -27,6 +27,7 @@ import { ReturnsManagement } from './ReturnsManagement.jsx';
 import { WmsShortageList } from './WmsShortageList.jsx';
 import { LogisticsClosing } from './LogisticsClosing.jsx';
 import { WmsStockDashboard } from './WmsStockDashboard.jsx';
+import { ErpInboundConfig } from './ErpInboundConfig.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
 import { MobileReturnsRegister } from './MobileReturnsRegister.jsx';
 import { MobilePreDeliveryManage } from './MobilePreDeliveryManage.jsx';
@@ -135,6 +136,7 @@ const AppContent = () => {
                 <Route path="/logistics_closing" element={<LogisticsClosing />} />
                 <Route path="/wms_stock" element={<WmsStockDashboard userProfile={logic.userProfile} />} />
                 <Route path="/wms_shortage" element={<WmsShortageList userProfile={logic.userProfile} />} />
+                <Route path="/erp_inbound_config" element={<ErpInboundConfig />} />
                 <Route path="*" element={<div className="p-8 text-center text-gray-500 font-bold">페이지를 찾을 수 없습니다 (404)</div>} />
             </Routes>
 
