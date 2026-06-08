@@ -38,6 +38,7 @@ import { MobileLoginView } from './MobileLoginView.jsx';
 import { MobileAdminMenu } from './MobileAdminMenu.jsx';
 import { MobileAdminIssueList } from './MobileAdminIssueList.jsx';
 import { MobileBarcodeTester } from './MobileBarcodeTester.jsx';
+import { MobileSuggestion } from './MobileSuggestion.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 import { useAuth } from './hooks/useAuth.jsx';
@@ -277,6 +278,7 @@ const ProtectedMobileRoute = () => {
                 <MobileMyIssues userProfile={userProfile} onNotificationsRead={() => setCompletedNotiCount(0)} />
             } />
             <Route path="notice" element={<MobileNotice />} />
+            <Route path="suggestion" element={<MobileSuggestion userProfile={userProfile} />} />
             <Route path="*" element={<Navigate to="/mobile" replace />} />
         </Routes>
     );

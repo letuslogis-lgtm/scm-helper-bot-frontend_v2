@@ -22,9 +22,10 @@ const MENU_GROUPS = [
         ],
     },
     {
-        label: '공지',
+        label: '고객 지원',
         items: [
-            { id: 'notice', icon: '📢', title: '공지사항', subtitle: '팀 공지 확인', iconBg: 'bg-orange-50', path: '/mobile/notice' },
+            { id: 'notice',     icon: '📢', title: '공지사항', subtitle: '팀 공지 확인',    iconBg: 'bg-orange-50', path: '/mobile/notice' },
+            { id: 'suggestion', icon: '💬', title: '건의사항', subtitle: '개선·아이디어 제안', iconBg: 'bg-purple-50', path: '/mobile/suggestion' },
         ],
     },
 ];
