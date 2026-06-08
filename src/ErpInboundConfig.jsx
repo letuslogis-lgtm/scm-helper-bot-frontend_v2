@@ -5,7 +5,6 @@ const TABLE = 'erp_inbound_config';
 const LS_KEY = 'letus_inbound_config_col';
 
 const DEFAULT_COLUMNS = [
-    { label: '순서',         key: 'sort_order',       w: 70  },
     { label: '회사',         key: 'company',          w: 120 },
     { label: '입고예정창고', key: 'input_warehouse',  w: 150 },
     { label: '출고창고',     key: 'output_warehouse', w: 150 },
@@ -14,7 +13,7 @@ const DEFAULT_COLUMNS = [
     { label: '수정/삭제',    key: null,               w: 110 },
 ];
 
-const EMPTY_FORM = { company: '', input_warehouse: '', output_warehouse: '', sort_order: 0, note: '', is_active: true };
+const EMPTY_FORM = { company: '', input_warehouse: '', output_warehouse: '', note: '', is_active: true };
 
 // ── 모달 ──────────────────────────────────────────────────────────────────────
 const ConfigModal = ({ initial, onClose, onSaved }) => {
@@ -32,12 +31,11 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
         setSaving(true); setErr('');
         try {
             const payload = {
-                company:         form.company.trim(),
-                input_warehouse: form.input_warehouse.trim(),
+                company:          form.company.trim(),
+                input_warehouse:  form.input_warehouse.trim(),
                 output_warehouse: form.output_warehouse.trim(),
-                sort_order:      Number(form.sort_order) || 0,
-                note:            form.note.trim() || null,
-                is_active:       form.is_active,
+                note:             form.note.trim() || null,
+                is_active:        form.is_active,
             };
             if (isEdit) {
                 const { error } = await supabase.from(TABLE).update(payload).eq('id', initial.id);
@@ -82,27 +80,14 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
                         </div>
                     ))}
 
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block text-xs font-bold text-gray-600 mb-1">정렬 순서</label>
-                            <input
-                                type="number"
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                value={form.sort_order}
-                                onChange={e => set('sort_order', e.target.value)}
-                            />
-                        </div>
-                        <div className="flex items-end pb-2">
-                            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 font-bold">
-                                <input
-                                    type="checkbox"
-                                    className="w-4 h-4 accent-blue-500"
-                                    checked={form.is_active}
-                                    onChange={e => set('is_active', e.target.checked)}
-                                />
-                                활성
-                            </label>
-                        </div>
+                    <div className="flex items-center gap-2 pt-1">
+                        <input
+                            type="checkbox"
+                            className="w-4 h-4 accent-blue-500"
+                            checked={form.is_active}
+                            onChange={e => set('is_active', e.target.checked)}
+                        />
+                        <label className="text-sm text-gray-700 font-bold cursor-pointer" onClick={() => set('is_active', !form.is_active)}>활성</label>
                     </div>
                 </div>
 
@@ -159,7 +144,7 @@ const ErpInboundConfigPanel = () => {
     // 데이터 로드
     const fetchRows = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase.from(TABLE).select('*').order('sort_order').order('id');
+        const { data, error } = await supabase.from(TABLE).select('*').order('id');
         if (error) console.error('[ErpInboundConfig] fetchRows error:', error.message, error);
         setRows(data || []);
         setLoading(false);
@@ -208,11 +193,10 @@ const ErpInboundConfigPanel = () => {
     const renderCell = (oIdx, row) => {
         const col = DEFAULT_COLUMNS[oIdx];
         switch (oIdx) {
-            case 0: return <td key={oIdx} className="p-3 text-center text-gray-500 text-sm">{row.sort_order}</td>;
-            case 1: return <td key={oIdx} className="p-3 font-bold text-gray-800 text-sm">{row.company}</td>;
-            case 2: return <td key={oIdx} className="p-3 text-gray-700 text-sm">{row.input_warehouse}</td>;
-            case 3: return <td key={oIdx} className="p-3 text-gray-700 text-sm">{row.output_warehouse}</td>;
-            case 4: return (
+            case 0: return <td key={oIdx} className="p-3 font-bold text-gray-800 text-sm">{row.company}</td>;
+            case 1: return <td key={oIdx} className="p-3 text-gray-700 text-sm">{row.input_warehouse}</td>;
+            case 2: return <td key={oIdx} className="p-3 text-gray-700 text-sm">{row.output_warehouse}</td>;
+            case 3: return (
                 <td key={oIdx} className="p-3 text-center">
                     <button
                         onClick={() => toggleActive(row)}
@@ -226,8 +210,8 @@ const ErpInboundConfigPanel = () => {
                     </button>
                 </td>
             );
-            case 5: return <td key={oIdx} className="p-3 text-gray-500 text-sm">{row.note || '-'}</td>;
-            case 6: return (
+            case 4: return <td key={oIdx} className="p-3 text-gray-500 text-sm">{row.note || '-'}</td>;
+            case 5: return (
                 <td key={oIdx} className="p-3 text-center">
                     <div className="flex gap-1 justify-center">
                         <button
