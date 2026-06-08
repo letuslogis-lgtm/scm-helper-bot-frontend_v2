@@ -121,8 +121,8 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
     );
 };
 
-// ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
-const ErpInboundConfig = () => {
+// ── 패널: ERP 입고예정생성 설정 ───────────────────────────────────────────────
+const ErpInboundConfigPanel = () => {
     const [rows, setRows]         = useState([]);
     const [loading, setLoading]   = useState(false);
     const [modal, setModal]       = useState(null); // null | 'add' | row(edit)
@@ -352,6 +352,43 @@ const ErpInboundConfig = () => {
                     </div>
                 </div>
             )}
+        </div>
+    );
+};
+
+// ── 탭 정의 (탭 추가 시 여기에만 추가) ────────────────────────────────────────
+const TABS = [
+    { id: 'erp_inbound', label: 'ERP 입고예정생성 설정' },
+    // { id: 'next_tab', label: '다음 탭 이름' },
+];
+
+// ── 래퍼: 시스템 데이터 관리 ──────────────────────────────────────────────────
+const ErpInboundConfig = () => {
+    const [activeTab, setActiveTab] = useState('erp_inbound');
+
+    return (
+        <div className="flex flex-col h-[calc(100vh-64px)]">
+            {/* 탭 네비게이션 */}
+            <div className="bg-white border-b border-gray-200 px-6 flex items-center shrink-0">
+                {TABS.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-5 py-3 text-sm font-bold border-b-2 -mb-px transition-colors ${
+                            activeTab === tab.id
+                                ? 'border-letusBlue text-letusBlue'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* 탭 컨텐츠 */}
+            <div className="flex-1 overflow-hidden">
+                {activeTab === 'erp_inbound' && <ErpInboundConfigPanel />}
+            </div>
         </div>
     );
 };
