@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient.js';
 
+// Service Worker를 통한 브라우저 알림 (모바일 PWA 포함)
+const sendBrowserNotification = (title, body, url, icon) => {
+    if (Notification.permission !== 'granted') return;
+    const notifIcon = icon || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(sw => {
+            sw.showNotification(title, { body, icon: notifIcon, data: { url: url || '/home' } });
+        }).catch(() => {
+            new Notification(title, { body, icon: notifIcon });
+        });
+    } else {
+        new Notification(title, { body, icon: notifIcon });
+    }
+};
+
 // filterObj → 이동 URL 변환
 const getUrlFromFilterObj = (filterObj) => {
     if (!filterObj) return '/home';
@@ -78,10 +93,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
 
                 setNotifications(prev => [newNoti, ...prev].slice(0, 10));
 
-                if (Notification.permission === 'granted') {
-                    const browserNoti = new Notification(`LETUS LOGIS - ${type}`, { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' });
-                    browserNoti.onclick = () => { window.focus(); window.location.href = getUrlFromFilterObj(newNoti.filterObj); };
-                }
+                sendBrowserNotification(`LETUS LOGIS - ${type}`, message, getUrlFromFilterObj(newNoti.filterObj));
                 fetchIssues && fetchIssues();
             }
         };
@@ -112,10 +124,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
                 read: false, read_at: null, filterObj: { type: 'wms' }
             };
             setNotifications(prev => [wmsNoti, ...prev].slice(0, 10));
-            if (Notification.permission === 'granted') {
-                const browserNoti = new Notification('LETUS LOGIS - WMS 조치사항 등록', { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' });
-                browserNoti.onclick = () => { window.focus(); window.location.href = '/wms_shortage'; };
-            }
+            sendBrowserNotification('LETUS LOGIS - WMS 조치사항 등록', message, '/wms_shortage');
         };
 
         const wmsChannel = supabase.channel('wms_action_notifications')
@@ -193,11 +202,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
                     };
 
                     setNotifications(prev => [newNoti, ...prev].slice(0, 10));
-
-                    if (Notification.permission === 'granted') {
-                        const browserNoti = new Notification(`LETUS LOGIS - ${type}`, { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/3652/3652191.png' });
-                        browserNoti.onclick = () => { window.focus(); window.location.href = getUrlFromFilterObj(newNoti.filterObj); };
-                    }
+                    sendBrowserNotification(`LETUS LOGIS - ${type}`, message, getUrlFromFilterObj(newNoti.filterObj), 'https://cdn-icons-png.flaticon.com/512/3652/3652191.png');
                 }
             });
         }, 60 * 1000);
@@ -242,11 +247,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
                 };
 
                 setNotifications(prev => [newNoti, ...prev].slice(0, 10));
-
-                if (Notification.permission === 'granted') {
-                    const browserNoti = new Notification(`LETUS LOGIS - ${type}`, { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' });
-                    browserNoti.onclick = () => { window.focus(); window.location.href = '/notice'; };
-                }
+                sendBrowserNotification(`LETUS LOGIS - ${type}`, message, '/notice');
             }
         };
 
@@ -304,11 +305,7 @@ export const useNotifications = (session, userProfile, fetchIssues) => {
                 };
 
                 setNotifications(prev => [newNoti, ...prev].slice(0, 10));
-
-                if (Notification.permission === 'granted') {
-                    const browserNoti = new Notification(`LETUS LOGIS - ${type}`, { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' });
-                    browserNoti.onclick = () => { window.focus(); window.location.href = '/returns_management'; };
-                }
+                sendBrowserNotification(`LETUS LOGIS - ${type}`, message, '/returns_management');
             }
         };
 
