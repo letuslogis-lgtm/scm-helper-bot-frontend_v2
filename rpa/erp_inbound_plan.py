@@ -238,27 +238,64 @@ def select_combo(page, btn_id: str, value: str, label: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. 활성 체크박스 선택 (visibility != hidden)
+# 4. 체크박스 헬퍼
 # ---------------------------------------------------------------------------
-def select_active_checkboxes(page) -> int:
-    """미생성품목 행(활성 체크박스)만 선택. 선택 수 반환."""
-    count = page.evaluate("""
+def get_active_rows(page) -> list[dict]:
+    """활성 체크박스 행 목록 반환 [{row_idx, invoice_no}]"""
+    return page.evaluate("""
         () => {
-            const els = document.querySelectorAll(
-                '[id*="grd_mst_body"][id*="_8_controlcheckbox_chkimgImageElement"]'
-            );
-            let n = 0;
+            const pattern = '_8_controlcheckbox_chkimgImageElement';
+            const els = document.querySelectorAll('[id*="grd_mst_body"][id*="' + pattern + '"]');
+            const rows = [];
             els.forEach(el => {
                 if (el.style.visibility !== 'hidden') {
-                    // 외부 컨테이너(클릭 가능한 셀 영역) 클릭
-                    const cell = el.parentElement?.parentElement;
-                    if (cell) { cell.click(); n++; }
+                    const m = el.id.match(/gridrow_(\\d+)/);
+                    if (!m) return;
+                    const rowIdx = parseInt(m[1]);
+                    // 매출전표번호 (column 1) 텍스트 추출
+                    let invoiceNo = '';
+                    document.querySelectorAll(
+                        '[id*="grd_mst_body_gridrow_' + rowIdx + '"][id*="_cell_' + rowIdx + '_1"]'
+                    ).forEach(e => { const t = (e.innerText || '').trim(); if (t.length > 3) invoiceNo = t; });
+                    rows.push({ rowIdx, invoiceNo: invoiceNo || ('row_' + rowIdx) });
                 }
             });
-            return n;
+            return rows;
         }
     """)
-    return count
+
+
+def select_one_checkbox(page, row_idx: int) -> None:
+    """특정 행 체크박스만 클릭"""
+    page.evaluate(f"""
+        () => {{
+            document.querySelectorAll(
+                '[id*="grd_mst_body_gridrow_{row_idx}"][id*="_8_controlcheckbox_chkimgImageElement"]'
+            ).forEach(el => {{
+                if (el.style.visibility !== 'hidden') {{
+                    const cell = el.parentElement?.parentElement;
+                    if (cell) cell.click();
+                }}
+            }});
+        }}
+    """)
+
+
+def _requery(page) -> bool:
+    """조회 재실행. 결과 행 존재 여부 반환."""
+    page.locator(f'#{ERP_IDS["search"]}').click()
+    try:
+        page.locator('#mainframe_waitwindow').wait_for(state='hidden', timeout=30000)
+    except PWTimeout:
+        pass
+    page.wait_for_timeout(500)
+    try:
+        page.locator('[id*="06002008"][id*="grd_mst_body_gridrow_0"]').first.wait_for(
+            state='attached', timeout=5000
+        )
+        return True
+    except PWTimeout:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -285,16 +322,62 @@ def dismiss_popup(page, timeout: int = 3000) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# 6. 단일 설정(회사 × 창고) 처리
+# 6. 단건 처리 fallback
+# ---------------------------------------------------------------------------
+def _process_one_by_one(page, cfg: dict) -> dict:
+    """오류 발생 시 행 하나씩 처리. 오류 행은 invoice_no로 추적해 skip."""
+    company   = cfg['company']
+    output_wh = cfg['output_warehouse']
+    ok_count  = 0
+    error_rows = []
+    skip_set   = set()
+
+    for attempt in range(100):  # 무한루프 방지 상한
+        if not _requery(page):
+            break
+
+        active    = get_active_rows(page)
+        remaining = [r for r in active if r['invoice_no'] not in skip_set]
+
+        if not remaining:
+            break
+
+        row = remaining[0]
+        skip_set.add(row['invoice_no'])
+        print(f'    [{attempt + 1}] {row["invoice_no"]} 단건 처리 중...')
+
+        select_one_checkbox(page, row['row_idx'])
+        page.locator(f'#{ERP_IDS["create"]}').click()
+        page.wait_for_timeout(1500)
+
+        popup = dismiss_popup(page, timeout=4000)
+        is_error = popup and any(w in popup for w in ['오류', '에러', 'error', '실패'])
+
+        if is_error:
+            print(f'    ❌ {row["invoice_no"]}: {(popup or "")[:80]}')
+            error_rows.append({'invoice_no': row['invoice_no'], 'error': popup or 'unknown'})
+        else:
+            print(f'    ✅ {row["invoice_no"]} 완료')
+            ok_count += 1
+
+    status = ('ok'      if ok_count > 0 and not error_rows else
+              'partial' if ok_count > 0 else
+              'all_error')
+    return {
+        'company': company, 'output_wh': output_wh,
+        'status':  status,  'selected': ok_count,
+        'error':   f'오류행 {len(error_rows)}건' if error_rows else None,
+        'error_rows': error_rows,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 7. 단일 설정(회사 × 창고) 처리
 # ---------------------------------------------------------------------------
 def process_config(page, cfg: dict, target_date: str) -> dict:
     company   = cfg['company']
     input_wh  = cfg['input_warehouse']
     output_wh = cfg['output_warehouse']
-    result    = {
-        'company': company, 'output_wh': output_wh,
-        'status': 'ok', 'selected': 0, 'error': None,
-    }
 
     print(f'\n  ── {company} | {output_wh} → {input_wh} ──')
     try:
@@ -309,57 +392,59 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
         # cal.click(click_count=3)
         # cal.press_sequentially(date_str, delay=50)
         # cal.press('Tab')
-        # page.wait_for_timeout(300)
 
         # 조회
         page.locator(f'#{ERP_IDS["search"]}').click()
         try:
             page.locator('#mainframe_waitwindow').wait_for(state='hidden', timeout=30000)
         except PWTimeout:
-            pass  # waitwindow 없는 화면도 있음
+            pass
         page.wait_for_timeout(500)
 
-        # 결과 확인 (첫 번째 행 존재 여부)
-        first_row = page.locator('[id*="06002008"][id*="grd_mst_body_gridrow_0"]').first
+        # 결과 확인
         try:
-            first_row.wait_for(state='attached', timeout=5000)
+            page.locator('[id*="06002008"][id*="grd_mst_body_gridrow_0"]').first.wait_for(
+                state='attached', timeout=5000
+            )
         except PWTimeout:
-            # 조회 결과 없음 팝업이 있을 수 있음
             dismiss_popup(page, timeout=2000)
             print('    조회 결과 없음 — 스킵')
-            result['status'] = 'no_data'
-            return result
+            return {'company': company, 'output_wh': output_wh,
+                    'status': 'no_data', 'selected': 0, 'error': None, 'error_rows': []}
 
-        # 활성 체크박스 선택
-        selected = select_active_checkboxes(page)
-        result['selected'] = selected
-        print(f'    활성 행 선택: {selected}건')
+        # 활성 행 확인
+        active = get_active_rows(page)
+        if not active:
+            print('    미생성품목 없음 — 스킵')
+            return {'company': company, 'output_wh': output_wh,
+                    'status': 'no_selectable', 'selected': 0, 'error': None, 'error_rows': []}
 
-        if selected == 0:
-            print('    선택 가능한 미생성품목 없음 — 스킵')
-            result['status'] = 'no_selectable'
-            return result
+        print(f'    활성 행 {len(active)}건 → 전체 선택 후 생성 시도')
 
-        # 입고예정생성 클릭
+        # ① 1차 시도: 전체 선택 → 생성
+        for row in active:
+            select_one_checkbox(page, row['row_idx'])
+
         page.locator(f'#{ERP_IDS["create"]}').click()
         page.wait_for_timeout(1500)
 
-        # 팝업 처리
-        popup_text = dismiss_popup(page, timeout=4000)
-        if popup_text:
-            print(f'    팝업: {popup_text[:100]}')
-            if any(w in popup_text for w in ['오류', '에러', 'error', '실패']):
-                result['status'] = 'error_popup'
-                result['error'] = popup_text[:300]
-                print(f'    ⚠️  오류 팝업 감지 — 기록 후 계속')
+        popup = dismiss_popup(page, timeout=4000)
+        is_error = popup and any(w in popup for w in ['오류', '에러', 'error', '실패'])
+
+        if not is_error:
+            print(f'    ✅ 전체 {len(active)}건 생성 완료')
+            return {'company': company, 'output_wh': output_wh,
+                    'status': 'ok', 'selected': len(active), 'error': None, 'error_rows': []}
+
+        # ② 2차 시도: 단건 처리 fallback
+        print(f'    ⚠️ 오류 팝업 → 단건 처리 모드 전환')
+        return _process_one_by_one(page, cfg)
 
     except Exception as e:
-        result['status'] = 'exception'
-        result['error'] = str(e)
         print(f'    ❌ 예외: {e}')
         dismiss_popup(page, timeout=2000)
-
-    return result
+        return {'company': company, 'output_wh': output_wh,
+                'status': 'exception', 'selected': 0, 'error': str(e), 'error_rows': []}
 
 
 # ---------------------------------------------------------------------------
@@ -466,9 +551,14 @@ def run(target_date: str, headless: bool):
     print('ERP 처리 결과 요약')
     print(f'  성공: {len(ok)}건 | 데이터없음/선택없음: {len(no_data)}건 | 오류: {len(errors)}건')
     for r in ok:
-        print(f'  ✅ {r["company"]} / {r["output_wh"]}: {r["selected"]}행 생성')
+        suffix = f' (오류행: {len(r["error_rows"])}건)' if r.get('error_rows') else ''
+        print(f'  ✅ {r["company"]} / {r["output_wh"]}: {r["selected"]}행 생성{suffix}')
+        for er in (r.get('error_rows') or []):
+            print(f'     └ ❌ {er["invoice_no"]}: {er["error"][:60]}')
     for r in errors:
         print(f'  ❌ {r["company"]} / {r["output_wh"]}: {r["error"]}')
+        for er in (r.get('error_rows') or []):
+            print(f'     └ ❌ {er["invoice_no"]}: {er["error"][:60]}')
 
     # WMS IF 실행 (ERP 성공 건 있을 때만)
     if ok:
