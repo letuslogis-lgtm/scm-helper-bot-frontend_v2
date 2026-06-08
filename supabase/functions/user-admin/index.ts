@@ -37,7 +37,7 @@ function buildCorsHeaders(req: Request) {
   }
 }
 
-const ADMIN_ROLE = '관리자'
+const ADMIN_ROLES = ['관리자', '최고관리자']
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     if (profileErr) {
       console.warn('[user-admin] caller profile lookup failed:', profileErr.message)
     }
-    const isAdmin = callerProfile?.role === ADMIN_ROLE
+    const isAdmin = ADMIN_ROLES.includes(callerProfile?.role ?? '')
 
     // ---- 4) Body 파싱 ----
     let body: { action?: string; payload?: Record<string, unknown> }
