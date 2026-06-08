@@ -625,7 +625,13 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
  <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl slide-up border border-gray-100 overflow-hidden flex flex-col">
  <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
- <h3 className="font-bold text-gray-900">{row.status === '이관부서 확인' ? '회신 확인 및 조치 등록' : '현장 특이사항 조치 등록'} ({row.reception_no})</h3>
+ <h3 className="font-bold text-gray-900">
+  {row.status === '이관부서 확인' ? '회신 확인 및 조치 등록' : '현장 특이사항 조치 등록'} ({row.reception_no}
+  {row.product_code && (
+    <span className="ml-1 text-gray-400 font-normal text-sm">/ {row.product_code}</span>
+  )}
+  )
+</h3>
  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><CloseIcon /></button>
  </div>
 
