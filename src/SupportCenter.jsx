@@ -322,7 +322,7 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  <h3 className="font-bold text-gray-900">
    현장 특이사항 접수/이관 ({row.reception_no}
    {row.product_code && (
-     <span className="ml-1 text-gray-400 font-normal text-sm">/ {row.product_code}</span>
+     <><span className="ml-1 text-gray-900 font-bold"> /</span><span className="ml-1 text-letusOrange font-bold text-sm"> {row.product_code}</span></>
    )}
    )
  </h3>
@@ -628,7 +628,7 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
  <h3 className="font-bold text-gray-900">
   {row.status === '이관부서 확인' ? '회신 확인 및 조치 등록' : '현장 특이사항 조치 등록'} ({row.reception_no}
   {row.product_code && (
-    <span className="ml-1 text-gray-400 font-normal text-sm">/ {row.product_code}</span>
+    <><span className="ml-1 text-gray-900 font-bold"> /</span><span className="ml-1 text-letusOrange font-bold text-sm"> {row.product_code}</span></>
   )}
   )
 </h3>
