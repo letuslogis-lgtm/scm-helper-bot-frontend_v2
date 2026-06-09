@@ -5,11 +5,11 @@ const TABLE = 'erp_inbound_config';
 const LS_KEY = 'letus_inbound_config_col';
 
 const DEFAULT_COLUMNS = [
-    { label: '회사',         key: 'company',          w: 120 },
-    { label: '입고예정창고', key: 'input_warehouse',  w: 150 },
-    { label: '출고창고',     key: 'output_warehouse', w: 150 },
-    { label: '활성',         key: 'is_active',        w: 80  },
-    { label: '비고',         key: 'note',             w: 200 },
+    { label: '회사',         key: 'company',          w: 140 },
+    { label: '입고예정창고', key: 'input_warehouse',  w: 180 },
+    { label: '출고창고',     key: 'output_warehouse', w: 180 },
+    { label: '활성',         key: 'is_active',        w: 90  },
+    { label: '비고',         key: 'note',             w: 240 },
     { label: '수정/삭제',    key: null,               w: 110 },
 ];
 
@@ -53,26 +53,38 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-2xl w-[460px] p-6" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-base font-bold text-gray-800">
-                        {isEdit ? '설정 수정' : '설정 추가'}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-[480px] flex flex-col border border-gray-100 overflow-hidden slide-up" onClick={e => e.stopPropagation()}>
+
+                {/* 헤더 */}
+                <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full"></span>
+                        <h3 className="font-bold text-sm text-gray-800">
+                            {isEdit ? '설정 수정' : '설정 추가'}
+                        </h3>
+                    </div>
+                    <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
-                <div className="space-y-3">
+                {/* 본문 */}
+                <div className="p-5 space-y-3">
                     {[
-                        { label: '회사 *',         key: 'company',          ph: '예) 퍼시스' },
-                        { label: '입고예정창고 *',  key: 'input_warehouse',  ph: '예) 퍼시스양지' },
-                        { label: '출고창고 *',      key: 'output_warehouse', ph: '예) 시디즈평택' },
-                        { label: '비고',            key: 'note',             ph: '(선택)' },
-                    ].map(({ label, key, ph }) => (
+                        { label: '회사',        key: 'company',          ph: '예) 퍼시스',    required: true },
+                        { label: '입고예정창고', key: 'input_warehouse',  ph: '예) 퍼시스양지', required: true },
+                        { label: '출고창고',     key: 'output_warehouse', ph: '예) 시디즈평택', required: true },
+                        { label: '비고',         key: 'note',             ph: '(선택)',        required: false },
+                    ].map(({ label, key, ph, required }) => (
                         <div key={key}>
-                            <label className="block text-xs font-bold text-gray-600 mb-1">{label}</label>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">
+                                {label} {required && <span className="text-red-400">*</span>}
+                            </label>
                             <input
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-letusBlue/30 focus:border-letusBlue transition-colors"
                                 placeholder={ph}
                                 value={form[key] || ''}
                                 onChange={e => set(key, e.target.value)}
@@ -83,23 +95,30 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
                     <div className="flex items-center gap-2 pt-1">
                         <input
                             type="checkbox"
-                            className="w-4 h-4 accent-blue-500"
+                            id="modal-is-active"
+                            className="w-4 h-4 accent-letusBlue cursor-pointer"
                             checked={form.is_active}
                             onChange={e => set('is_active', e.target.checked)}
                         />
-                        <label className="text-sm text-gray-700 font-bold cursor-pointer" onClick={() => set('is_active', !form.is_active)}>활성</label>
+                        <label htmlFor="modal-is-active" className="text-sm text-gray-700 font-bold cursor-pointer">활성</label>
+                        <span className="text-xs text-gray-400">비활성 시 RPA가 해당 설정을 건너뜁니다</span>
                     </div>
                 </div>
 
-                {err && <p className="text-red-500 text-xs mt-3">{err}</p>}
+                {err && (
+                    <div className="px-5 pb-2">
+                        <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">{err}</p>
+                    </div>
+                )}
 
-                <div className="flex gap-2 mt-5 justify-end">
+                {/* 푸터 */}
+                <div className="p-4 border-t bg-gray-50 flex gap-2 justify-end shrink-0">
                     <button onClick={onClose}
-                        className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                        className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm transition-colors">
                         취소
                     </button>
                     <button onClick={handleSave} disabled={saving}
-                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                        className="px-5 py-1.5 bg-letusBlue text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors">
                         {saving ? '저장 중...' : (isEdit ? '수정' : '추가')}
                     </button>
                 </div>
@@ -112,18 +131,16 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
 const ErpInboundConfigPanel = () => {
     const [rows, setRows]         = useState([]);
     const [loading, setLoading]   = useState(false);
-    const [modal, setModal]       = useState(null); // null | 'add' | row(edit)
+    const [modal, setModal]       = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    // 컬럼 관리
     const [colOrder, setColOrder]   = useState(DEFAULT_COLUMNS.map((_, i) => i));
     const [colWidths, setColWidths] = useState(DEFAULT_COLUMNS.map(c => c.w));
     const [dragOverIdx, setDragOverIdx] = useState(null);
-    const resizingRef  = useRef(null);
-    const dragSrcRef   = useRef(null);
+    const resizingRef   = useRef(null);
+    const dragSrcRef    = useRef(null);
     const wasDraggedRef = useRef(false);
 
-    // localStorage
     useEffect(() => {
         try {
             const s = JSON.parse(localStorage.getItem(LS_KEY));
@@ -141,7 +158,6 @@ const ErpInboundConfigPanel = () => {
         localStorage.removeItem(LS_KEY);
     };
 
-    // 데이터 로드
     const fetchRows = useCallback(async () => {
         setLoading(true);
         const { data, error } = await supabase.from(TABLE).select('*').order('id');
@@ -152,13 +168,11 @@ const ErpInboundConfigPanel = () => {
 
     useEffect(() => { fetchRows(); }, [fetchRows]);
 
-    // 활성 토글
     const toggleActive = async (row) => {
         await supabase.from(TABLE).update({ is_active: !row.is_active }).eq('id', row.id);
         setRows(prev => prev.map(r => r.id === row.id ? { ...r, is_active: !r.is_active } : r));
     };
 
-    // 삭제
     const handleDelete = async () => {
         if (!deleteTarget) return;
         await supabase.from(TABLE).delete().eq('id', deleteTarget.id);
@@ -166,7 +180,6 @@ const ErpInboundConfigPanel = () => {
         fetchRows();
     };
 
-    // 컬럼 핸들러
     const handleResizeStart = (e, vIdx) => {
         e.preventDefault(); e.stopPropagation();
         const oIdx = colOrder[vIdx];
@@ -191,36 +204,35 @@ const ErpInboundConfigPanel = () => {
     const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
 
     const renderCell = (oIdx, row) => {
-        const col = DEFAULT_COLUMNS[oIdx];
         switch (oIdx) {
-            case 0: return <td key={oIdx} className="p-3 font-bold text-gray-800 text-sm">{row.company}</td>;
-            case 1: return <td key={oIdx} className="p-3 text-gray-700 text-sm">{row.input_warehouse}</td>;
-            case 2: return <td key={oIdx} className="p-3 text-gray-700 text-sm">{row.output_warehouse}</td>;
+            case 0: return <td key={oIdx} className="p-4 font-bold text-gray-800 text-sm">{row.company}</td>;
+            case 1: return <td key={oIdx} className="p-4 text-gray-700 text-sm">{row.input_warehouse}</td>;
+            case 2: return <td key={oIdx} className="p-4 text-gray-700 text-sm">{row.output_warehouse}</td>;
             case 3: return (
-                <td key={oIdx} className="p-3 text-center">
+                <td key={oIdx} className="p-4 text-center">
                     <button
                         onClick={() => toggleActive(row)}
                         className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
                             row.is_active
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-gray-100 text-gray-400 border border-gray-200 hover:bg-gray-200'
                         }`}
                     >
                         {row.is_active ? '활성' : '비활성'}
                     </button>
                 </td>
             );
-            case 4: return <td key={oIdx} className="p-3 text-gray-500 text-sm">{row.note || '-'}</td>;
+            case 4: return <td key={oIdx} className="p-4 text-gray-400 text-sm">{row.note || <span className="text-gray-200">—</span>}</td>;
             case 5: return (
-                <td key={oIdx} className="p-3 text-center">
-                    <div className="flex gap-1 justify-center">
+                <td key={oIdx} className="p-4 text-center">
+                    <div className="flex gap-1.5 justify-center">
                         <button
                             onClick={() => setModal(row)}
-                            className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:bg-blue-50"
+                            className="px-2.5 py-1 text-xs font-bold border border-letusBlue/30 text-letusBlue bg-blue-50 rounded-lg hover:bg-letusBlue hover:text-white transition-colors"
                         >수정</button>
                         <button
                             onClick={() => setDeleteTarget(row)}
-                            className="px-2 py-1 text-xs border border-red-300 text-red-500 rounded hover:bg-red-50"
+                            className="px-2.5 py-1 text-xs font-bold border border-red-200 text-red-500 bg-red-50 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
                         >삭제</button>
                     </div>
                 </td>
@@ -233,15 +245,23 @@ const ErpInboundConfigPanel = () => {
         <div className="flex flex-col h-full">
             {/* 상단 툴바 */}
             <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shrink-0">
-                <div>
-                    <h1 className="text-sm font-bold text-gray-800">ERP 입고예정생성 설정</h1>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                        RPA가 이 목록을 순서대로 처리합니다. 활성 토글로 임시 제외 가능합니다.
-                    </p>
+                <div className="flex items-center gap-3">
+                    <div>
+                        <h1 className="text-sm font-bold text-gray-800">ERP 입고예정생성 설정</h1>
+                        <p className="text-xs text-gray-400 mt-0.5">RPA가 이 목록을 순서대로 처리합니다 · 활성 토글로 임시 제외 가능</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2">
+                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
+                            전체 {rows.length}건
+                        </span>
+                        <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-full">
+                            활성 {rows.filter(r => r.is_active).length}건
+                        </span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={resetColSettings}
-                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded-lg shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
                         title="컬럼 너비·순서 초기화">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -250,7 +270,7 @@ const ErpInboundConfigPanel = () => {
                     </button>
                     <button
                         onClick={() => setModal('add')}
-                        className="flex items-center gap-1.5 px-3 h-[32px] bg-blue-600 text-white text-xs font-bold rounded shadow-sm hover:bg-blue-700 transition-colors"
+                        className="flex items-center gap-1.5 px-3 h-[32px] bg-letusBlue text-white text-xs font-bold rounded-lg shadow-sm hover:bg-blue-700 transition-colors"
                     >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -269,7 +289,7 @@ const ErpInboundConfigPanel = () => {
                                 const col = DEFAULT_COLUMNS[oIdx];
                                 return (
                                     <th key={oIdx}
-                                        className={`relative p-3 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === vIdx ? 'bg-blue-100' : ''}`}
+                                        className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === vIdx ? 'bg-blue-100' : ''}`}
                                         style={{ width: colWidths[oIdx] }}
                                         draggable
                                         onDragStart={e => handleDragStart(e, vIdx)}
@@ -279,7 +299,7 @@ const ErpInboundConfigPanel = () => {
                                         onDragLeave={() => setDragOverIdx(null)}
                                     >
                                         {col.label}
-                                        <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400/40 z-10"
+                                        <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
                                             onMouseDown={e => handleResizeStart(e, vIdx)}
                                             onClick={e => e.stopPropagation()} />
                                     </th>
@@ -289,11 +309,18 @@ const ErpInboundConfigPanel = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
-                            <tr><td colSpan={colOrder.length} className="p-8 text-center text-gray-400 text-sm">로딩 중...</td></tr>
+                            <tr>
+                                <td colSpan={colOrder.length} className="p-12 text-center">
+                                    <div className="w-7 h-7 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin mx-auto"></div>
+                                </td>
+                            </tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={colOrder.length} className="p-8 text-center text-gray-400 text-sm">
-                                설정이 없습니다. <span className="text-blue-500 cursor-pointer font-bold" onClick={() => setModal('add')}>+ 설정 추가</span>
-                            </td></tr>
+                            <tr>
+                                <td colSpan={colOrder.length} className="p-16 text-center text-gray-400 text-sm">
+                                    설정이 없습니다.{' '}
+                                    <span className="text-letusBlue cursor-pointer font-bold hover:underline" onClick={() => setModal('add')}>+ 설정 추가</span>
+                                </td>
+                            </tr>
                         ) : rows.map(row => (
                             <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors ${!row.is_active ? 'opacity-40' : ''}`}>
                                 {colOrder.map(oIdx => renderCell(oIdx, row))}
@@ -301,11 +328,6 @@ const ErpInboundConfigPanel = () => {
                         ))}
                     </tbody>
                 </table>
-            </div>
-
-            {/* 총계 */}
-            <div className="px-6 py-2 border-t border-gray-200 bg-white shrink-0 text-xs text-gray-400">
-                전체 {rows.length}건 | 활성 {rows.filter(r => r.is_active).length}건
             </div>
 
             {/* 추가/수정 모달 */}
@@ -319,20 +341,32 @@ const ErpInboundConfigPanel = () => {
 
             {/* 삭제 확인 모달 */}
             {deleteTarget && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl w-[360px] p-6">
-                        <h2 className="text-base font-bold text-gray-800 mb-2">삭제 확인</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            <span className="font-bold text-red-500">{deleteTarget.company} / {deleteTarget.output_warehouse}</span> 설정을 삭제할까요?
-                            <br /><span className="text-xs text-gray-400 mt-1 block">삭제 대신 비활성화를 권장합니다.</span>
-                        </p>
-                        <div className="flex gap-2 justify-end">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl w-[400px] flex flex-col border border-gray-100 overflow-hidden slide-up">
+                        <div className="p-4 border-b bg-gray-50 flex items-center gap-2">
+                            <span className="w-1.5 h-3.5 bg-red-400 rounded-full"></span>
+                            <h3 className="font-bold text-sm text-gray-800">삭제 확인</h3>
+                        </div>
+                        <div className="p-5">
+                            <p className="text-sm text-gray-600">
+                                아래 설정을 삭제하시겠습니까?
+                            </p>
+                            <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                <span className="font-bold text-gray-800">{deleteTarget.company}</span>
+                                <span className="text-gray-400 mx-2">·</span>
+                                <span className="text-gray-600">{deleteTarget.input_warehouse}</span>
+                                <span className="text-gray-400 mx-1">→</span>
+                                <span className="text-gray-600">{deleteTarget.output_warehouse}</span>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">삭제 대신 비활성화를 권장합니다.</p>
+                        </div>
+                        <div className="p-4 border-t bg-gray-50 flex gap-2 justify-end shrink-0">
                             <button onClick={() => setDeleteTarget(null)}
-                                className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                                className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm transition-colors">
                                 취소
                             </button>
                             <button onClick={handleDelete}
-                                className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">
+                                className="px-4 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 shadow-sm transition-colors">
                                 삭제
                             </button>
                         </div>
@@ -355,7 +389,6 @@ const ErpInboundConfig = () => {
 
     return (
         <div className="flex flex-col h-[calc(100vh-64px)]">
-            {/* 탭 네비게이션 */}
             <div className="bg-white border-b border-gray-200 px-6 flex items-center shrink-0">
                 {TABS.map(tab => (
                     <button
@@ -371,8 +404,6 @@ const ErpInboundConfig = () => {
                     </button>
                 ))}
             </div>
-
-            {/* 탭 컨텐츠 */}
             <div className="flex-1 overflow-hidden">
                 {activeTab === 'erp_inbound' && <ErpInboundConfigPanel />}
             </div>
