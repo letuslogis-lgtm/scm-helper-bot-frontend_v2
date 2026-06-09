@@ -38,21 +38,63 @@ const daysAgo = (n) => {
 const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, onDelete, userProfile, onFeedbackSent }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [feedbackText, setFeedbackText] = useState('');
+    const [feedbackPhotos, setFeedbackPhotos] = useState([]);
     const [showFeedbackInput, setShowFeedbackInput] = useState(false);
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const feedbackFileRef = useRef(null);
     if (!issue) return null;
 
+    const compressFeedbackImage = (file) =>
+        new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ratio = Math.min(1024 / img.width, 1024 / img.height, 1);
+                canvas.width = img.width * ratio;
+                canvas.height = img.height * ratio;
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
+            };
+            img.src = URL.createObjectURL(file);
+        });
+
+    const handleFeedbackPhotoCapture = (e) => {
+        const files = Array.from(e.target.files || []);
+        const newPhotos = files.map(f => ({ file: f, preview: URL.createObjectURL(f) }));
+        setFeedbackPhotos(prev => [...prev, ...newPhotos].slice(0, 3));
+        e.target.value = '';
+    };
+
     const handleSubmitFeedback = async () => {
-        if (!feedbackText.trim()) return alert('피드백 내용을 입력해주세요.');
+        if (!feedbackText.trim() && feedbackPhotos.length === 0) return alert('피드백 내용 또는 사진을 입력해주세요.');
         setIsSubmittingFeedback(true);
         try {
+            let photoUrls = '';
+            if (feedbackPhotos.length > 0) {
+                const urlList = await Promise.all(feedbackPhotos.map(async (p) => {
+                    const base64 = await compressFeedbackImage(p.file);
+                    const byteStr = atob(base64);
+                    const arr = new Uint8Array(byteStr.length);
+                    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+                    const blob = new Blob([arr], { type: 'image/jpeg' });
+                    const fileName = `additional-feedback/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+                    const { error: uploadErr } = await supabase.storage
+                        .from('issue_images')
+                        .upload(fileName, blob, { contentType: 'image/jpeg' });
+                    if (uploadErr) throw uploadErr;
+                    return supabase.storage.from('issue_images').getPublicUrl(fileName).data.publicUrl;
+                }));
+                photoUrls = urlList.join(',');
+            }
             const { error } = await supabase.from('logistics_issues').update({
-                additional_feedback: feedbackText.trim(),
+                additional_feedback: feedbackText.trim() || null,
+                additional_feedback_photos: photoUrls || null,
                 additional_feedback_at: new Date().toISOString(),
             }).eq('id', issue.id);
             if (error) throw error;
             setShowFeedbackInput(false);
             setFeedbackText('');
+            setFeedbackPhotos([]);
             onFeedbackSent?.();
             onClose();
         } catch (e) {
@@ -189,30 +231,75 @@ const IssueDetailSheet = ({ issue, onClose, onRespond, onEdit, onDelete, userPro
                             <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 space-y-2">
                                 <p className="text-[11px] font-bold text-blue-500 uppercase tracking-widest">📋 추가 확인 요청</p>
                                 <p className="text-slate-700 text-sm leading-relaxed">{issue.additional_request}</p>
-                                {issue.additional_feedback ? (
-                                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-1">
+                                {issue.additional_feedback || issue.additional_feedback_photos ? (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-1 space-y-1.5">
                                         <p className="text-[10px] font-bold text-green-500 mb-0.5">내 피드백</p>
-                                        <p className="text-sm text-green-800">{issue.additional_feedback}</p>
+                                        {issue.additional_feedback && (
+                                            <p className="text-sm text-green-800">{issue.additional_feedback}</p>
+                                        )}
+                                        {issue.additional_feedback_photos && (
+                                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                                {issue.additional_feedback_photos.split(',').filter(Boolean).map((url, idx) => (
+                                                    <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                                                        <img src={url} alt={`피드백사진 ${idx + 1}`} className="w-16 h-16 rounded-lg object-cover border border-green-200" />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : showFeedbackInput ? (
                                     <div className="flex flex-col gap-2 pt-1">
                                         <textarea
                                             value={feedbackText}
                                             onChange={e => setFeedbackText(e.target.value)}
-                                            placeholder="담당자에게 전달할 내용을 입력하세요."
+                                            placeholder="담당자에게 전달할 내용을 입력하세요. (선택)"
                                             rows={3}
                                             className="w-full border border-blue-200 rounded-xl px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-400 resize-none bg-white"
                                         />
+                                        {/* 사진 미리보기 */}
+                                        {feedbackPhotos.length > 0 && (
+                                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                                {feedbackPhotos.map((p, idx) => (
+                                                    <div key={idx} className="relative flex-shrink-0">
+                                                        <img src={p.preview} alt="" className="w-16 h-16 rounded-lg object-cover border border-blue-200" />
+                                                        <button
+                                                            onClick={() => setFeedbackPhotos(prev => prev.filter((_, i) => i !== idx))}
+                                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center leading-none"
+                                                        >×</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {/* 사진 첨부 버튼 */}
+                                        {feedbackPhotos.length < 3 && (
+                                            <>
+                                                <input
+                                                    ref={feedbackFileRef}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    multiple
+                                                    capture="environment"
+                                                    className="hidden"
+                                                    onChange={handleFeedbackPhotoCapture}
+                                                />
+                                                <button
+                                                    onClick={() => feedbackFileRef.current?.click()}
+                                                    className="w-full py-2 rounded-xl border border-blue-200 text-blue-500 font-bold text-sm bg-white active:bg-blue-50 flex items-center justify-center gap-1.5"
+                                                >
+                                                    <span>📷</span> 사진 첨부 ({feedbackPhotos.length}/3)
+                                                </button>
+                                            </>
+                                        )}
                                         <div className="flex gap-2">
                                             <button
-                                                onClick={() => { setShowFeedbackInput(false); setFeedbackText(''); }}
+                                                onClick={() => { setShowFeedbackInput(false); setFeedbackText(''); setFeedbackPhotos([]); }}
                                                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-500 font-bold text-sm active:bg-slate-50"
                                             >
                                                 취소
                                             </button>
                                             <button
                                                 onClick={handleSubmitFeedback}
-                                                disabled={isSubmittingFeedback || !feedbackText.trim()}
+                                                disabled={isSubmittingFeedback || (!feedbackText.trim() && feedbackPhotos.length === 0)}
                                                 className="flex-[2] py-2.5 rounded-xl bg-blue-500 text-white font-bold text-sm active:bg-blue-600 disabled:opacity-50"
                                             >
                                                 {isSubmittingFeedback ? '전송 중...' : '피드백 전송'}
@@ -594,7 +681,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
         try {
             let query = supabase
                 .from('logistics_issues')
-                .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at, is_notified, worker_response, worker_response_photos, worker_responded_at, additional_request, additional_feedback')
+                .select('id, reception_no, brand, issue_type, status, created_at, request_content, product_code, reporter, action_content, final_handler, resolved_at, is_notified, worker_response, worker_response_photos, worker_responded_at, additional_request, additional_feedback, additional_feedback_photos')
                 .order('created_at', { ascending: false })
                 .limit(200);
 

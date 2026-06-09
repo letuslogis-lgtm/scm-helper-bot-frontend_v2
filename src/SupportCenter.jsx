@@ -683,10 +683,27 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
         <p className="text-[10px] font-bold text-blue-400 mb-0.5">요청 내용</p>
         <p className="text-sm text-blue-800">{row.additional_request}</p>
        </div>
-       {row.additional_feedback ? (
-        <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+       {row.additional_feedback || row.additional_feedback_photos ? (
+        <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 space-y-1.5">
          <p className="text-[10px] font-bold text-green-500 mb-0.5">작업자 피드백</p>
-         <p className="text-sm text-green-800">{row.additional_feedback}</p>
+         {row.additional_feedback && (
+          <p className="text-sm text-green-800">{row.additional_feedback}</p>
+         )}
+         {row.additional_feedback_photos && (
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+           {row.additional_feedback_photos.split(',').filter(Boolean).map((url, idx) => (
+            <a
+             key={idx}
+             href={url}
+             target="_blank"
+             rel="noreferrer"
+             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-green-300 bg-white text-green-700 text-xs font-bold hover:bg-green-100 transition-colors"
+            >
+             📷 사진 {idx + 1}
+            </a>
+           ))}
+          </div>
+         )}
         </div>
        ) : (
         <p className="text-xs text-gray-400 text-center py-1">작업자 피드백 대기 중...</p>
