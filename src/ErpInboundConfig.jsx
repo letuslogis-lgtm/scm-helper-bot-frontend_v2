@@ -129,18 +129,24 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
 
 // ── 패널: ERP 입고예정생성 설정 ───────────────────────────────────────────────
 const ErpInboundConfigPanel = () => {
-    const [rows, setRows]         = useState([]);
-    const [loading, setLoading]   = useState(false);
-    const [modal, setModal]       = useState(null);
+    const [rows, setRows]           = useState([]);
+    const [loading, setLoading]     = useState(false);
+    const [modal, setModal]         = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    const [colOrder, setColOrder]   = useState(DEFAULT_COLUMNS.map((_, i) => i));
-    const [colWidths, setColWidths] = useState(DEFAULT_COLUMNS.map(c => c.w));
+    // 체크박스
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+
+    // 컬럼 관리
+    const [colOrder, setColOrder]     = useState(DEFAULT_COLUMNS.map((_, i) => i));
+    const [colWidths, setColWidths]   = useState(DEFAULT_COLUMNS.map(c => c.w));
     const [dragOverIdx, setDragOverIdx] = useState(null);
     const resizingRef   = useRef(null);
     const dragSrcRef    = useRef(null);
     const wasDraggedRef = useRef(false);
 
+    // localStorage
     useEffect(() => {
         try {
             const s = JSON.parse(localStorage.getItem(LS_KEY));
@@ -158,21 +164,45 @@ const ErpInboundConfigPanel = () => {
         localStorage.removeItem(LS_KEY);
     };
 
+    // 데이터 로드
     const fetchRows = useCallback(async () => {
         setLoading(true);
         const { data, error } = await supabase.from(TABLE).select('*').order('id');
         if (error) console.error('[ErpInboundConfig] fetchRows error:', error.message, error);
         setRows(data || []);
+        setSelectedIds([]);
         setLoading(false);
     }, []);
 
     useEffect(() => { fetchRows(); }, [fetchRows]);
 
+    // 체크박스 핸들러
+    const handleSelectAll = (e) => {
+        setSelectedIds(e.target.checked ? rows.map(r => r.id) : []);
+    };
+    const handleSelectOne = (e, id) => {
+        e.stopPropagation();
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    // 선택 삭제
+    const handleDeleteSelected = async () => {
+        if (selectedIds.length === 0) return;
+        setIsActionMenuOpen(false);
+        if (!window.confirm(`선택한 ${selectedIds.length}건을 삭제하시겠습니까?`)) return;
+        await supabase.from(TABLE).delete().in('id', selectedIds);
+        fetchRows();
+    };
+
+    // 단건 활성 토글
     const toggleActive = async (row) => {
         await supabase.from(TABLE).update({ is_active: !row.is_active }).eq('id', row.id);
         setRows(prev => prev.map(r => r.id === row.id ? { ...r, is_active: !r.is_active } : r));
     };
 
+    // 단건 삭제
     const handleDelete = async () => {
         if (!deleteTarget) return;
         await supabase.from(TABLE).delete().eq('id', deleteTarget.id);
@@ -180,6 +210,7 @@ const ErpInboundConfigPanel = () => {
         fetchRows();
     };
 
+    // 컬럼 핸들러
     const handleResizeStart = (e, vIdx) => {
         e.preventDefault(); e.stopPropagation();
         const oIdx = colOrder[vIdx];
@@ -224,7 +255,7 @@ const ErpInboundConfigPanel = () => {
             );
             case 4: return <td key={oIdx} className="p-4 text-gray-400 text-sm">{row.note || <span className="text-gray-200">—</span>}</td>;
             case 5: return (
-                <td key={oIdx} className="p-4 text-center">
+                <td key={oIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1.5 justify-center">
                         <button
                             onClick={() => setModal(row)}
@@ -263,6 +294,43 @@ const ErpInboundConfigPanel = () => {
                         </svg>
                         칼럼 초기화
                     </button>
+
+                    {/* 선택실행 드롭다운 */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsActionMenuOpen(!isActionMenuOpen)}
+                            className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]"
+                        >
+                            선택실행
+                            <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {isActionMenuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsActionMenuOpen(false)}></div>
+                                <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                    <button
+                                        onClick={handleDeleteSelected}
+                                        disabled={selectedIds.length === 0}
+                                        className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${
+                                            selectedIds.length > 0
+                                                ? 'text-red-600 hover:bg-red-50'
+                                                : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        삭제
+                                        {selectedIds.length > 0 && (
+                                            <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     <button
                         onClick={() => setModal('add')}
                         className="flex items-center gap-1.5 px-3 h-[32px] bg-letusBlue text-white text-xs font-bold rounded shadow-sm hover:bg-blue-700 transition-colors"
@@ -281,6 +349,14 @@ const ErpInboundConfigPanel = () => {
                     <table className="w-full text-left whitespace-nowrap table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
+                                <th className="p-4 pl-6 w-10 text-center shrink-0">
+                                    <input
+                                        type="checkbox"
+                                        checked={rows.length > 0 && selectedIds.length === rows.length}
+                                        onChange={handleSelectAll}
+                                        className="w-4 h-4 accent-letusBlue cursor-pointer"
+                                    />
+                                </th>
                                 {colOrder.map((oIdx, vIdx) => {
                                     const col = DEFAULT_COLUMNS[oIdx];
                                     return (
@@ -306,19 +382,30 @@ const ErpInboundConfigPanel = () => {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={colOrder.length} className="p-12 text-center">
+                                    <td colSpan={colOrder.length + 1} className="p-12 text-center">
                                         <div className="w-7 h-7 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin mx-auto"></div>
                                     </td>
                                 </tr>
                             ) : rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={colOrder.length} className="p-16 text-center text-gray-400 text-sm">
+                                    <td colSpan={colOrder.length + 1} className="p-16 text-center text-gray-400 text-sm">
                                         설정이 없습니다.{' '}
                                         <span className="text-letusBlue cursor-pointer font-bold hover:underline" onClick={() => setModal('add')}>+ 설정 추가</span>
                                     </td>
                                 </tr>
                             ) : rows.map(row => (
-                                <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors ${!row.is_active ? 'opacity-40' : ''}`}>
+                                <tr key={row.id}
+                                    className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''} ${!row.is_active ? 'opacity-40' : ''}`}
+                                    onClick={e => handleSelectOne(e, row.id)}
+                                >
+                                    <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.includes(row.id)}
+                                            onChange={e => handleSelectOne(e, row.id)}
+                                            className="w-4 h-4 accent-letusBlue cursor-pointer"
+                                        />
+                                    </td>
                                     {colOrder.map(oIdx => renderCell(oIdx, row))}
                                 </tr>
                             ))}
@@ -345,9 +432,7 @@ const ErpInboundConfigPanel = () => {
                             <h3 className="font-bold text-sm text-gray-800">삭제 확인</h3>
                         </div>
                         <div className="p-5">
-                            <p className="text-sm text-gray-600">
-                                아래 설정을 삭제하시겠습니까?
-                            </p>
+                            <p className="text-sm text-gray-600">아래 설정을 삭제하시겠습니까?</p>
                             <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
                                 <span className="font-bold text-gray-800">{deleteTarget.company}</span>
                                 <span className="text-gray-400 mx-2">·</span>
@@ -374,7 +459,7 @@ const ErpInboundConfigPanel = () => {
     );
 };
 
-// ── 탭 정의 (탭 추가 시 여기에만 추가) ────────────────────────────────────────
+// ── 탭 정의 ───────────────────────────────────────────────────────────────────
 const TABS = [
     { id: 'erp_inbound', label: 'ERP 입고예정생성 설정' },
     // { id: 'next_tab', label: '다음 탭 이름' },
