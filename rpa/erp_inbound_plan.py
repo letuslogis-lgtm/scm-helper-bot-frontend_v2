@@ -472,12 +472,12 @@ def run_wms_if(headless: bool) -> None:
             # 입고 예정 정보 관리 메뉴 이동
             # 전략 ①: 사이드바 메뉴 클릭
             try:
-                page.get_by_text('입고관리').click(timeout=5000)
-                page.get_by_text('입고 예정 정보 관리').click(timeout=5000)
+                page.get_by_text('입고관리').first.click(timeout=5000)
+                page.get_by_text('입고 예정 정보 관리').first.click(timeout=5000)
                 page.wait_for_load_state('networkidle')
             except PWTimeout:
-                # 전략 ②: 직접 URL 이동 (TODO: 실제 URL 확인 후 수정)
-                page.goto('https://wms.letus4u.com/inbound/inbound-plan-info', timeout=30000)
+                # 전략 ②: 직접 URL 이동
+                page.goto('https://wms.letus4u.com/v1/inbound/asn', timeout=30000)
                 page.wait_for_load_state('networkidle')
             page.wait_for_timeout(1500)
             print('[WMS] 입고 예정 정보 관리 진입')
