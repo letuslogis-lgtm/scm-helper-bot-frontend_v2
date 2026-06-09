@@ -635,10 +635,18 @@ const MyDashboard = ({ userProfile, setPage, setGlobalFilter, favorites }) => {
                 <div className="lg:col-span-4 bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-full relative">
                     <div className="flex justify-between items-center mb-5 shrink-0">
                         <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">📅 업무 캘린더</h3>
-                        <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
-                            <button onClick={prevMonth} className="p-1 text-gray-500 hover:text-letusBlue transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg></button>
-                            <span className="text-xs font-bold text-gray-700 min-w-[70px] text-center">{currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월</span>
-                            <button onClick={nextMonth} className="p-1 text-gray-500 hover:text-letusBlue transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg></button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => { setCurrentDate(new Date()); setSelectedTodoDate(new Date()); }}
+                                className="text-[11px] font-bold text-gray-500 border border-gray-200 bg-white px-3 py-1 rounded-lg hover:bg-letusBlue hover:text-white hover:border-letusBlue transition-all shadow-sm"
+                            >
+                                TODAY
+                            </button>
+                            <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
+                                <button onClick={prevMonth} className="p-1 text-gray-500 hover:text-letusBlue transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg></button>
+                                <span className="text-xs font-bold text-gray-700 min-w-[70px] text-center">{currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월</span>
+                                <button onClick={nextMonth} className="p-1 text-gray-500 hover:text-letusBlue transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg></button>
+                            </div>
                         </div>
                     </div>
 
