@@ -242,26 +242,21 @@ const ErpInboundConfigPanel = () => {
     };
 
     return (
-        <div className="flex flex-col h-full">
-            {/* 상단 툴바 */}
-            <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shrink-0">
-                <div className="flex items-center gap-3">
-                    <div>
-                        <h1 className="text-sm font-bold text-gray-800">ERP 입고예정생성 설정</h1>
-                        <p className="text-xs text-gray-400 mt-0.5">RPA가 이 목록을 순서대로 처리합니다 · 활성 토글로 임시 제외 가능</p>
-                    </div>
-                    <div className="flex items-center gap-2 ml-2">
-                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
-                            전체 {rows.length}건
-                        </span>
-                        <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-full">
-                            활성 {rows.filter(r => r.is_active).length}건
-                        </span>
-                    </div>
+        <div className="flex flex-col h-full bg-slate-100 p-6 gap-4 animate-fade-in">
+
+            {/* 액션바 */}
+            <div className="flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded shadow-sm">
+                        전체 {rows.length}건
+                    </span>
+                    <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded shadow-sm">
+                        활성 {rows.filter(r => r.is_active).length}건
+                    </span>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={resetColSettings}
-                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded-lg shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
                         title="컬럼 너비·순서 초기화">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -270,7 +265,7 @@ const ErpInboundConfigPanel = () => {
                     </button>
                     <button
                         onClick={() => setModal('add')}
-                        className="flex items-center gap-1.5 px-3 h-[32px] bg-letusBlue text-white text-xs font-bold rounded-lg shadow-sm hover:bg-blue-700 transition-colors"
+                        className="flex items-center gap-1.5 px-3 h-[32px] bg-letusBlue text-white text-xs font-bold rounded shadow-sm hover:bg-blue-700 transition-colors"
                     >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -280,54 +275,56 @@ const ErpInboundConfigPanel = () => {
                 </div>
             </div>
 
-            {/* 테이블 */}
-            <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
-                <table className="w-full text-left whitespace-nowrap table-fixed">
-                    <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
-                        <tr>
-                            {colOrder.map((oIdx, vIdx) => {
-                                const col = DEFAULT_COLUMNS[oIdx];
-                                return (
-                                    <th key={oIdx}
-                                        className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === vIdx ? 'bg-blue-100' : ''}`}
-                                        style={{ width: colWidths[oIdx] }}
-                                        draggable
-                                        onDragStart={e => handleDragStart(e, vIdx)}
-                                        onDragEnd={handleDragEnd}
-                                        onDragOver={e => handleDragOver(e, vIdx)}
-                                        onDrop={e => handleDrop(e, vIdx)}
-                                        onDragLeave={() => setDragOverIdx(null)}
-                                    >
-                                        {col.label}
-                                        <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
-                                            onMouseDown={e => handleResizeStart(e, vIdx)}
-                                            onClick={e => e.stopPropagation()} />
-                                    </th>
-                                );
-                            })}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {loading ? (
+            {/* 테이블 카드 */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden min-h-0">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
+                    <table className="w-full text-left whitespace-nowrap table-fixed">
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <td colSpan={colOrder.length} className="p-12 text-center">
-                                    <div className="w-7 h-7 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin mx-auto"></div>
-                                </td>
+                                {colOrder.map((oIdx, vIdx) => {
+                                    const col = DEFAULT_COLUMNS[oIdx];
+                                    return (
+                                        <th key={oIdx}
+                                            className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === vIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[oIdx] }}
+                                            draggable
+                                            onDragStart={e => handleDragStart(e, vIdx)}
+                                            onDragEnd={handleDragEnd}
+                                            onDragOver={e => handleDragOver(e, vIdx)}
+                                            onDrop={e => handleDrop(e, vIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            {col.label}
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={e => handleResizeStart(e, vIdx)}
+                                                onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
-                        ) : rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={colOrder.length} className="p-16 text-center text-gray-400 text-sm">
-                                    설정이 없습니다.{' '}
-                                    <span className="text-letusBlue cursor-pointer font-bold hover:underline" onClick={() => setModal('add')}>+ 설정 추가</span>
-                                </td>
-                            </tr>
-                        ) : rows.map(row => (
-                            <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors ${!row.is_active ? 'opacity-40' : ''}`}>
-                                {colOrder.map(oIdx => renderCell(oIdx, row))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={colOrder.length} className="p-12 text-center">
+                                        <div className="w-7 h-7 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin mx-auto"></div>
+                                    </td>
+                                </tr>
+                            ) : rows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={colOrder.length} className="p-16 text-center text-gray-400 text-sm">
+                                        설정이 없습니다.{' '}
+                                        <span className="text-letusBlue cursor-pointer font-bold hover:underline" onClick={() => setModal('add')}>+ 설정 추가</span>
+                                    </td>
+                                </tr>
+                            ) : rows.map(row => (
+                                <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors ${!row.is_active ? 'opacity-40' : ''}`}>
+                                    {colOrder.map(oIdx => renderCell(oIdx, row))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* 추가/수정 모달 */}
