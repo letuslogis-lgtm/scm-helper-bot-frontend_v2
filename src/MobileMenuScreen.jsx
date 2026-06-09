@@ -51,6 +51,7 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
     }, [userProfile?.name]);
 
     const handleEnableNotification = async () => {
+        alert('버튼 클릭됨. name=' + (userProfile?.name ?? '없음'));
         if (!userProfile?.name) return;
 
         if (!('Notification' in window)) {
