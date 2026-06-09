@@ -291,6 +291,19 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         try {
             const { error } = await supabase.from('logistics_issues').update({ is_notified: true, feedback_sent_at: new Date().toISOString() }).in('id', selectedIds);
             if (error) throw error;
+            // 작업자 푸시 알림 (각 신고자에게 개별 발송, 실패해도 무시)
+            const selectedIssues = issues.filter(i => selectedIds.includes(i.id));
+            selectedIssues.forEach(issue => {
+                supabase.functions.invoke('send-push-notification', {
+                    body: {
+                        mode: 'direct',
+                        user_name: issue.reporter,
+                        title: '✅ 이슈가 조치완료 되었습니다',
+                        body: `${issue.reception_no} 건이 처리되었습니다. 조치 내용을 확인해주세요.`,
+                        url: '/mobile/my-issues',
+                    },
+                }).catch(() => {});
+            });
             alert(`✅ ${selectedIds.length}건의 피드백 전송이 완료되었습니다.`);
             setSelectedIds([]);
             await onReload();
