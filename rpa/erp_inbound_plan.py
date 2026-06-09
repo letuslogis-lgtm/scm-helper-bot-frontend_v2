@@ -257,7 +257,7 @@ def get_active_rows(page) -> list[dict]:
                     document.querySelectorAll(
                         '[id*="grd_mst_body_gridrow_' + rowIdx + '"][id*="_cell_' + rowIdx + '_1"]'
                     ).forEach(e => { const t = (e.innerText || '').trim(); if (t.length > 3) invoiceNo = t; });
-                    rows.push({ rowIdx, invoiceNo: invoiceNo || ('row_' + rowIdx) });
+                    rows.push({ row_idx: rowIdx, invoice_no: invoiceNo || ('row_' + rowIdx) });
                 }
             });
             return rows;
