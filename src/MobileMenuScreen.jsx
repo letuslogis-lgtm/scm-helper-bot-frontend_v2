@@ -52,12 +52,29 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
 
     const handleEnableNotification = async () => {
         if (!userProfile?.name) return;
-        const success = await subscribePush(userProfile.name);
-        if (typeof Notification !== 'undefined') {
-            setNotifPermission(Notification.permission);
+
+        if (!('Notification' in window)) {
+            alert('이 브라우저는 알림 API를 지원하지 않습니다.');
+            return;
         }
-        if (!success && Notification.permission === 'denied') {
-            alert('알림이 차단되어 있습니다.\n브라우저 사이트 설정에서 알림을 직접 허용해주세요.');
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            alert('이 브라우저는 푸시 알림을 지원하지 않습니다.\nChrome 브라우저를 사용해주세요.');
+            return;
+        }
+
+        const permission = await Notification.requestPermission();
+        setNotifPermission(permission);
+
+        if (permission !== 'granted') {
+            alert('알림이 거부되었습니다.\n브라우저 설정에서 이 사이트의 알림을 허용해주세요.');
+            return;
+        }
+
+        const success = await subscribePush(userProfile.name);
+        if (success) {
+            alert('✅ 알림 설정 완료!\n이제 조치완료 알림을 받을 수 있습니다.');
+        } else {
+            alert('알림 구독 등록 중 오류가 발생했습니다.');
         }
     };
 
