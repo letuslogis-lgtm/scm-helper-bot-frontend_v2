@@ -34,7 +34,7 @@ const ConfigModal = ({ initial, onClose, onSaved }) => {
                 company:          form.company.trim(),
                 input_warehouse:  form.input_warehouse.trim(),
                 output_warehouse: form.output_warehouse.trim(),
-                note:             form.note.trim() || null,
+                note:             (form.note ?? '').trim() || null,
                 is_active:        form.is_active,
             };
             if (isEdit) {
