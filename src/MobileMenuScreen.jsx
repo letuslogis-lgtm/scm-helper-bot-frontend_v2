@@ -36,12 +36,30 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
     const [installed, setInstalled] = useState(isStandalone);
     const [showGuide, setShowGuide] = useState(false);
     const [showExitToast, setShowExitToast] = useState(false);
+    const [notifPermission, setNotifPermission] = useState(
+        typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+    );
     const canExitRef = useRef(false);
     const exitTimerRef = useRef(null);
 
     useEffect(() => {
-        if (userProfile?.name) subscribePush(userProfile.name);
+        if (!userProfile?.name) return;
+        // 이미 권한이 있으면 자동 구독 시도
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            subscribePush(userProfile.name);
+        }
     }, [userProfile?.name]);
+
+    const handleEnableNotification = async () => {
+        if (!userProfile?.name) return;
+        const success = await subscribePush(userProfile.name);
+        if (typeof Notification !== 'undefined') {
+            setNotifPermission(Notification.permission);
+        }
+        if (!success && Notification.permission === 'denied') {
+            alert('알림이 차단되어 있습니다.\n브라우저 사이트 설정에서 알림을 직접 허용해주세요.');
+        }
+    };
 
     useEffect(() => {
         window.history.pushState(null, '', window.location.href);
@@ -224,6 +242,19 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                                 </div>
                             )}
                         </div>
+                    )}
+
+                    {notifPermission !== 'granted' && (
+                        <button onClick={handleEnableNotification}
+                            className="w-full mb-2 bg-white rounded-xl shadow-sm border border-blue-100 p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform text-left">
+                            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-lg flex-shrink-0">
+                                🔔
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-blue-600 font-bold text-[14px]">알림 받기</p>
+                                <p className="text-blue-300 text-xs mt-0.5">조치완료·추가요청 알림을 받습니다</p>
+                            </div>
+                        </button>
                     )}
 
                     <button onClick={handleLogout}
