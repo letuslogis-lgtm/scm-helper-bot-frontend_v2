@@ -244,7 +244,7 @@ def get_active_rows(page) -> list[dict]:
     """활성 체크박스 행 목록 반환 [{row_idx, invoice_no}]"""
     return page.evaluate("""
         () => {
-            const pattern = '_8_controlcheckbox_chkimgImageElement';
+            const pattern = '_9_controlcheckbox_chkimgImageElement';  // 미생성품목여부 컬럼
             const els = document.querySelectorAll('[id*="grd_mst_body"][id*="' + pattern + '"]');
             const rows = [];
             els.forEach(el => {
@@ -270,7 +270,7 @@ def select_one_checkbox(page, row_idx: int) -> None:
     page.evaluate(f"""
         () => {{
             document.querySelectorAll(
-                '[id*="grd_mst_body_gridrow_{row_idx}"][id*="_8_controlcheckbox_chkimgImageElement"]'
+                '[id*="grd_mst_body_gridrow_{row_idx}"][id*="_7_controlcheckbox_chkimgImageElement"]'
             ).forEach(el => {{
                 if (el.style.visibility !== 'hidden') {{
                     const cell = el.parentElement?.parentElement;
