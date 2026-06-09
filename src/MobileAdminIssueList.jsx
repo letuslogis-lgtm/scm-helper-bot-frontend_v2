@@ -88,6 +88,16 @@ const IssueDetailSheet = ({ issue, onClose, onReload, userProfile }) => {
                 feedback_sent_at: nowIso,
             }).eq('id', issue.id);
             if (error) throw error;
+            // 작업자 푸시 알림 (실패해도 무시)
+            supabase.functions.invoke('send-push-notification', {
+                body: {
+                    mode: 'direct',
+                    user_name: issue.reporter,
+                    title: '✅ 이슈가 조치완료 되었습니다',
+                    body: `${issue.reception_no} 건이 처리되었습니다. 조치 내용을 확인해주세요.`,
+                    url: '/mobile/my-issues',
+                },
+            }).catch(() => {});
             await onReload();
             onClose();
         } catch {
