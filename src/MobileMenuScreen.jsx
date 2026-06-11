@@ -36,12 +36,22 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
     const [installed, setInstalled] = useState(isStandalone);
     const [showGuide, setShowGuide] = useState(false);
     const [showExitToast, setShowExitToast] = useState(false);
+    const [notifStatus, setNotifStatus] = useState(() =>
+        'Notification' in window ? Notification.permission : 'unsupported'
+    );
     const canExitRef = useRef(false);
     const exitTimerRef = useRef(null);
 
     useEffect(() => {
         if (userProfile?.name) subscribePush(userProfile.name);
     }, [userProfile?.name]);
+
+    const handleEnableNotif = async () => {
+        if (!userProfile?.name) return;
+        const success = await subscribePush(userProfile.name);
+        setNotifStatus('Notification' in window ? Notification.permission : 'unsupported');
+        if (success) setNotifStatus('granted');
+    };
 
     useEffect(() => {
         window.history.pushState(null, '', window.location.href);
@@ -222,6 +232,43 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                                         </div>
                                     )}
                                 </div>
+                            )}
+                        </div>
+                    )}
+
+                    {notifStatus !== 'unsupported' && (
+                        <div className="mb-2">
+                            {notifStatus === 'granted' ? (
+                                <div className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-lg">🔔</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-slate-800 font-bold text-[14px]">푸시 알림</p>
+                                        <p className="text-green-500 text-xs mt-0.5 font-medium">허용됨 — 조치완료 시 알림을 받습니다</p>
+                                    </div>
+                                </div>
+                            ) : notifStatus === 'denied' ? (
+                                <div className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-lg">🔕</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-slate-800 font-bold text-[14px]">푸시 알림</p>
+                                        <p className="text-red-400 text-xs mt-0.5">차단됨 — 기기 설정에서 알림을 허용해주세요</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button onClick={handleEnableNotif}
+                                    className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform text-left">
+                                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-lg">🔔</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-slate-800 font-bold text-[14px]">푸시 알림 받기</p>
+                                        <p className="text-slate-400 text-xs mt-0.5">탭하여 조치완료 알림 허용</p>
+                                    </div>
+                                </button>
                             )}
                         </div>
                     )}
