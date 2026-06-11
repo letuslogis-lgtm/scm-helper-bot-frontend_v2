@@ -281,17 +281,13 @@ def get_active_rows(page) -> list[dict]:
 
 
 def select_one_checkbox(page, row_idx: int) -> None:
-    """특정 행 선택 체크박스 클릭 (8번 컬럼)"""
-    page.evaluate(f"""
-        () => {{
-            document.querySelectorAll(
-                '[id*="grd_mst_body_gridrow_{row_idx}"][id*="_8_controlcheckbox_chkimgImageElement"]'
-            ).forEach(el => {{
-                const cell = el.parentElement?.parentElement;
-                if (cell) cell.click();
-            }});
-        }}
-    """)
+    """특정 행 선택 체크박스 클릭 (8번 컬럼) — Playwright 실제 클릭으로 Nexacro 이벤트 트리거"""
+    try:
+        page.locator(
+            f'[id*="grd_mst_body_gridrow_{row_idx}"][id*="_8_controlcheckbox_chkimgImageElement"]'
+        ).first.click(force=True, timeout=2000)
+    except Exception:
+        pass
 
 
 def set_inplan_date(page, ship_date: str) -> None:
