@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.scm_helper_bot_frontend_v2.twa",
+    "sha256_cert_fingerprints": [
+      "C5:34:3E:75:50:A3:59:66:54:8F:C5:4E:0E:E9:D7:DA:08:18:B0:1F:03:1B:68:7E:2D:98:79:AF:56:DF:29:34"
+    ]
+  }
+}]
