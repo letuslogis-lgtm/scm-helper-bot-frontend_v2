@@ -18,18 +18,23 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
         if (userProfile?.name) subscribePush(userProfile.name);
     }, [userProfile?.name]);
 
+    const [pushLog, setPushLog] = useState([]);
+    const addLog = (msg) => setPushLog(prev => [...prev, msg]);
+
     const handlePushTest = async () => {
-        if (!userProfile?.name) { alert('❌ name 없음'); return; }
-        alert('✅ 1단계: name=' + userProfile.name);
-        if (!('Notification' in window)) { alert('❌ 2: Notification API 없음'); return; }
-        alert('✅ 2단계: permission=' + Notification.permission);
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('❌ 3: PushManager 없음'); return; }
-        alert('✅ 3단계: PushManager 있음. 권한 요청...');
+        setPushLog([]);
+        if (!userProfile?.name) { addLog('❌ userProfile.name 없음'); return; }
+        addLog('✅ 1. name=' + userProfile.name);
+        if (!('Notification' in window)) { addLog('❌ 2. Notification API 미지원'); return; }
+        addLog('✅ 2. permission=' + Notification.permission);
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) { addLog('❌ 3. PushManager 미지원'); return; }
+        addLog('✅ 3. PushManager 있음 → 권한 요청 중...');
         const permission = await Notification.requestPermission();
-        alert('✅ 4단계: 결과=' + permission);
-        if (permission !== 'granted') { alert('❌ 거부됨. 브라우저 설정에서 알림을 허용해주세요.'); return; }
+        addLog('✅ 4. requestPermission 결과=' + permission);
+        if (permission !== 'granted') { addLog('❌ 알림 거부됨 → 브라우저 설정에서 허용 필요'); return; }
+        addLog('⏳ 5. subscribePush 호출 중...');
         const success = await subscribePush(userProfile.name);
-        alert(success ? '✅ 알림 설정 완료!' : '❌ 구독 등록 실패');
+        addLog(success ? '✅ 6. 구독 등록 완료!' : '❌ 6. 구독 등록 실패');
     };
 
     useEffect(() => {
@@ -232,6 +237,16 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
                         </div>
                     </div>
                 ))}
+
+                {/* Push 진단 로그 */}
+                {pushLog.length > 0 && (
+                    <div className="bg-slate-800 rounded-xl p-4 space-y-1">
+                        <p className="text-[11px] font-bold text-slate-400 mb-2">Push 진단 결과</p>
+                        {pushLog.map((line, i) => (
+                            <p key={i} className="text-xs font-mono text-slate-200">{line}</p>
+                        ))}
+                    </div>
+                )}
 
                 {/* 계정 */}
                 <div>
