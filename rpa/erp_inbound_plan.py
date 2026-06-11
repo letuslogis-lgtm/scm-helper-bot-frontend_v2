@@ -241,24 +241,34 @@ def select_combo(page, btn_id: str, value: str, label: str) -> None:
 # 4. 체크박스 헬퍼
 # ---------------------------------------------------------------------------
 def get_active_rows(page) -> list[dict]:
-    """활성 체크박스 행 목록 반환 [{row_idx, invoice_no}]"""
+    """처리 대상 행 반환: 8번 체크박스 존재하는 행 중 매출금액 양수인 것"""
     return page.evaluate("""
         () => {
-            const pattern = '_9_controlcheckbox_chkimgImageElement';  // 미생성품목여부 컬럼
+            const pattern = '_8_controlcheckbox_chkimgImageElement';
             const els = document.querySelectorAll('[id*="grd_mst_body"][id*="' + pattern + '"]');
             const rows = [];
             els.forEach(el => {
-                if (el.style.visibility !== 'hidden') {
-                    const m = el.id.match(/gridrow_(\\d+)/);
-                    if (!m) return;
-                    const rowIdx = parseInt(m[1]);
-                    // 매출전표번호 (column 1) 텍스트 추출
-                    let invoiceNo = '';
-                    document.querySelectorAll(
-                        '[id*="grd_mst_body_gridrow_' + rowIdx + '"][id*="_cell_' + rowIdx + '_1"]'
-                    ).forEach(e => { const t = (e.innerText || '').trim(); if (t.length > 3) invoiceNo = t; });
-                    rows.push({ row_idx: rowIdx, invoice_no: invoiceNo || ('row_' + rowIdx) });
-                }
+                const m = el.id.match(/gridrow_(\\d+)/);
+                if (!m) return;
+                const rowIdx = parseInt(m[1]);
+
+                // 매출전표번호 (column 1)
+                let invoiceNo = '';
+                document.querySelectorAll(
+                    '[id*="grd_mst_body_gridrow_' + rowIdx + '"][id*="_cell_' + rowIdx + '_1"]'
+                ).forEach(e => { const t = (e.innerText || '').trim(); if (t.length > 3) invoiceNo = t; });
+
+                // 매출금액 (column 6) — 음수면 제외
+                let salesAmt = 0;
+                document.querySelectorAll(
+                    '[id*="grd_mst_body_gridrow_' + rowIdx + '"][id*="_cell_' + rowIdx + '_6"]'
+                ).forEach(e => {
+                    const n = parseFloat((e.innerText || '').replace(/,/g, '').trim());
+                    if (!isNaN(n)) salesAmt = n;
+                });
+                if (salesAmt < 0) return;
+
+                rows.push({ row_idx: rowIdx, invoice_no: invoiceNo || ('row_' + rowIdx) });
             });
             return rows;
         }
@@ -266,16 +276,14 @@ def get_active_rows(page) -> list[dict]:
 
 
 def select_one_checkbox(page, row_idx: int) -> None:
-    """특정 행 체크박스만 클릭"""
+    """특정 행 선택 체크박스 클릭 (8번 컬럼)"""
     page.evaluate(f"""
         () => {{
             document.querySelectorAll(
-                '[id*="grd_mst_body_gridrow_{row_idx}"][id*="_7_controlcheckbox_chkimgImageElement"]'
+                '[id*="grd_mst_body_gridrow_{row_idx}"][id*="_8_controlcheckbox_chkimgImageElement"]'
             ).forEach(el => {{
-                if (el.style.visibility !== 'hidden') {{
-                    const cell = el.parentElement?.parentElement;
-                    if (cell) cell.click();
-                }}
+                const cell = el.parentElement?.parentElement;
+                if (cell) cell.click();
             }});
         }}
     """)
