@@ -686,15 +686,10 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                 .limit(200);
 
             if (!isAdmin) {
-                // 작업자: 같은 팀 이슈만 조회
+                // 작업자: 같은 팀 이슈만 조회 (SECURITY DEFINER 함수로 RLS 우회)
                 let reporterNames = [userProfile.name];
-                if (userProfile.team) {
-                    const { data: teammates } = await supabase
-                        .from('profiles')
-                        .select('name')
-                        .eq('team', userProfile.team);
-                    if (teammates?.length) reporterNames = teammates.map(p => p.name);
-                }
+                const { data: teamNames } = await supabase.rpc('get_my_team_names');
+                if (teamNames?.length) reporterNames = teamNames;
                 query = query.in('reporter', reporterNames);
             }
             // 관리자: reporter 필터 없음 → 전체 조회
