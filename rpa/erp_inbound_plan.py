@@ -368,7 +368,7 @@ def _process_one_by_one(page, cfg: dict) -> dict:
         if row.get('ship_date'):
             set_inplan_date(page, row['ship_date'])
         select_one_checkbox(page, row['row_idx'])
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(1000)
         page.locator(f'#{ERP_IDS["create"]}').click()
         page.wait_for_timeout(1500)
 
@@ -456,9 +456,9 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
             # ② 해당 날짜 행 전체 선택 → 생성
             for row in rows:
                 select_one_checkbox(page, row['row_idx'])
-                page.wait_for_timeout(300)  # 체크박스 간 딜레이
+                page.wait_for_timeout(800)  # 체크박스 간 딜레이
 
-            page.wait_for_timeout(500)  # 전체 선택 후 버튼 활성화 대기
+            page.wait_for_timeout(1000)  # 전체 선택 후 버튼 활성화 대기
             page.locator(f'#{ERP_IDS["create"]}').click()
             page.wait_for_timeout(1500)
 
