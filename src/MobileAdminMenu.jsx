@@ -18,6 +18,20 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
         if (userProfile?.name) subscribePush(userProfile.name);
     }, [userProfile?.name]);
 
+    const handlePushTest = async () => {
+        if (!userProfile?.name) { alert('❌ name 없음'); return; }
+        alert('✅ 1단계: name=' + userProfile.name);
+        if (!('Notification' in window)) { alert('❌ 2: Notification API 없음'); return; }
+        alert('✅ 2단계: permission=' + Notification.permission);
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('❌ 3: PushManager 없음'); return; }
+        alert('✅ 3단계: PushManager 있음. 권한 요청...');
+        const permission = await Notification.requestPermission();
+        alert('✅ 4단계: 결과=' + permission);
+        if (permission !== 'granted') { alert('❌ 거부됨. 브라우저 설정에서 알림을 허용해주세요.'); return; }
+        const success = await subscribePush(userProfile.name);
+        alert(success ? '✅ 알림 설정 완료!' : '❌ 구독 등록 실패');
+    };
+
     useEffect(() => {
         window.history.pushState(null, '', window.location.href);
         const handlePopState = () => {
@@ -95,6 +109,15 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
                     subtitle: 'analyze-barcode 응답 확인',
                     iconBg: 'bg-purple-50',
                     path: '/mobile/admin/barcode-tester',
+                    badge: 0,
+                },
+                {
+                    id: 'push-test',
+                    icon: '🔔',
+                    title: 'Push 알림 테스트',
+                    subtitle: '구독 등록 · 수신 진단',
+                    iconBg: 'bg-blue-50',
+                    path: null,
                     badge: 0,
                 },
             ],
@@ -189,7 +212,7 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
                             {group.items.map(item => (
                                 <button
                                     key={item.id}
-                                    onClick={() => navigate(item.path)}
+                                    onClick={() => item.id === 'push-test' ? handlePushTest() : navigate(item.path)}
                                     className="relative bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex flex-row items-center gap-3 active:scale-[0.97] transition-transform text-left"
                                 >
                                     <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center text-lg flex-shrink-0`}>
