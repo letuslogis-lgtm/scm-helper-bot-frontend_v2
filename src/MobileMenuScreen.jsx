@@ -4,6 +4,8 @@ import { subscribePush } from './hooks/usePushNotification.js';
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
+const isWhale = /whale/i.test(navigator.userAgent) && !isIOS;
+const CHROME_INTENT_URL = 'intent://scm-helper-bot-frontend-v2.vercel.app/mobile#Intent;scheme=https;package=com.android.chrome;end';
 
 const MENU_GROUPS = [
     {
@@ -192,7 +194,33 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                 <div>
                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-2">계정</p>
 
-                    {!installed && (
+                    {isWhale && (
+                        <div className="mb-2">
+                            <button
+                                onClick={() => { window.location.href = CHROME_INTENT_URL; }}
+                                className="w-full bg-blue-50 rounded-xl border border-blue-200 p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform text-left"
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                                        <circle cx="12" cy="12" r="10" fill="#4285F4"/>
+                                        <circle cx="12" cy="12" r="4" fill="white"/>
+                                        <path d="M12 2a10 10 0 0 1 8.66 5H12V2z" fill="#EA4335"/>
+                                        <path d="M2 12A10 10 0 0 1 12 2v5H3.34A10 10 0 0 0 2 12z" fill="#FBBC05"/>
+                                        <path d="M12 22a10 10 0 0 1-8.66-5H12v5z" fill="#34A853"/>
+                                    </svg>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-blue-700 font-bold text-[14px]">크롬으로 열기</p>
+                                    <p className="text-blue-400 text-xs mt-0.5">앱 설치·알림 수신을 위해 크롬을 사용하세요</p>
+                                </div>
+                                <svg className="w-4 h-4 text-blue-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
+
+                    {!isWhale && !installed && (
                         <div className="mb-2">
                             <button onClick={handleInstall}
                                 className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform text-left">
@@ -236,7 +264,7 @@ export const MobileMenuScreen = ({ userProfile, handleLogout, completedNotiCount
                         </div>
                     )}
 
-                    {notifStatus !== 'unsupported' && (
+                    {!isWhale && notifStatus !== 'unsupported' && (
                         <div className="mb-2">
                             {notifStatus === 'granted' ? (
                                 <div className="w-full bg-white rounded-xl shadow-sm border border-slate-100 p-3.5 flex items-center gap-3">
