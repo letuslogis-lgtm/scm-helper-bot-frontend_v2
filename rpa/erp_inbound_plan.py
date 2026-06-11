@@ -61,13 +61,12 @@ ERP_SYSCD = 'T05S02'
 _SCR = 'mainframe_VFrameSet_HFrameSet_VFrameSet1_workFrame_06002008_form_div_work'
 
 ERP_IDS = {
-    'company':   f'{_SCR}_div_search_cbo_company_dropbuttonImageElement',
-    'input_wh':  f'{_SCR}_div_search_cbo_stock_dropbuttonImageElement',
-    'output_wh': f'{_SCR}_div_search_cbo_stockOut_dropbuttonImageElement',
-    'search':    f'{_SCR}_div_search_btn_search',
-    'create':    f'{_SCR}_btn_createInPlan',
-    # TODO: 출고일자 입력필드 ID — --show 모드로 확인 후 아래 교체
-    # 'date_input': f'{_SCR}_div_search_???_calendaredit_input',
+    'company':    f'{_SCR}_div_search_cbo_company_dropbuttonImageElement',
+    'input_wh':   f'{_SCR}_div_search_cbo_stock_dropbuttonImageElement',
+    'output_wh':  f'{_SCR}_div_search_cbo_stockOut_dropbuttonImageElement',
+    'search':     f'{_SCR}_div_search_btn_search',
+    'create':     f'{_SCR}_btn_createInPlan',
+    'date_input': f'{_SCR}_cal_dtInPlan_calendaredit_input',
 }
 
 STEALTH_UA = (
@@ -258,6 +257,12 @@ def get_active_rows(page) -> list[dict]:
                     '[id*="grd_mst_body_gridrow_' + rowIdx + '"][id*="_cell_' + rowIdx + '_1"]'
                 ).forEach(e => { const t = (e.innerText || '').trim(); if (t.length > 3) invoiceNo = t; });
 
+                // 출고일자 (column 2)
+                let shipDate = '';
+                document.querySelectorAll(
+                    '[id*="grd_mst_body_gridrow_' + rowIdx + '"][id*="_cell_' + rowIdx + '_2"]'
+                ).forEach(e => { const t = (e.innerText || '').trim(); if (t) shipDate = t; });
+
                 // 매출금액 (column 6) — 음수면 제외
                 let salesAmt = 0;
                 document.querySelectorAll(
@@ -268,7 +273,7 @@ def get_active_rows(page) -> list[dict]:
                 });
                 if (salesAmt < 0) return;
 
-                rows.push({ row_idx: rowIdx, invoice_no: invoiceNo || ('row_' + rowIdx) });
+                rows.push({ row_idx: rowIdx, invoice_no: invoiceNo || ('row_' + rowIdx), ship_date: shipDate });
             });
             return rows;
         }
@@ -287,6 +292,16 @@ def select_one_checkbox(page, row_idx: int) -> None:
             }});
         }}
     """)
+
+
+def set_inplan_date(page, ship_date: str) -> None:
+    """입고예정일자를 출고일자와 동일하게 설정 (YYYY/MM/DD 형식)"""
+    date_str = ship_date.replace('.', '/').replace('-', '/')
+    cal = page.locator(f'#{ERP_IDS["date_input"]}')
+    cal.click(click_count=3)
+    cal.fill(date_str)
+    cal.press('Tab')
+    page.wait_for_timeout(200)
 
 
 def _requery(page) -> bool:
@@ -352,8 +367,10 @@ def _process_one_by_one(page, cfg: dict) -> dict:
 
         row = remaining[0]
         skip_set.add(row['invoice_no'])
-        print(f'    [{attempt + 1}] {row["invoice_no"]} 단건 처리 중...')
+        print(f'    [{attempt + 1}] {row["invoice_no"]} ({row.get("ship_date", "")}) 단건 처리 중...')
 
+        if row.get('ship_date'):
+            set_inplan_date(page, row['ship_date'])
         select_one_checkbox(page, row['row_idx'])
         page.locator(f'#{ERP_IDS["create"]}').click()
         page.wait_for_timeout(1500)
@@ -394,13 +411,6 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
         select_combo(page, ERP_IDS['input_wh'],  input_wh,  '입고예정창고')
         select_combo(page, ERP_IDS['output_wh'], output_wh, '출고창고')
 
-        # TODO: 출고일자 입력 (ID 확인 후 활성화)
-        # date_str = target_date.replace('-', '/')
-        # cal = page.locator(f'#{ERP_IDS["date_input"]}')
-        # cal.click(click_count=3)
-        # cal.press_sequentially(date_str, delay=50)
-        # cal.press('Tab')
-
         # 조회
         page.locator(f'#{ERP_IDS["search"]}').click()
         try:
@@ -427,26 +437,52 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
             return {'company': company, 'output_wh': output_wh,
                     'status': 'no_selectable', 'selected': 0, 'error': None, 'error_rows': []}
 
-        print(f'    활성 행 {len(active)}건 → 전체 선택 후 생성 시도')
-
-        # ① 1차 시도: 전체 선택 → 생성
+        # 출고일자별 그룹핑
+        groups: dict[str, list] = {}
         for row in active:
-            select_one_checkbox(page, row['row_idx'])
+            d = row.get('ship_date') or ''
+            groups.setdefault(d, []).append(row)
 
-        page.locator(f'#{ERP_IDS["create"]}').click()
-        page.wait_for_timeout(1500)
+        date_count = len(groups)
+        print(f'    활성 행 {len(active)}건 (출고일자 {date_count}종) → 날짜별 생성 시도')
 
-        popup = dismiss_popup(page, timeout=4000)
-        is_error = popup and any(w in popup for w in ['오류', '에러', 'error', '실패'])
+        total_ok = 0
+        all_error_rows: list = []
 
-        if not is_error:
-            print(f'    ✅ 전체 {len(active)}건 생성 완료')
-            return {'company': company, 'output_wh': output_wh,
-                    'status': 'ok', 'selected': len(active), 'error': None, 'error_rows': []}
+        for ship_date, rows in groups.items():
+            print(f'    출고일자 {ship_date or "미확인"} ({len(rows)}건)...')
 
-        # ② 2차 시도: 단건 처리 fallback
-        print(f'    ⚠️ 오류 팝업 → 단건 처리 모드 전환')
-        return _process_one_by_one(page, cfg)
+            # ① 입고예정일자 = 출고일자
+            if ship_date:
+                set_inplan_date(page, ship_date)
+
+            # ② 해당 날짜 행 전체 선택 → 생성
+            for row in rows:
+                select_one_checkbox(page, row['row_idx'])
+
+            page.locator(f'#{ERP_IDS["create"]}').click()
+            page.wait_for_timeout(1500)
+
+            popup = dismiss_popup(page, timeout=4000)
+            is_error = popup and any(w in popup for w in ['오류', '에러', 'error', '실패'])
+
+            if not is_error:
+                print(f'    ✅ {ship_date or "미확인"} {len(rows)}건 완료')
+                total_ok += len(rows)
+            else:
+                # ③ 오류 시 단건 fallback
+                print(f'    ⚠️ {ship_date or "미확인"} 오류 팝업 → 단건 처리 모드')
+                r = _process_one_by_one(page, cfg)
+                total_ok += r['selected']
+                all_error_rows.extend(r.get('error_rows') or [])
+
+        status = ('ok'      if total_ok > 0 and not all_error_rows else
+                  'partial' if total_ok > 0 else
+                  'all_error')
+        return {'company': company, 'output_wh': output_wh,
+                'status': status, 'selected': total_ok,
+                'error': f'오류행 {len(all_error_rows)}건' if all_error_rows else None,
+                'error_rows': all_error_rows}
 
     except Exception as e:
         print(f'    ❌ 예외: {e}')
