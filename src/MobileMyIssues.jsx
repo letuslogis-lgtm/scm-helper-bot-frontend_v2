@@ -692,8 +692,7 @@ export const MobileMyIssues = ({ userProfile, onNotificationsRead }) => {
                     const { data: teammates } = await supabase
                         .from('profiles')
                         .select('name')
-                        .eq('team', userProfile.team)
-                        .eq('status', '재직');
+                        .eq('team', userProfile.team);
                     if (teammates?.length) reporterNames = teammates.map(p => p.name);
                 }
                 query = query.in('reporter', reporterNames);
