@@ -28,6 +28,29 @@ body {
     background: #94a3b8;
 }
 
+/* 모바일 PWA - 네이티브 앱처럼 동작 */
+@media (hover: none) and (pointer: coarse) {
+    * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+    }
+
+    body {
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: pan-x pan-y;
+    }
+
+    input, textarea, [contenteditable] {
+        -webkit-user-select: text;
+        user-select: text;
+    }
+
+    button, a, [role="button"] {
+        touch-action: manipulation;
+    }
+}
+
 .fade-in {
     animation: fadeIn 0.4s ease-out;
 }
