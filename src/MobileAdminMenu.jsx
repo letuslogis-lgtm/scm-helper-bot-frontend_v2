@@ -23,6 +23,7 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
 
     const handlePushTest = async () => {
         setPushLog([]);
+        addLog('📦 코드버전 v3');
         if (!userProfile?.name) { addLog('❌ userProfile.name 없음'); return; }
         addLog('✅ 1. name=' + userProfile.name);
         if (!('Notification' in window)) { addLog('❌ 2. Notification API 미지원'); return; }

@@ -17,7 +17,9 @@ export async function subscribePush(userName, logFn) {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
 
     try {
-        const permission = await Notification.requestPermission()
+        const permission = Notification.permission === 'granted'
+            ? 'granted'
+            : await Notification.requestPermission()
         if (permission !== 'granted') return false
 
         const registration = await navigator.serviceWorker.ready
