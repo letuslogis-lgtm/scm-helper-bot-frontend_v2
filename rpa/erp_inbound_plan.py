@@ -320,10 +320,32 @@ def _requery(page) -> bool:
 # ---------------------------------------------------------------------------
 # 5. 팝업 처리 (확인/닫기 버튼 클릭)
 # ---------------------------------------------------------------------------
-def dismiss_popup(page, timeout: int = 3000) -> str | None:
-    """팝업이 있으면 텍스트 반환 후 닫기. 없으면 None."""
+def click_create_button(page) -> str | None:
+    """입고계획생성 버튼 클릭 + native confirm/alert 다이얼로그 자동 수락.
+    ERP가 window.confirm() → 확인 → window.alert('처리 되었습니다.') 순으로 띄우므로
+    page.on('dialog') 핸들러로 모두 accept() 처리한다.
+    반환값: 마지막 다이얼로그 메시지 (오류 판별용), 없으면 None.
+    """
+    messages = []
+
+    def _handle(dialog):
+        messages.append(dialog.message)
+        dialog.accept()
+
+    page.on('dialog', _handle)
     try:
-        # Nexacro 메시지박스 텍스트 감지
+        page.locator(f'#{ERP_IDS["create"]}').click()
+        # 두 번째 다이얼로그(처리 완료 알림)까지 기다림
+        page.wait_for_timeout(4000)
+    finally:
+        page.remove_listener('dialog', _handle)
+
+    return messages[-1] if messages else None
+
+
+def dismiss_popup(page, timeout: int = 3000) -> str | None:
+    """DOM 기반 팝업 처리 (Nexacro 팝업용). native dialog는 별도 핸들러로 처리."""
+    try:
         popup = page.locator('.w2popup_msg, [class*="msgbox"], [id*="popup_msg"]').first
         popup.wait_for(state='visible', timeout=timeout)
         text = popup.inner_text(timeout=1000).strip()
@@ -332,7 +354,6 @@ def dismiss_popup(page, timeout: int = 3000) -> str | None:
     except PWTimeout:
         pass
 
-    # 확인 버튼만 있는 경우 fallback
     try:
         page.get_by_role('button', name='확인').click(timeout=1000)
         return '(팝업 텍스트 미확인)'
@@ -369,10 +390,7 @@ def _process_one_by_one(page, cfg: dict) -> dict:
             set_inplan_date(page, row['ship_date'])
         select_one_checkbox(page, row['row_idx'])
         page.wait_for_timeout(1000)
-        page.locator(f'#{ERP_IDS["create"]}').click()
-        page.wait_for_timeout(1500)
-
-        popup = dismiss_popup(page, timeout=4000)
+        popup = click_create_button(page)
         is_error = popup and any(w in popup for w in ['오류', '에러', 'error', '실패'])
 
         if is_error:
@@ -459,10 +477,7 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
                 page.wait_for_timeout(800)  # 체크박스 간 딜레이
 
             page.wait_for_timeout(1000)  # 전체 선택 후 버튼 활성화 대기
-            page.locator(f'#{ERP_IDS["create"]}').click()
-            page.wait_for_timeout(1500)
-
-            popup = dismiss_popup(page, timeout=4000)
+            popup = click_create_button(page)
             is_error = popup and any(w in popup for w in ['오류', '에러', 'error', '실패'])
 
             if not is_error:
