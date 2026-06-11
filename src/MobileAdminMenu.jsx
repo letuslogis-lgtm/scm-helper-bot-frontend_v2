@@ -33,7 +33,7 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
         addLog('✅ 4. requestPermission 결과=' + permission);
         if (permission !== 'granted') { addLog('❌ 알림 거부됨 → 브라우저 설정에서 허용 필요'); return; }
         addLog('⏳ 5. subscribePush 호출 중...');
-        const success = await subscribePush(userProfile.name);
+        const success = await subscribePush(userProfile.name, (msg) => addLog('  └ ' + msg));
         addLog(success ? '✅ 6. 구독 등록 완료!' : '❌ 6. 구독 등록 실패');
     };
 
