@@ -70,7 +70,19 @@ async function checkAndGetInfo(
       return { is_valid: false, brand: null, vendor: null }
     }
     const brand = data.brand_category || data.brand || null
-    const vendor = data.vendor || data.production_line || null
+    const rawVendor = data.vendor || data.production_line || null
+
+    // vendor_aliases 에서 정규화된 이름 조회
+    let vendor = rawVendor
+    if (rawVendor) {
+      const { data: alias } = await admin
+        .from('vendor_aliases')
+        .select('canonical_name')
+        .eq('raw_name', rawVendor)
+        .maybeSingle()
+      if (alias?.canonical_name) vendor = alias.canonical_name
+    }
+
     return { is_valid: true, brand, vendor }
   } catch (e) {
     console.error('[checkAndGetInfo] 예외 — code:', code, '/', e)
