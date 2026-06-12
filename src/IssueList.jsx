@@ -73,10 +73,9 @@ const BarcodeSearchModal = ({ onClose, onFilter }) => {
                     body: { image: base64, mimeType: 'image/jpeg' },
                 }));
             } else if (manualCode.trim()) {
-                ({ data, error } = await supabase.functions.invoke('find-similar-codes', {
+                ({ data, error } = await supabase.functions.invoke('analyze-barcode', {
                     body: { code: manualCode.trim().toUpperCase() },
                 }));
-                if (!error) data = { product_code: manualCode.trim().toUpperCase(), ...data };
             }
             if (error) throw error;
             setResult({ data });
