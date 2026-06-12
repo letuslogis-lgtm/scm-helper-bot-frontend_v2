@@ -319,12 +319,21 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  <div className="bg-white rounded-xl shadow-2xl z-10 w-full max-w-4xl slide-up border border-gray-100 overflow-hidden flex flex-col">
  <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
  <div>
- <h3 className="font-bold text-gray-900">
+ <h3 className="font-bold text-gray-900 flex items-center gap-1.5 flex-wrap">
    현장 특이사항 접수/이관 ({row.reception_no}
    {row.product_code && (
      <><span className="ml-1 text-gray-900 font-bold"> /</span><span className="ml-1 text-letusOrange font-bold text-sm"> {row.product_code}</span></>
    )}
    )
+   {row.product_code && isAdmin && !showCodeInput && (
+     <button
+       onClick={() => { setManualCode(row.product_code); setShowCodeInput(true); }}
+       className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded border border-orange-300 bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+       title="품목코드 수정"
+     >
+       ✏️ 코드 수정
+     </button>
+   )}
  </h3>
  <div className="flex items-center gap-1 mt-1 text-[11px]">
  <span className={stepStyle(isWaiting, !isWaiting)}>① 접수</span>
@@ -458,6 +467,37 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
      AI가 품목코드를 인식하지 못했습니다. 직접 입력 버튼으로 코드를 등록할 수 있습니다.
     </div>
    )}
+  </div>
+ )}
+
+ {/* 품목코드 수정 — 기존 코드가 있지만 오입력된 경우 */}
+ {row.product_code && isAdmin && showCodeInput && (
+  <div className="flex flex-col">
+   <div className="flex items-center justify-between mb-2">
+    <h4 className="text-sm font-bold text-orange-600">✏️ 품목코드 수정</h4>
+   </div>
+   <div className="flex gap-2 items-center">
+    <input
+     type="text"
+     value={manualCode}
+     onChange={e => setManualCode(e.target.value.toUpperCase())}
+     placeholder="수정할 품목코드 입력"
+     className="flex-1 border border-orange-300 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-800 outline-none focus:ring-2 focus:ring-letusOrange focus:border-letusOrange"
+    />
+    <button
+     onClick={handleSaveCode}
+     disabled={isSavingCode || !manualCode.trim()}
+     className="px-3 py-1.5 bg-letusOrange text-white text-xs font-bold rounded hover:bg-orange-600 disabled:opacity-50 transition-colors shrink-0"
+    >
+     {isSavingCode ? '저장 중...' : '저장'}
+    </button>
+    <button
+     onClick={() => { setShowCodeInput(false); setManualCode(''); }}
+     className="px-3 py-1.5 border border-gray-300 text-gray-500 text-xs font-bold rounded hover:bg-gray-100 transition-colors shrink-0"
+    >
+     취소
+    </button>
+   </div>
   </div>
  )}
 
