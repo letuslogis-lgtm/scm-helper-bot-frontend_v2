@@ -24,6 +24,186 @@ const DEFAULT_COLUMNS = [
     { label: '최종 처리일시', key: 'resolved_at',  w: 150 },
 ];
 
+// --- 바코드 조회 모달 ---
+const BarcodeSearchModal = ({ onClose, onFilter }) => {
+    const [photo, setPhoto] = useState(null);
+    const [manualCode, setManualCode] = useState('');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [result, setResult] = useState(null);
+    const fileRef = useRef(null);
+
+    const compressImage = async (file) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        const ratio = Math.min(1024 / bitmap.width, 1024 / bitmap.height, 1);
+        canvas.width = Math.round(bitmap.width * ratio);
+        canvas.height = Math.round(bitmap.height * ratio);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        return canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (photo) URL.revokeObjectURL(photo.preview);
+        setPhoto({ file, preview: URL.createObjectURL(file) });
+        setResult(null);
+        e.target.value = '';
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        if (photo) URL.revokeObjectURL(photo.preview);
+        setPhoto({ file, preview: URL.createObjectURL(file) });
+        setResult(null);
+    };
+
+    const handleAnalyze = async () => {
+        setIsAnalyzing(true);
+        setResult(null);
+        try {
+            let data, error;
+            if (photo) {
+                const base64 = await compressImage(photo.file);
+                ({ data, error } = await supabase.functions.invoke('analyze-barcode', {
+                    body: { image: base64, mimeType: 'image/jpeg' },
+                }));
+            } else if (manualCode.trim()) {
+                ({ data, error } = await supabase.functions.invoke('find-similar-codes', {
+                    body: { code: manualCode.trim().toUpperCase() },
+                }));
+                if (!error) data = { product_code: manualCode.trim().toUpperCase(), ...data };
+            }
+            if (error) throw error;
+            setResult({ data });
+        } catch (err) {
+            setResult({ error: err.message });
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const canAnalyze = (photo || manualCode.trim()) && !isAnalyzing;
+    const foundCode = result?.data?.product_code;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+                {/* 헤더 */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50">
+                    <div>
+                        <h3 className="font-bold text-gray-900 text-sm">바코드 / 품목코드 조회</h3>
+                        <p className="text-[11px] text-gray-400 mt-0.5">이미지 업로드 또는 코드 직접 입력</p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div className="p-5 space-y-4">
+                    {/* 이미지 업로드 */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-600 mb-2">바코드 이미지</p>
+                        {photo ? (
+                            <div className="relative rounded-xl overflow-hidden border border-gray-200">
+                                <img src={photo.preview} alt="바코드" className="w-full max-h-40 object-contain bg-gray-50" />
+                                <button
+                                    onClick={() => { URL.revokeObjectURL(photo.preview); setPhoto(null); setResult(null); }}
+                                    className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-black flex items-center justify-center shadow"
+                                >✕</button>
+                            </div>
+                        ) : (
+                            <div
+                                onDrop={handleDrop}
+                                onDragOver={e => e.preventDefault()}
+                                onClick={() => fileRef.current?.click()}
+                                className="border-2 border-dashed border-gray-200 rounded-xl h-28 flex flex-col items-center justify-center gap-1.5 text-gray-400 hover:border-letusBlue hover:text-letusBlue transition-colors cursor-pointer"
+                            >
+                                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <span className="text-xs font-bold">클릭 또는 드래그하여 업로드</span>
+                            </div>
+                        )}
+                        <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                    </div>
+
+                    {/* 구분선 */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-gray-100" />
+                        <span className="text-[11px] text-gray-400 font-bold">또는</span>
+                        <div className="flex-1 h-px bg-gray-100" />
+                    </div>
+
+                    {/* 코드 직접 입력 */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-600 mb-2">품목코드 직접 입력</p>
+                        <input
+                            type="text"
+                            value={manualCode}
+                            onChange={e => { setManualCode(e.target.value.toUpperCase()); setResult(null); }}
+                            placeholder="예: A1234BC"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-800 outline-none focus:ring-2 focus:ring-letusBlue focus:border-letusBlue"
+                        />
+                    </div>
+
+                    {/* 분석 버튼 */}
+                    <button
+                        onClick={handleAnalyze}
+                        disabled={!canAnalyze}
+                        className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${canAnalyze ? 'bg-letusBlue text-white hover:bg-blue-600 shadow-sm' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                    >
+                        {isAnalyzing ? (
+                            <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>AI 분석 중...</>
+                        ) : <>🤖 AI 분석</>}
+                    </button>
+
+                    {/* 결과 */}
+                    {result && (
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            {result.error ? (
+                                <div className="px-4 py-3 bg-red-50 text-sm text-red-600 font-bold">❌ 오류: {result.error}</div>
+                            ) : (
+                                <>
+                                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                                        <p className="text-xs font-bold text-gray-500 mb-1.5">분석 결과</p>
+                                        <div className="space-y-1.5">
+                                            {[
+                                                { label: '품목코드', value: result.data?.product_code, mono: true },
+                                                { label: '유효여부', value: result.data?.is_valid != null ? (result.data.is_valid ? '✅ 유효' : '❌ 미인식') : null },
+                                                { label: '브랜드', value: result.data?.brand },
+                                                { label: '공급업체', value: result.data?.vendor },
+                                                { label: '유사코드', value: result.data?.similar_codes?.length > 0 ? result.data.similar_codes.join(', ') : null, mono: true },
+                                                { label: '설명', value: result.data?.description },
+                                            ].filter(f => f.value).map(f => (
+                                                <div key={f.label} className="flex items-start gap-2 text-xs">
+                                                    <span className="text-gray-400 font-bold w-16 shrink-0">{f.label}</span>
+                                                    <span className={`text-gray-800 ${f.mono ? 'font-mono' : 'font-medium'} break-all`}>{f.value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {foundCode && (
+                                        <button
+                                            onClick={() => { onFilter(foundCode); onClose(); }}
+                                            className="w-full px-4 py-2.5 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" /></svg>
+                                            "{foundCode}" 로 목록 필터링
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- 특이사항 리스트 (IssueList) 🌟 화면 고정 & 내부 스크롤 완벽 적용 ---
 const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, setSavedFilters, userProfile }) => {
     const [activeModalRow, setActiveModalRow] = useState(null);
@@ -35,6 +215,7 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
     const [draftFilters, setDraftFilters] = useState({ ...savedFilters });
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+    const [showBarcodeModal, setShowBarcodeModal] = useState(false);
     const [searchParams] = useSearchParams();
     useEffect(() => {
         const brand = searchParams.get('brand');
@@ -350,6 +531,36 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
         return null;
     };
 
+    const [isUpdatingVendor, setIsUpdatingVendor] = useState(false);
+    const handleUpdateVendor = async () => {
+        // 선택된 행 중 product_code 있고 vendor 비어있는 것만
+        const targets = issues.filter(r =>
+            selectedIds.includes(r.id) && r.product_code && !r.vendor
+        );
+        if (targets.length === 0) {
+            return alert('선택된 행 중 품목코드가 있고 공급업체가 비어있는 건이 없습니다.');
+        }
+        if (!window.confirm(`${targets.length}건의 공급업체를 자동 갱신하시겠습니까?`)) return;
+        setIsUpdatingVendor(true);
+        let updated = 0, failed = 0;
+        for (const row of targets) {
+            try {
+                const { data, error } = await supabase.functions.invoke('analyze-barcode', {
+                    body: { code: row.product_code },
+                });
+                if (error || !data?.vendor) { failed++; continue; }
+                const { error: updateErr } = await supabase
+                    .from('logistics_issues')
+                    .update({ vendor: data.vendor })
+                    .eq('id', row.id);
+                if (updateErr) { failed++; } else { updated++; }
+            } catch { failed++; }
+        }
+        setIsUpdatingVendor(false);
+        alert(`갱신 완료: ${updated}건 성공 / ${failed}건 실패`);
+        if (updated > 0) onReload();
+    };
+
     const handleExportExcel = async () => {
         if (sortedIssues.length === 0) return alert('데이터가 없습니다.');
         const XLSX = await loadXLSX();
@@ -455,10 +666,24 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                         {isActionMenuOpen && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setIsActionMenuOpen(false)}></div>
-                                <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                    <button onClick={() => { setIsActionMenuOpen(false); setShowBarcodeModal(true); }} className="w-full text-left px-4 py-2 text-xs font-bold text-letusOrange hover:bg-orange-50 flex items-center justify-between transition-colors">
+                                        바코드 조회
+                                        <span className="text-sm">🔍</span>
+                                    </button>
+                                    <div className="h-px bg-gray-100 my-1"></div>
                                     <button onClick={() => { setIsActionMenuOpen(false); handleExportExcel(); }} className="w-full text-left px-4 py-2 text-xs font-bold text-green-600 hover:bg-green-50 flex items-center justify-between transition-colors">
                                         엑셀 추출
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    </button>
+                                    <div className="h-px bg-gray-100 my-1"></div>
+                                    <button
+                                        onClick={() => { setIsActionMenuOpen(false); handleUpdateVendor(); }}
+                                        disabled={isUpdatingVendor}
+                                        className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${isUpdatingVendor ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:text-letusOrange hover:bg-orange-50'}`}
+                                    >
+                                        {isUpdatingVendor ? '갱신 중...' : '공급업체 갱신'}
+                                        {!isUpdatingVendor && <span className="text-sm">🏭</span>}
                                     </button>
                                     <div className="h-px bg-gray-100 my-1"></div>
                                     <button onClick={() => { setIsActionMenuOpen(false); handleRevertSelectedIssues(); }} className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 transition-colors">
@@ -549,6 +774,16 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
                 </div>
             </div>
 
+            {showBarcodeModal && (
+                <BarcodeSearchModal
+                    onClose={() => setShowBarcodeModal(false)}
+                    onFilter={(code) => {
+                        const next = { ...savedFilters, searchType: '품목코드', searchValue: code };
+                        setSavedFilters(next);
+                        setDraftFilters(next);
+                    }}
+                />
+            )}
             {activeModalRow && <RequestModal row={activeModalRow} onClose={() => setActiveModalRow(null)} onReload={onReload} userProfile={userProfile} onDirectHandle={(updatedRow) => { setActiveModalRow(null); setActiveHandleRow(updatedRow); }} />}
             {activeHandleRow && <HandleModal row={activeHandleRow} onClose={() => setActiveHandleRow(null)} onReload={onReload} userProfile={userProfile} />}
             {activeDeptReplyRow && <DeptReplyModal row={activeDeptReplyRow} onClose={() => setActiveDeptReplyRow(null)} onReload={onReload} />}

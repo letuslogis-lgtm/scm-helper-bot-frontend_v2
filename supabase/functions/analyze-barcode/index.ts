@@ -13,6 +13,34 @@ function json(body: unknown, status = 200) {
   })
 }
 
+// ---- 보정 예시 캐시 (콜드스타트 1회만 Storage 읽기) ----
+let _examplesBlock = ''
+let _cacheLoadedAt = 0
+const CACHE_TTL_MS = 3_600_000 // 1시간
+
+async function getExamplesBlock(admin: ReturnType<typeof createClient>): Promise<string> {
+  const now = Date.now()
+  if (_examplesBlock !== undefined && now - _cacheLoadedAt < CACHE_TTL_MS) return _examplesBlock
+  try {
+    const { data, error } = await admin.storage
+      .from('issue_images')
+      .download('_config/barcode-examples.json')
+    if (error || !data) { _cacheLoadedAt = now; return '' }
+    const parsed = JSON.parse(await data.text())
+    const examples: Array<{ ai: string; correct: string }> = parsed.examples ?? []
+    if (examples.length === 0) {
+      _examplesBlock = ''
+    } else {
+      const lines = examples.map(e => `- AI 인식 "${e.ai}" → 정답 "${e.correct}"`)
+      _examplesBlock = `\n[실제 보정 사례 — 아래 패턴에서 특히 색상코드를 놓치지 마세요]\n${lines.join('\n')}\n`
+    }
+    _cacheLoadedAt = now
+  } catch {
+    _cacheLoadedAt = now // 실패해도 스캔 차단 안 함
+  }
+  return _examplesBlock
+}
+
 
 async function checkAndGetInfo(
   admin: ReturnType<typeof createClient>,
@@ -67,7 +95,30 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    const { image, mimeType } = await req.json()
+    // 요청 파싱과 예시 캐시 로드를 병렬 실행 → 콜드스타트 지연 최소화
+    const [body, examplesBlock] = await Promise.all([
+      req.json(),
+      getExamplesBlock(admin),
+    ])
+    const { image, mimeType, code: textCode } = body
+
+    // ── 텍스트 코드 직접 조회 모드 (이미지 없이 product_code 문자열만 전달) ──
+    if (!image && textCode) {
+      const code = String(textCode).trim().toUpperCase()
+      const info = await checkAndGetInfo(admin, code)
+      return json({
+        product_code: code,
+        is_valid: info.is_valid,
+        brand: info.brand,
+        vendor: info.vendor,
+        has_similar: false,
+        similar_codes: [],
+        barcode_type: null,
+        description: null,
+        message: info.is_valid ? '코드 조회 성공' : '코드를 찾을 수 없습니다.',
+      })
+    }
+
     if (!image) return json({ message: '이미지가 제공되지 않았습니다.' }, 400)
 
     const prompt = `당신은 최고 수준의 물류 SCM 라벨 판독기입니다. 첨부된 사진을 분석하여 오직 JSON 형식으로만 응답하세요.
@@ -80,7 +131,7 @@ Deno.serve(async (req) => {
 [절대 무시 규칙] 괄호 기호 안의 내용, 생산일자, 벤더 영문 코드, 로트 번호 등 무시.
 [숫자/문자 구분 규칙] 물류 품목코드에서 숫자처럼 생긴 문자는 반드시 숫자로 인식하세요. 특히 '0'(숫자 영)과 'O'(알파벳 오)를 혼동하지 마세요. 예: CH0027MAF 에서 '00'은 숫자 영이며 알파벳 O가 아닙니다.
 [예시] 입력: "HSOC1140DTRA 2026-03-16 F", 옆에 "WW" → 정답: {"product_code": "HSOC1140DTRA-WW"}
-
+${examplesBlock}
 오직 아래 JSON 형식으로만 응답하세요:
 {"product_code": "추출된코드 또는 null", "barcode_type": "code128 | qr | ean13 | text_label | unknown"}`
 
