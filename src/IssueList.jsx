@@ -535,10 +535,10 @@ const IssueList = ({ issues = [], isLoading = false, onReload, savedFilters, set
     const handleUpdateVendor = async () => {
         // 선택된 행 중 product_code 있고 vendor 비어있는 것만
         const targets = issues.filter(r =>
-            selectedIds.includes(r.id) && r.product_code && !r.vendor
+            selectedIds.includes(r.id) && r.product_code
         );
         if (targets.length === 0) {
-            return alert('선택된 행 중 품목코드가 있고 공급업체가 비어있는 건이 없습니다.');
+            return alert('선택된 행 중 품목코드가 있는 건이 없습니다.');
         }
         if (!window.confirm(`${targets.length}건의 공급업체를 자동 갱신하시겠습니까?`)) return;
         setIsUpdatingVendor(true);
