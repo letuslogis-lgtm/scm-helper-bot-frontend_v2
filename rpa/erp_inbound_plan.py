@@ -281,11 +281,14 @@ def get_active_rows(page) -> list[dict]:
 
 
 def select_one_checkbox(page, row_idx: int) -> None:
-    """특정 행 선택 체크박스 클릭 (8번 컬럼) — Playwright 실제 클릭으로 Nexacro 이벤트 트리거"""
+    """특정 행 선택 체크박스 클릭 (8번 컬럼) — 스크롤 후 Nexacro 이벤트 트리거"""
     try:
-        page.locator(
+        loc = page.locator(
             f'[id*="grd_mst_body_gridrow_{row_idx}"][id*="_8_controlcheckbox_chkimgImageElement"]'
-        ).first.click(force=True, timeout=2000)
+        ).first
+        loc.scroll_into_view_if_needed(timeout=2000)
+        page.wait_for_timeout(200)
+        loc.click(force=True, timeout=2000)
     except Exception:
         pass
 
@@ -540,24 +543,31 @@ def run_wms_if(headless: bool) -> None:
             page.wait_for_timeout(1500)
             print('[WMS] 입고 예정 정보 관리 진입')
 
-            # 입고예정정보 IF 버튼 클릭 (페이지 상단 버튼)
-            page.get_by_text('입고예정정보 IF').first.click()
-            page.wait_for_timeout(1000)
+            # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭
+            page_btn = page.locator('button').filter(has_text='입고예정정보 IF').first
+            page_btn.wait_for(state='visible', timeout=10000)
+            page_btn.click()
+            page.wait_for_timeout(800)
             print('[WMS] 모달 열림')
 
-            # 모달 내 입고예정정보 IF 버튼 클릭 (오렌지 버튼)
-            page.get_by_role('button', name='입고예정정보 IF').click()
-            page.wait_for_timeout(3000)
-            print('[WMS] IF 실행 완료 대기 중...')
+            # ② 모달 내 "입고예정정보 IF" 버튼 클릭 (exact match — "+" 없는 오렌지 버튼)
+            modal_btn = page.get_by_role('button', name='입고예정정보 IF', exact=True)
+            modal_btn.wait_for(state='visible', timeout=5000)
+            modal_btn.click()
+            print('[WMS] IF 실행 중...')
 
-            # 완료 모달 닫기
+            # ③ "IF 완료되었습니다." 팝업 → 확인
+            page.get_by_role('button', name='확인').wait_for(state='visible', timeout=30000)
+            page.get_by_role('button', name='확인').click()
+            page.wait_for_timeout(500)
+            print('[WMS] IF 완료')
+
+            # ④ "입고예정정보 IF결과" 모달 → 닫기
             try:
-                page.get_by_role('button', name='확인').click(timeout=5000)
+                page.get_by_role('button', name='닫기').wait_for(state='visible', timeout=5000)
+                page.get_by_role('button', name='닫기').click()
             except PWTimeout:
-                try:
-                    page.get_by_role('button', name='닫기').click(timeout=3000)
-                except PWTimeout:
-                    pass
+                pass
             print('[WMS] 입고예정정보 IF 완료')
 
         except Exception as e:
