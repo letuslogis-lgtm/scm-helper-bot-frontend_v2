@@ -46,6 +46,7 @@ export const AiInsightLab = () => {
     const [lastSelectedId, setLastSelectedId] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
     const [isReAnalyzing, setIsReAnalyzing] = useState(false);
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
     const [confidenceFilter, setConfidenceFilter] = useState('전체');
     const [reviewFilter, setReviewFilter] = useState('미검토');
@@ -261,6 +262,20 @@ export const AiInsightLab = () => {
         URL.revokeObjectURL(url);
     };
 
+    const handleDeleteSelected = async () => {
+        if (selectedIds.length === 0) return alert('삭제할 항목을 선택해 주세요.');
+        if (!window.confirm(`선택한 ${selectedIds.length}건을 삭제하시겠습니까?\n이 작업은 복구할 수 없습니다.`)) return;
+        try {
+            const { error } = await supabase.from('ai_analysis_logs').delete().in('id', selectedIds);
+            if (error) throw error;
+            alert(`🗑️ ${selectedIds.length}건이 삭제되었습니다.`);
+            setSelectedIds([]);
+            fetchLogs();
+        } catch (err) {
+            alert('삭제 실패: ' + err.message);
+        }
+    };
+
     const getConfidenceBadge = (conf) => {
         if (conf === 'high') return <span className="px-2 py-1 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">🟢 높음</span>;
         if (conf === 'medium') return <span className="px-2 py-1 rounded text-[10px] font-bold bg-yellow-50 text-yellow-600 border border-yellow-200">🟡 보통</span>;
@@ -350,27 +365,52 @@ export const AiInsightLab = () => {
                         </div>
                         <input type="text" value={searchValue} onChange={e => setSearchValue(e.target.value)} placeholder="분석 결과 / 원본 검색" className="border border-gray-200 rounded text-xs px-2.5 py-1.5 w-48 focus:outline-none focus:border-letusBlue" />
                     </div>
-                    <div className="flex items-center gap-2">
-                        {selectedIds.length > 0 && (
+                    <div className="relative">
+                        <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[90px] h-[32px]">
+                            선택실행
+                            <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        {isActionMenuOpen && (
                             <>
-                                <button onClick={handleBulkReview} className="bg-green-600 text-white hover:bg-green-700 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                                    선택 {selectedIds.length}건 검토완료
-                                </button>
-                                {isAccident && (
-                                    <button onClick={handleReAnalyze} disabled={isReAnalyzing} className="bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5 animate-fade-in-up">
-                                        {isReAnalyzing
-                                            ? <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />재분석 중...</>
-                                            : <>🤖 AI 재분석 ({selectedIds.length}건)</>}
+                                <div className="fixed inset-0 z-40" onClick={() => setIsActionMenuOpen(false)}></div>
+                                <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                    <button
+                                        onClick={() => { setIsActionMenuOpen(false); handleBulkReview(); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.length > 0 ? 'text-green-600 hover:bg-green-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={selectedIds.length === 0}
+                                    >
+                                        검토완료 {selectedIds.length > 0 && `(${selectedIds.length}건)`}
+                                        <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                                     </button>
-                                )}
+                                    {isAccident && (
+                                        <button
+                                            onClick={() => { setIsActionMenuOpen(false); handleReAnalyze(); }}
+                                            disabled={selectedIds.length === 0 || isReAnalyzing}
+                                            className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors ${selectedIds.length > 0 && !isReAnalyzing ? 'text-purple-600 hover:bg-purple-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        >
+                                            {isReAnalyzing ? 'AI 재분석 중...' : `AI 재분석 ${selectedIds.length > 0 ? `(${selectedIds.length}건)` : ''}`}
+                                        </button>
+                                    )}
+                                    <div className="h-px bg-gray-100 my-1"></div>
+                                    <button
+                                        onClick={() => { setIsActionMenuOpen(false); handleExportCSV(); }}
+                                        className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex justify-between items-center transition-colors"
+                                    >
+                                        학습데이터 내보내기
+                                        <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    </button>
+                                    <div className="h-px bg-gray-100 my-1"></div>
+                                    <button
+                                        onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors flex justify-between items-center ${selectedIds.length > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={selectedIds.length === 0}
+                                    >
+                                        삭제
+                                        {selectedIds.length > 0 && <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
+                                    </button>
+                                </div>
                             </>
                         )}
-                        <button onClick={handleExportCSV} className="bg-slate-700 text-white hover:bg-slate-800 font-bold px-3 py-1.5 rounded transition-colors text-xs flex items-center shadow-sm gap-1.5" title={`보정 완료 데이터 CSV 내보내기 (${tabLogs.filter(l => l.is_reviewed && l.corrected_cause).length}건)`}>
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                            학습 데이터 내보내기
-                        </button>
-                        <SearchButton onClick={fetchLogs} label="새로고침" />
                     </div>
                 </div>
 
