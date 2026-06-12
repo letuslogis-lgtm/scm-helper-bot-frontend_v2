@@ -57,6 +57,13 @@ EP_URL    = 'https://ep.fursys.com/v3/main.do'
 WMS_URL   = 'https://wms.letus4u.com/'
 ERP_SYSCD = 'T05S02'
 
+WMS_IDS = {
+    'if_page_btn':     'button.modalBtn',    # 페이지 상단 "+ 입고예정정보 IF"
+    'if_modal_btn':    '#saveAsnIfBtn',      # 모달 내 오렌지 버튼
+    'if_complete_ok':  'button.okBtn',       # IF 완료 팝업 "확인"
+    'if_result_close': 'button.cancelBtn',  # IF결과 모달 "닫기"
+}
+
 # 화면 prefix (내부 코드: 06002008 = 관계사입고예정생성)
 _SCR = 'mainframe_VFrameSet_HFrameSet_VFrameSet1_workFrame_06002008_form_div_work'
 
@@ -280,14 +287,36 @@ def get_active_rows(page) -> list[dict]:
     """)
 
 
+def scroll_grid_fully(page) -> None:
+    """Nexacro 그리드 가상 스크롤 대응: 끝-처음 스크롤로 모든 행 DOM 렌더링 유도"""
+    for scroll_to in ['container.scrollHeight', '0']:
+        page.evaluate(f"""
+            () => {{
+                const anchor = document.querySelector('[id*="grd_mst_body_gridrow_0"]');
+                if (!anchor) return;
+                let container = anchor.parentElement;
+                while (container && container !== document.body) {{
+                    if (container.scrollHeight > container.clientHeight + 5) break;
+                    container = container.parentElement;
+                }}
+                if (!container || container === document.body) return;
+                container.scrollTop = {scroll_to};
+            }}
+        """)
+        page.wait_for_timeout(400)
+
+
 def select_one_checkbox(page, row_idx: int) -> None:
-    """특정 행 선택 체크박스 클릭 (8번 컬럼) — 스크롤 후 Nexacro 이벤트 트리거"""
+    """특정 행 선택 체크박스 클릭 (8번 컬럼) — JS scrollIntoView 후 Nexacro 이벤트 트리거"""
     try:
         loc = page.locator(
             f'[id*="grd_mst_body_gridrow_{row_idx}"][id*="_8_controlcheckbox_chkimgImageElement"]'
         ).first
-        loc.scroll_into_view_if_needed(timeout=2000)
-        page.wait_for_timeout(200)
+        try:
+            loc.evaluate('el => el.scrollIntoView({block: "center", behavior: "instant"})')
+            page.wait_for_timeout(300)
+        except Exception:
+            pass
         loc.click(force=True, timeout=2000)
     except Exception:
         pass
@@ -379,6 +408,7 @@ def _process_one_by_one(page, cfg: dict) -> dict:
         if not _requery(page):
             break
 
+        scroll_grid_fully(page)
         active    = get_active_rows(page)
         remaining = [r for r in active if r['invoice_no'] not in skip_set]
 
@@ -448,7 +478,8 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
             return {'company': company, 'output_wh': output_wh,
                     'status': 'no_data', 'selected': 0, 'error': None, 'error_rows': []}
 
-        # 활성 행 확인
+        # 활성 행 확인 (가상 스크롤 대응: 전체 스크롤 후 쿼리)
+        scroll_grid_fully(page)
         active = get_active_rows(page)
         if not active:
             print('    미생성품목 없음 — 스킵')
@@ -544,28 +575,28 @@ def run_wms_if(headless: bool) -> None:
             print('[WMS] 입고 예정 정보 관리 진입')
 
             # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭
-            page_btn = page.locator('button').filter(has_text='입고예정정보 IF').first
+            page_btn = page.locator(WMS_IDS['if_page_btn']).filter(has_text='입고예정정보 IF')
             page_btn.wait_for(state='visible', timeout=10000)
             page_btn.click()
             page.wait_for_timeout(800)
             print('[WMS] 모달 열림')
 
-            # ② 모달 내 "입고예정정보 IF" 버튼 클릭 (exact match — "+" 없는 오렌지 버튼)
-            modal_btn = page.get_by_role('button', name='입고예정정보 IF', exact=True)
+            # ② 모달 내 버튼 클릭 (ID 기반)
+            modal_btn = page.locator(WMS_IDS['if_modal_btn'])
             modal_btn.wait_for(state='visible', timeout=5000)
             modal_btn.click()
             print('[WMS] IF 실행 중...')
 
-            # ③ "IF 완료되었습니다." 팝업 → 확인
-            page.get_by_role('button', name='확인').wait_for(state='visible', timeout=30000)
-            page.get_by_role('button', name='확인').click()
+            # ③ "IF 완료되었습니다." 팝업 → 확인 (로딩 길어질 수 있으므로 120초 대기)
+            page.locator(WMS_IDS['if_complete_ok']).wait_for(state='visible', timeout=120000)
+            page.locator(WMS_IDS['if_complete_ok']).click()
             page.wait_for_timeout(500)
             print('[WMS] IF 완료')
 
             # ④ "입고예정정보 IF결과" 모달 → 닫기
             try:
-                page.get_by_role('button', name='닫기').wait_for(state='visible', timeout=5000)
-                page.get_by_role('button', name='닫기').click()
+                page.locator(WMS_IDS['if_result_close']).wait_for(state='visible', timeout=5000)
+                page.locator(WMS_IDS['if_result_close']).click()
             except PWTimeout:
                 pass
             print('[WMS] 입고예정정보 IF 완료')
@@ -628,11 +659,12 @@ def run(target_date: str, headless: bool):
         for er in (r.get('error_rows') or []):
             print(f'     └ ❌ {er["invoice_no"]}: {er["error"][:60]}')
 
-    # WMS IF 실행 (ERP 성공 건 있을 때만)
-    if ok:
+    # WMS IF 실행 (ERP에서 1건이라도 생성됐으면 실행)
+    any_created = any(r.get('selected', 0) > 0 for r in results)
+    if any_created:
         run_wms_if(headless)
     else:
-        print('\n[WMS] ERP 성공 건 없음 — WMS IF 스킵')
+        print('\n[WMS] ERP 생성 건 없음 — WMS IF 스킵')
 
     print('=' * 60)
     print(f'완료! ({time.time() - t0:.1f}초)')
