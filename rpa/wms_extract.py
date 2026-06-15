@@ -255,6 +255,9 @@ def parse_and_upload(rows: list[dict], upload_date: str, center: str,
         if cut_qty <= 0:
             continue  # 0건 제외
 
+        if (r.get('waveTypeNm') or '').strip() == '재고보충':
+            continue  # 생산지창고 재고보충 건 제외
+
         owner_id = (r.get('ownerId') or '').strip()
         brand    = r.get('ownerNm') or owner_map.get(owner_id, owner_id) or None
 
