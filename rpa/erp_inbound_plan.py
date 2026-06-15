@@ -562,18 +562,17 @@ def run_wms_if(headless: bool) -> None:
             modal_btn.click()
             print('[WMS] IF 실행 중...')
 
-            # ③ "IF 완료되었습니다." 팝업 → 확인 (로딩 길어질 수 있으므로 120초 대기)
-            page.locator(WMS_IDS['if_complete_ok']).wait_for(state='visible', timeout=120000)
-            page.locator(WMS_IDS['if_complete_ok']).click()
-            page.wait_for_timeout(500)
-            print('[WMS] IF 완료')
-
-            # ④ "입고예정정보 IF결과" 모달 → 닫기
+            # ③ 완료 팝업 확인 (처리 건수 0일 때만 나타남 — 있으면 바로 결과모달로 감)
             try:
-                page.locator(WMS_IDS['if_result_close']).wait_for(state='visible', timeout=5000)
-                page.locator(WMS_IDS['if_result_close']).click()
+                page.locator(WMS_IDS['if_complete_ok']).wait_for(state='visible', timeout=5000)
+                page.locator(WMS_IDS['if_complete_ok']).click()
+                page.wait_for_timeout(300)
             except PWTimeout:
                 pass
+
+            # ④ 결과 모달 닫기 — 실제 완료 신호 (120초 대기)
+            page.locator('button.cancelBtn.mr10').wait_for(state='visible', timeout=120000)
+            page.locator('button.cancelBtn.mr10').click()
             print('[WMS] 입고예정정보 IF 완료')
 
         except Exception as e:

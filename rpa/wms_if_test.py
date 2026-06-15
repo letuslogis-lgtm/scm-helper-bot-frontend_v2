@@ -110,17 +110,18 @@ def run(headless: bool):
             modal_btn.click()
             print('    IF 실행 중... (최대 120초 대기)')
 
-            print('[7] 완료 팝업 대기...')
-            page.locator(WMS_IDS['if_complete_ok']).wait_for(state='visible', timeout=120000)
-            page.locator(WMS_IDS['if_complete_ok']).click()
-            print('    완료 확인')
-
-            print('[8] 결과 모달 닫기...')
+            print('[7] 완료 팝업 대기 (건수 0일 때만 뜸)...')
             try:
-                page.locator(WMS_IDS['if_result_close']).wait_for(state='visible', timeout=5000)
-                page.locator(WMS_IDS['if_result_close']).click()
+                page.locator(WMS_IDS['if_complete_ok']).wait_for(state='visible', timeout=5000)
+                page.locator(WMS_IDS['if_complete_ok']).click()
+                page.wait_for_timeout(300)
+                print('    완료 팝업 확인')
             except PWTimeout:
-                pass
+                print('    완료 팝업 없음 → 결과 모달 대기')
+
+            print('[8] 결과 모달 닫기 (최대 120초)...')
+            page.locator('button.cancelBtn.mr10').wait_for(state='visible', timeout=120000)
+            page.locator('button.cancelBtn.mr10').click()
             print('✅ WMS 입고예정정보 IF 완료')
 
         except Exception as e:
