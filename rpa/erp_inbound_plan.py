@@ -553,12 +553,16 @@ def run_wms_if(headless: bool) -> None:
                 # 전략 ②: 직접 URL 이동
                 page.goto('https://wms.letus4u.com/v1/inbound/asn', timeout=30000)
                 page.wait_for_load_state('networkidle')
-            page.wait_for_timeout(1500)
+            page.wait_for_timeout(3000)
             print('[WMS] 입고 예정 정보 관리 진입')
 
-            # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭
-            page_btn = page.locator(WMS_IDS['if_page_btn']).filter(has_text='입고예정정보 IF')
-            page_btn.wait_for(state='visible', timeout=10000)
+            # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭 (class 우선, 없으면 텍스트 fallback)
+            try:
+                page_btn = page.locator(WMS_IDS['if_page_btn']).filter(has_text='입고예정정보 IF')
+                page_btn.wait_for(state='visible', timeout=15000)
+            except PWTimeout:
+                page_btn = page.get_by_role('button').filter(has_text='입고예정정보 IF').first
+                page_btn.wait_for(state='visible', timeout=10000)
             page_btn.click()
             page.wait_for_timeout(800)
             print('[WMS] 모달 열림')
