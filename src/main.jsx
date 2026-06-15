@@ -10,7 +10,7 @@ import { MyDashboard } from './MyHome.jsx';
 import { Dashboard } from './LogisticsDashboard.jsx';
 import { IssueList } from './IssueList.jsx';
 import { WorkerManagement } from './WorkerManagement.jsx';
-import { AttendanceManagement } from './AttendanceManagement.jsx';
+import { AttendanceManagement } from './attendance/AttendanceManagement.jsx';
 import { AccidentDashboard, AccidentList } from './AccidentManagement.jsx';
 import { AccidentAnalyticsReport } from './AccidentAnalyticsReport.jsx';
 import { ProductManager } from './ProductManager.jsx';
