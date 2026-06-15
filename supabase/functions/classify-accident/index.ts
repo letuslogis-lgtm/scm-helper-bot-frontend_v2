@@ -1,7 +1,28 @@
 // classify-accident v2 — 최소 버전 (DB 로깅 제외)
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// 호출자 인증 검증 — 로그인한 사용자만 허용. 통과 시 null, 실패 시 Response 반환
+async function requireAuth(req: Request): Promise<Response | null> {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+  const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: authHeader } } })
+  const { data: { user }, error } = await authClient.auth.getUser()
+  if (error || !user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+  return null
 }
 
 function ruleClassify(d: string): { cause_type: string | null, action_result: string | null, responsible_dept: string | null } | null {
@@ -94,6 +115,10 @@ async function aiClassify(detail: string, apiKey: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  const authFail = await requireAuth(req)
+  if (authFail) return authFail
+
   try {
     const { cause_detail } = await req.json()
     if (!cause_detail) return new Response(JSON.stringify({ error: 'cause_detail 필요' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -112,6 +137,6 @@ Deno.serve(async (req) => {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'unknown'
     console.error('오류:', msg)
-    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ error: '분류 처리 중 오류가 발생했습니다.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 })

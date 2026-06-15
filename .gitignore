@@ -38,3 +38,7 @@ update_user_email.cjs
 
 # RPA 출력물 (로컬 산출물)
 rpa_output/
+
+# 보안: RPA 자격증명·세션 파일 (Never commit!)
+rpa/fursys_auth.json
+rpa/fursys_login.json

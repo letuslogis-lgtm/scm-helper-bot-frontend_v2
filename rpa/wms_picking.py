@@ -271,10 +271,17 @@ def update_accidents(all_records: list[dict]):
         return
 
     print(f'[DB] {len(to_update)}건 업데이트 중...')
+    total_chunks = (len(to_update) + CHUNK - 1) // CHUNK
     for i in range(0, len(to_update), CHUNK):
-        supabase.table('logistics_accidents') \
-            .upsert(to_update[i:i + CHUNK], on_conflict='id') \
-            .execute()
+        try:
+            result = supabase.table('logistics_accidents') \
+                .upsert(to_update[i:i + CHUNK], on_conflict='id') \
+                .execute()
+            if hasattr(result, 'error') and result.error:
+                raise RuntimeError(f'upsert 실패 (청크 {i // CHUNK + 1}/{total_chunks}): {result.error}')
+        except Exception as e:
+            print(f'[ERROR] logistics_accidents upsert 실패 (청크 {i // CHUNK + 1}/{total_chunks}): {e}')
+            raise
 
     print(f'[DB] 업데이트 완료: {len(to_update)}건')
 

@@ -333,13 +333,20 @@ def parse_and_upload(rows: list[dict], upload_date: str, center: str,
     # upsert: 자연키 충돌 시 WMS 원본 필드만 업데이트 (action_logs 연결 보존)
     CHUNK = 500
     uploaded = 0
+    total_chunks = (len(records) + CHUNK - 1) // CHUNK
     for i in range(0, len(records), CHUNK):
         chunk = records[i:i + CHUNK]
-        supabase.table('wms_shortage_list').upsert(
-            chunk,
-            on_conflict='source_center,upload_date,order_no,item_code,wave_name',
-            ignore_duplicates=False,
-        ).execute()
+        try:
+            result = supabase.table('wms_shortage_list').upsert(
+                chunk,
+                on_conflict='source_center,upload_date,order_no,item_code,wave_name',
+                ignore_duplicates=False,
+            ).execute()
+            if hasattr(result, 'error') and result.error:
+                raise RuntimeError(f'upsert 실패 (청크 {i // CHUNK + 1}/{total_chunks}): {result.error}')
+        except Exception as e:
+            print(f'    [ERROR] wms_shortage_list upsert 실패 (청크 {i // CHUNK + 1}/{total_chunks}): {e}')
+            raise
         uploaded += len(chunk)
         print(f'    진행: {uploaded}/{len(records)}')
 

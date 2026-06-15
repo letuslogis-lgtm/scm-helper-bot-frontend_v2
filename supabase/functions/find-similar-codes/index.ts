@@ -32,7 +32,15 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Server misconfigured' }, 500)
+    const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) return json({ error: 'Server misconfigured' }, 500)
+
+    // 호출자 인증 검증 — 로그인한 사용자만 허용
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401)
+    const authClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } })
+    const { data: { user }, error: authErr } = await authClient.auth.getUser()
+    if (authErr || !user) return json({ error: 'Unauthorized' }, 401)
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -56,7 +64,10 @@ Deno.serve(async (req) => {
       .like('item_code', `${prefix}%`)
       .order('item_code')
 
-    if (error) return json({ error: error.message }, 500)
+    if (error) {
+      console.error('🚨 products 조회 오류:', error.message)
+      return json({ error: '유사 코드 조회 중 오류가 발생했습니다.' }, 500)
+    }
     if (!data || data.length === 0) return json({ candidates: [], _debug: { brand, total: 0 } })
 
     // 품목코드 기준 Levenshtein 계산 (색상코드 제외하고 비교)
@@ -119,6 +130,6 @@ Deno.serve(async (req) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error'
     console.error('🚨 에러:', message)
-    return json({ error: message }, 500)
+    return json({ error: '유사 코드 조회 중 오류가 발생했습니다.' }, 500)
   }
 })
