@@ -111,15 +111,19 @@ def run(headless: bool):
             print('    IF 실행 중... (최대 120초 대기)')
 
             print('[7/8] 완료 팝업 + 결과 모달 감시 (최대 120초)...')
-            ok_sel    = WMS_IDS['if_complete_ok']
-            close_sel = 'button.cancelBtn.mr10'
-            for _ in range(240):
-                if page.locator(close_sel).is_visible():
-                    page.locator(close_sel).click()
+            _js = ("(sel) => { const el = document.querySelector(sel);"
+                   " if (!el) return 'not_found';"
+                   " const r = el.getBoundingClientRect();"
+                   " const s = window.getComputedStyle(el);"
+                   " if (r.width > 0 && r.height > 0"
+                   "     && s.display !== 'none' && s.visibility !== 'hidden')"
+                   "   { el.click(); return 'clicked'; }"
+                   " return 'hidden'; }")
+            for i in range(240):
+                if page.evaluate(_js, 'button.cancelBtn.mr10') == 'clicked':
                     break
-                if page.locator(ok_sel).is_visible():
-                    print('    완료 팝업 확인')
-                    page.locator(ok_sel).click()
+                if page.evaluate(_js, '#alertModal button.okBtn') == 'clicked':
+                    print('    완료 팝업 클릭')
                     page.wait_for_timeout(300)
                 page.wait_for_timeout(500)
             else:

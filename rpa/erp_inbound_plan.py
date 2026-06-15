@@ -562,15 +562,23 @@ def run_wms_if(headless: bool) -> None:
             # ③④ 완료 팝업 + 결과 모달을 120초 동안 함께 감시
             # - 완료 팝업(alertModal)이 먼저 뜨면 클릭 후 결과 모달 대기
             # - 결과 모달 닫기 버튼이 뜨면 바로 클릭
-            ok_sel    = WMS_IDS['if_complete_ok']
-            close_sel = 'button.cancelBtn.mr10'
-            for _ in range(240):  # 0.5s × 240 = 120s
-                if page.locator(close_sel).is_visible():
-                    page.locator(close_sel).click()
+            # JS로 가시성 확인 후 클릭 (headless 모드에서 is_visible() 오판 우회)
+            _js = ("(sel) => { const el = document.querySelector(sel);"
+                   " if (!el) return 'not_found';"
+                   " const r = el.getBoundingClientRect();"
+                   " const s = window.getComputedStyle(el);"
+                   " if (r.width > 0 && r.height > 0"
+                   "     && s.display !== 'none' && s.visibility !== 'hidden')"
+                   "   { el.click(); return 'clicked'; }"
+                   " return 'hidden'; }")
+            for i in range(240):  # 0.5s × 240 = 120s
+                if page.evaluate(_js, 'button.cancelBtn.mr10') == 'clicked':
                     break
-                if page.locator(ok_sel).is_visible():
-                    page.locator(ok_sel).click()
+                if page.evaluate(_js, '#alertModal button.okBtn') == 'clicked':
+                    print('[WMS] 완료 팝업 클릭')
                     page.wait_for_timeout(300)
+                if i % 20 == 19:
+                    print(f'[WMS] 대기 중... {(i + 1) // 2}초 경과')
                 page.wait_for_timeout(500)
             else:
                 raise PWTimeout('WMS IF 완료 대기 120초 초과')
