@@ -645,12 +645,8 @@ def run(target_date: str, headless: bool):
         for er in (r.get('error_rows') or []):
             print(f'     └ ❌ {er["invoice_no"]}: {er["error"][:60]}')
 
-    # WMS IF 실행 (ERP에서 1건이라도 생성됐으면 실행)
-    any_created = any(r.get('selected', 0) > 0 for r in results)
-    if any_created:
-        run_wms_if(headless)
-    else:
-        print('\n[WMS] ERP 생성 건 없음 — WMS IF 스킵')
+    # WMS IF 실행 (관계사=ERP 경유, 외주상품=WMS 직접 등록 → 항상 실행)
+    run_wms_if(headless)
 
     print('=' * 60)
     print(f'완료! ({time.time() - t0:.1f}초)')
