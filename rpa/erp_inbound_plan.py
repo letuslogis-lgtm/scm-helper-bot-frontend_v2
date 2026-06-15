@@ -556,6 +556,18 @@ def run_wms_if(headless: bool) -> None:
             page.wait_for_timeout(3000)
             print('[WMS] 입고 예정 정보 관리 진입')
 
+            # 진단: 현재 페이지 버튼 목록 출력
+            try:
+                all_btns = page.locator('button').all()
+                print(f'[WMS] 버튼 목록 ({len(all_btns)}개):')
+                for b in all_btns[:20]:
+                    try:
+                        print(f'  - "{b.inner_text().strip()}" / class={b.get_attribute("class")}')
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
             # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭 (class 우선, 없으면 텍스트 fallback)
             try:
                 page_btn = page.locator(WMS_IDS['if_page_btn']).filter(has_text='입고예정정보 IF')
