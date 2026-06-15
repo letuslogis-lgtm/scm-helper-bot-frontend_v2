@@ -60,7 +60,12 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    const body = await req.json()
+    let body
+    try {
+      body = await req.json()
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
     // ══════════════════════════════════════════════════════════
     // 케이스 A: WMS 결품 추출 완료

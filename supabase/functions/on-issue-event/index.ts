@@ -34,7 +34,12 @@ Deno.serve(async (req) => {
     }
 
     // DB Webhook 페이로드: { type, table, record, old_record }
-    const payload   = await req.json()
+    let payload
+    try {
+      payload = await req.json()
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
     const record    = payload.record    ?? payload
     const oldRecord = payload.old_record ?? {}
 

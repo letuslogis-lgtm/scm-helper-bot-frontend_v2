@@ -55,7 +55,12 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    const payload = await req.json()
+    let payload
+    try {
+      payload = await req.json()
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
     // ══════════════════════════════════════════════════════════
     // 케이스 1: 직접 호출  { email, title, message }
@@ -76,25 +81,31 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: 'no record' }), { headers: corsHeaders })
     }
 
-    // 관리자 slack_email 목록 조회 (slack_email 미입력 시 알림 스킵)
-    const { data: admins } = await admin
-      .from('profiles')
-      .select('slack_email')
-      .in('role', ['관리자', '최고관리자'])
-      .eq('status', '정상')
-      .not('slack_email', 'is', null)
-
-    const adminEmails: string[] = (admins ?? [])
-      .map((a: { slack_email: string }) => a.slack_email)
-      .filter(Boolean)
-
     // ── 입고 특이사항 신규 등록 (INSERT) ──────────────────────
     if (table === 'logistics_issues' && type === 'INSERT') {
-      const deepLink = `https://scm-helper-bot-frontend-v2.vercel.app/list?brand=${encodeURIComponent(record.brand || '')}`
+      const brand = record.brand || ''
+
+      // 웹앱 알림과 동일 조건: managed_brands에 '전체' 또는 해당 브랜드가 있는 관리자만
+      const { data: admins } = await admin
+        .from('profiles')
+        .select('slack_email, managed_brands')
+        .in('role', ['관리자', '최고관리자'])
+        .eq('status', '정상')
+        .not('slack_email', 'is', null)
+
+      const adminEmails: string[] = (admins ?? [])
+        .filter((a: { managed_brands?: string }) => {
+          const brands = a.managed_brands?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []
+          return brands.includes('전체') || brands.includes(brand)
+        })
+        .map((a: { slack_email: string }) => a.slack_email)
+        .filter(Boolean)
+
+      const deepLink = `https://scm-helper-bot-frontend-v2.vercel.app/list?brand=${encodeURIComponent(brand)}`
       const text = [
         `🚨 *새 입고 특이사항이 등록되었습니다*`,
         `• 접수번호: ${record.reception_no || '-'}`,
-        `• 브랜드: ${record.brand || '-'}`,
+        `• 브랜드: ${brand || '-'}`,
         `• 품목코드: ${record.product_code || '-'}`,
         `• 등록자: ${record.reporter || '-'}`,
         `• 내용: ${record.request_content || '-'}`,
@@ -105,7 +116,7 @@ Deno.serve(async (req) => {
       for (const email of adminEmails) {
         if (await notifyByEmail(SLACK_BOT_TOKEN, email, text)) sent++
       }
-      console.log(`[notify-slack] 특이사항 등록 → 관리자 ${sent}/${adminEmails.length}명`)
+      console.log(`[notify-slack] 특이사항 등록 → brand=${brand} | 대상 ${adminEmails.length}명 중 ${sent}명 전송`)
       return new Response(JSON.stringify({ ok: true, sent }), { headers: corsHeaders })
     }
 

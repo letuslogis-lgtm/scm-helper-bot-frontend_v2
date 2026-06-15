@@ -1,13 +1,25 @@
 // classify-accident v2 — 최소 버전 (DB 로깅 제외)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = [
+  'https://scm-helper-bot-frontend-v2.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]
+function buildCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') ?? ''
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Vary': 'Origin',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 // 호출자 인증 검증 — 로그인한 사용자만 허용. 통과 시 null, 실패 시 Response 반환
 async function requireAuth(req: Request): Promise<Response | null> {
+  const corsHeaders = buildCorsHeaders(req)
   const authHeader = req.headers.get('Authorization')
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -114,6 +126,7 @@ async function aiClassify(detail: string, apiKey: string) {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   const authFail = await requireAuth(req)

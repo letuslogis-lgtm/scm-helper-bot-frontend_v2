@@ -26,7 +26,12 @@ Deno.serve(async (req) => {
 
     webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 
-    const payload = await req.json()
+    let payload
+    try {
+      payload = await req.json()
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
     // ── Direct push mode: { mode: 'direct', user_name, title, body, url } ──
     if (payload.mode === 'direct') {
