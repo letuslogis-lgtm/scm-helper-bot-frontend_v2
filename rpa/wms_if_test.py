@@ -110,7 +110,7 @@ def run(headless: bool):
             modal_btn.click()
             print('    IF 실행 중... (최대 120초 대기)')
 
-            print('[7/8] 완료 팝업 + 결과 모달 감시 (최대 120초)...')
+            print('[7] 완료 팝업 대기 (최대 120초)...')
             _js = """
 (sel) => {
     const btn = document.querySelector(sel);
@@ -126,11 +126,9 @@ def run(headless: bool):
 }
 """
             for i in range(240):
-                if page.evaluate(_js, 'button.cancelBtn.mr10') == 'clicked':
-                    break
                 if page.evaluate(_js, '#alertModal button.okBtn') == 'clicked':
-                    print('    완료 팝업 클릭')
-                    page.wait_for_timeout(300)
+                    print('    완료 확인 클릭')
+                    break
                 page.wait_for_timeout(500)
             else:
                 raise PWTimeout('WMS IF 완료 대기 120초 초과')

@@ -560,8 +560,7 @@ def run_wms_if(headless: bool) -> None:
             print('[WMS] IF 실행 중...')
 
             # ③④ 완료 팝업 + 결과 모달을 120초 동안 함께 감시
-            # DOM 트리 위로 올라가며 display:none 조상이 없으면 클릭
-            # (transform/scale 애니메이션으로 getBoundingClientRect가 0 반환하는 문제 우회)
+            # alertModal 확인 버튼 클릭 = IF 처리 완료. 결과 모달은 닫지 않고 브라우저 종료.
             _js = """
 (sel) => {
     const btn = document.querySelector(sel);
@@ -577,11 +576,9 @@ def run_wms_if(headless: bool) -> None:
 }
 """
             for i in range(240):  # 0.5s × 240 = 120s
-                if page.evaluate(_js, 'button.cancelBtn.mr10') == 'clicked':
-                    break
                 if page.evaluate(_js, '#alertModal button.okBtn') == 'clicked':
-                    print('[WMS] 완료 팝업 클릭')
-                    page.wait_for_timeout(300)
+                    print('[WMS] IF 완료 확인')
+                    break
                 if i % 20 == 19:
                     print(f'[WMS] 대기 중... {(i + 1) // 2}초 경과')
                 page.wait_for_timeout(500)
