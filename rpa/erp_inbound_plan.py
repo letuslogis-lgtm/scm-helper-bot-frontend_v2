@@ -58,7 +58,7 @@ WMS_URL   = 'https://wms.letus4u.com/'
 ERP_SYSCD = 'T05S02'
 
 WMS_IDS = {
-    'if_page_btn':     'button.modalBtn',    # 페이지 상단 "+ 입고예정정보 IF"
+    'if_page_btn':     'button.modalBtn',  # 페이지 상단 "+ 입고예정정보 IF" (기준정보누락품목은 modalBtn 없음)
     'if_modal_btn':    '#saveAsnIfBtn',      # 모달 내 오렌지 버튼
     'if_complete_ok':  'button.okBtn',       # IF 완료 팝업 "확인"
     'if_result_close': 'button.cancelBtn',  # IF결과 모달 "닫기"
@@ -556,27 +556,9 @@ def run_wms_if(headless: bool) -> None:
             page.wait_for_timeout(3000)
             print('[WMS] 입고 예정 정보 관리 진입')
 
-            # 진단: 텍스트 있는 버튼만 출력
-            try:
-                all_btns = page.locator('button').all()
-                print(f'[WMS] 전체 버튼 {len(all_btns)}개 중 텍스트 있는 버튼:')
-                for b in all_btns:
-                    try:
-                        txt = b.inner_text().strip()
-                        if txt:
-                            print(f'  - "{txt}" / class={b.get_attribute("class")}')
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-            # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭 (class 우선, 없으면 텍스트 fallback)
-            try:
-                page_btn = page.locator(WMS_IDS['if_page_btn']).filter(has_text='입고예정정보 IF')
-                page_btn.wait_for(state='visible', timeout=15000)
-            except PWTimeout:
-                page_btn = page.get_by_role('button').filter(has_text='입고예정정보 IF').first
-                page_btn.wait_for(state='visible', timeout=10000)
+            # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭 (modalBtn 클래스 유일)
+            page_btn = page.locator(WMS_IDS['if_page_btn'])
+            page_btn.wait_for(state='visible', timeout=15000)
             page_btn.click()
             page.wait_for_timeout(800)
             print('[WMS] 모달 열림')
