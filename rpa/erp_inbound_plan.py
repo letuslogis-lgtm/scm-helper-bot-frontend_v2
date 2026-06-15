@@ -71,6 +71,7 @@ ERP_IDS = {
     'company':    f'{_SCR}_div_search_cbo_company_dropbuttonImageElement',
     'input_wh':   f'{_SCR}_div_search_cbo_stock_dropbuttonImageElement',
     'output_wh':  f'{_SCR}_div_search_cbo_stockOut_dropbuttonImageElement',
+    'plan_yn':    f'{_SCR}_div_search_cbo_planYn_dropbuttonImageElement',
     'search':     f'{_SCR}_div_search_btn_search',
     'create':     f'{_SCR}_btn_createInPlan',
     'date_input': f'{_SCR}_cal_dtInPlan_calendaredit_input',
@@ -287,24 +288,6 @@ def get_active_rows(page) -> list[dict]:
     """)
 
 
-def scroll_grid_fully(page) -> None:
-    """Nexacro 그리드 가상 스크롤 대응: 끝-처음 스크롤로 모든 행 DOM 렌더링 유도"""
-    for scroll_to in ['container.scrollHeight', '0']:
-        page.evaluate(f"""
-            () => {{
-                const anchor = document.querySelector('[id*="grd_mst_body_gridrow_0"]');
-                if (!anchor) return;
-                let container = anchor.parentElement;
-                while (container && container !== document.body) {{
-                    if (container.scrollHeight > container.clientHeight + 5) break;
-                    container = container.parentElement;
-                }}
-                if (!container || container === document.body) return;
-                container.scrollTop = {scroll_to};
-            }}
-        """)
-        page.wait_for_timeout(400)
-
 
 def select_one_checkbox(page, row_idx: int) -> None:
     """특정 행 선택 체크박스 클릭 (8번 컬럼) — JS scrollIntoView 후 Nexacro 이벤트 트리거"""
@@ -408,7 +391,6 @@ def _process_one_by_one(page, cfg: dict) -> dict:
         if not _requery(page):
             break
 
-        scroll_grid_fully(page)
         active    = get_active_rows(page)
         remaining = [r for r in active if r['invoice_no'] not in skip_set]
 
@@ -458,6 +440,7 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
         select_combo(page, ERP_IDS['company'],   company,   '회사')
         select_combo(page, ERP_IDS['input_wh'],  input_wh,  '입고예정창고')
         select_combo(page, ERP_IDS['output_wh'], output_wh, '출고창고')
+        select_combo(page, ERP_IDS['plan_yn'],   'N',       '기입고계획유무')
 
         # 조회
         page.locator(f'#{ERP_IDS["search"]}').click()
@@ -478,8 +461,7 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
             return {'company': company, 'output_wh': output_wh,
                     'status': 'no_data', 'selected': 0, 'error': None, 'error_rows': []}
 
-        # 활성 행 확인 (가상 스크롤 대응: 전체 스크롤 후 쿼리)
-        scroll_grid_fully(page)
+        # 활성 행 확인
         active = get_active_rows(page)
         if not active:
             print('    미생성품목 없음 — 스킵')
