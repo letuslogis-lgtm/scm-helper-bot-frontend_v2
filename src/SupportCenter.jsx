@@ -721,7 +721,7 @@ const HandleModal = ({ row, onClose, onReload, userProfile }) => {
   )}
 
   {/* 추가 확인 요청 */}
-  {!isDone && (
+  {(!isDone || row.additional_request) && (
    <div className="border border-gray-200 rounded-lg overflow-hidden">
     <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
      <h4 className="text-sm font-bold text-gray-700">🔔 추가 확인 요청</h4>
