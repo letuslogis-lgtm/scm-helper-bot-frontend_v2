@@ -1,8 +1,11 @@
 // ===========================================================================
 // 일별 상세 내역 탭 (지원/파견 관리) — 테이블 UI 표준 (presentational)
+// B1: 날짜별 그룹 헤더 + 일 소계 행
 // ===========================================================================
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DETAIL_COLUMNS } from './constants.js';
+
+const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
 const renderCell = (origIdx, row, colWidths) => {
   const isDispatched = row.vendor_name !== row.worked_vendor;
@@ -54,6 +57,32 @@ export const AttendanceDetailTab = ({ rows, table, selectedIds, onSelectAll, onS
     handleResizeStart, handleDragStart, handleDragOver, handleDrop, handleDragEnd, setDragOverIdx,
   } = table;
 
+  // B1: 날짜별 그룹 헤더 + 일 소계 행 생성
+  const renderList = useMemo(() => {
+    if (rows.length === 0) return [];
+    const groups = [];
+    let cur = null;
+    rows.forEach(row => {
+      const d = row.work_date || '미상';
+      if (!cur || cur.date !== d) { cur = { date: d, rows: [] }; groups.push(cur); }
+      cur.rows.push(row);
+    });
+    const items = [];
+    groups.forEach(({ date, rows: gr }) => {
+      const sub = gr.reduce((a, r) => ({
+        normal: a.normal + (Number(r.normal_hours) || 0),
+        overtime: a.overtime + (Number(r.overtime_hours) || 0),
+        total: a.total + (Number(r.work_hours) || 0),
+      }), { normal: 0, overtime: 0, total: 0 });
+      items.push({ type: 'header', date, count: gr.length });
+      gr.forEach(row => items.push({ type: 'row', row }));
+      items.push({ type: 'subtotal', date, count: gr.length, ...sub });
+    });
+    return items;
+  }, [rows]);
+
+  const colSpanAll = colOrder.length + 1;
+
   return (
     <div className="flex flex-col gap-4 mt-2 p-4">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -92,23 +121,44 @@ export const AttendanceDetailTab = ({ rows, table, selectedIds, onSelectAll, onS
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 text-[13px] text-gray-700 bg-white">
+            <tbody className="text-[13px] text-gray-700 bg-white">
               {rows.length === 0 ? (
-                <tr><td colSpan={colOrder.length + 1} className="text-center py-10 text-gray-400 font-bold">조건에 맞는 데이터가 없습니다.</td></tr>
-              ) : (
-                rows.map((row) => {
-                  const isSelected = selectedIds.includes(row.id);
+                <tr><td colSpan={colSpanAll} className="text-center py-10 text-gray-400 font-bold">조건에 맞는 데이터가 없습니다.</td></tr>
+              ) : renderList.map((item, idx) => {
+                if (item.type === 'header') {
+                  const dow = item.date !== '미상' ? DAY_NAMES[new Date(item.date + 'T00:00:00').getDay()] : '?';
                   return (
-                    <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${isSelected ? 'bg-blue-50' : ''}`}
-                      onClick={(e) => onSelectOne(e, row.id)}>
-                      <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={isSelected} onChange={(e) => onSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                    <tr key={`h-${item.date}`} className="bg-slate-100 border-y border-slate-300">
+                      <td colSpan={colSpanAll} className="px-6 py-1.5 text-xs font-black text-slate-700 tracking-wide">
+                        {item.date} ({dow}) · {item.count}건
                       </td>
-                      {colOrder.map(origIdx => renderCell(origIdx, row, colWidths))}
                     </tr>
                   );
-                })
-              )}
+                }
+                if (item.type === 'subtotal') {
+                  return (
+                    <tr key={`s-${item.date}-${idx}`} className="bg-blue-50/40 border-b-2 border-blue-100">
+                      <td colSpan={colSpanAll} className="px-6 py-1 text-xs text-right">
+                        <span className="text-slate-500 font-bold mr-4">└ {item.date.substring(5).replace('-', '/')} 일 합계 ({item.count}건)</span>
+                        <span className="text-green-600 font-bold mr-3">정상 {item.normal.toFixed(1)}H</span>
+                        <span className="text-orange-500 font-bold mr-3">연장 {item.overtime.toFixed(1)}H</span>
+                        <span className="text-letusBlue font-black pr-2">총 {item.total.toFixed(1)}H</span>
+                      </td>
+                    </tr>
+                  );
+                }
+                const { row } = item;
+                const isSelected = selectedIds.includes(row.id);
+                return (
+                  <tr key={row.id} className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${isSelected ? 'bg-blue-50' : ''}`}
+                    onClick={(e) => onSelectOne(e, row.id)}>
+                    <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={isSelected} onChange={(e) => onSelectOne(e, row.id)} className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                    </td>
+                    {colOrder.map(origIdx => renderCell(origIdx, row, colWidths))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

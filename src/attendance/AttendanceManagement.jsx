@@ -1,7 +1,8 @@
 // ===========================================================================
 // 👥 근무자 근태 관리 (메인 컨테이너)
-//   탭 전환 / 필터 / 레이아웃을 담당하고, 데이터·테이블 로직은 훅에,
-//   화면은 SummaryTab / DetailTab 에 위임한다.
+//   C1: KPI 카드 ▲▼% 전기 대비 증감
+//   B2: 지원/파견만 필터 토글
+//   B3: 엑셀 내보내기
 // ===========================================================================
 import React, { useState, useEffect, useMemo } from 'react';
 import { SearchButton, DateRangeInput } from '../SharedUI.jsx';
@@ -15,6 +16,18 @@ import { AttendanceUploadModal } from './AttendanceUploadModal.jsx';
 import { AttendanceBulkEditModal } from './AttendanceBulkEditModal.jsx';
 
 const PERIOD_BUTTONS = [{ id: 'D', name: '당일' }, { id: 'W', name: '주간' }, { id: 'M', name: '월간' }, { id: 'CUSTOM', name: '직접지정' }];
+
+// C1: ▲▼% 증감 배지
+const DeltaBadge = ({ curr, prior }) => {
+  if (prior === 0 || curr === prior) return null;
+  const d = ((curr - prior) / prior * 100).toFixed(1);
+  const up = curr > prior;
+  return (
+    <span className={`text-[10px] font-bold ml-1 ${up ? 'text-green-500' : 'text-red-400'}`}>
+      {up ? '▲' : '▼'} {Math.abs(d)}%
+    </span>
+  );
+};
 
 const AttendanceManagement = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -46,10 +59,21 @@ const AttendanceManagement = () => {
   const [locationFilter, setLocationFilter] = useState('전체');
   const [selectedVendor, setSelectedVendor] = useState('전체');
   const [summaryViewMode, setSummaryViewMode] = useState('vendor');
+  const [dispatchOnly, setDispatchOnly] = useState(false); // B2
 
-  // ── 데이터 (DB 조회 범위는 상세/차트 기간의 합집합) ──────────────────────
-  const fetchStart = startDate < chartStartDate ? startDate : chartStartDate;
-  const fetchEnd = endDate > chartEndDate ? endDate : chartEndDate;
+  // C1: 전기 대비 기간 계산
+  const currentStart = activeTab === 'summary' ? chartStartDate : startDate;
+  const currentEnd   = activeTab === 'summary' ? chartEndDate   : endDate;
+  const periodMs = new Date(currentEnd) - new Date(currentStart);
+  const _pe = new Date(currentStart);
+  _pe.setDate(_pe.getDate() - 1);
+  const _ps = new Date(_pe.getTime() - periodMs);
+  const priorStart = _ps.toISOString().split('T')[0];
+  const priorEnd   = _pe.toISOString().split('T')[0];
+
+  // DB 조회 범위 = 상세·차트·전기 세 기간의 합집합
+  const fetchStart = [startDate, chartStartDate, priorStart].reduce((a, b) => a < b ? a : b);
+  const fetchEnd   = endDate > chartEndDate ? endDate : chartEndDate;
   const { attendanceData, workerMasterMap, isLoading, reload } = useAttendance(fetchStart, fetchEnd);
 
   const table = useDetailTable();
@@ -84,29 +108,26 @@ const AttendanceManagement = () => {
       const matchVendor = row.vendor_name?.includes(searchTerm) || row.worked_vendor?.includes(searchTerm);
       if (!matchName && !matchVendor) return false;
     }
-
     const cleanName = row.worker_name?.replace(/\s/g, '') || '';
     const masterInfo = workerMasterMap[cleanName] || {};
-
     const rawType = masterInfo.type ? masterInfo.type.replace(/\s/g, '') : '';
     const wType = rawType === '사무직' ? '사무직' : '현장직';
     if (workerTypeFilter === '현장직' && wType === '사무직') return false;
     if (workerTypeFilter === '사무직' && wType !== '사무직') return false;
-
     const loc = masterInfo.location || '';
     const isRegional = (loc === '동부센터' || loc === '서부센터');
     if (locationFilter === '메인센터' && isRegional) return false;
     if (locationFilter === '지방센터' && !isRegional) return false;
-
     return true;
   };
 
   const filteredDetailData = useMemo(() => {
     return attendanceData.filter(row => {
       if (!isDateInRange(row.work_date, startDate, endDate)) return false;
+      if (dispatchOnly && row.vendor_name === row.worked_vendor) return false; // B2
       return baseFilterLogic(row);
     });
-  }, [attendanceData, startDate, endDate, selectedVendor, searchTerm, workerTypeFilter, locationFilter, workerMasterMap]);
+  }, [attendanceData, startDate, endDate, selectedVendor, searchTerm, workerTypeFilter, locationFilter, workerMasterMap, dispatchOnly]);
 
   const filteredChartData = useMemo(() => {
     return attendanceData.filter(row => {
@@ -136,6 +157,34 @@ const AttendanceManagement = () => {
     return items;
   }, [filteredDetailData, table.sortConfig]);
 
+  const calcStats = (data) => data.reduce((acc, curr) => {
+    let h = 1;
+    if (curr.worker_name === 'IPC_통합') {
+      const m = curr.remark?.match(/총 (\d+)명/);
+      if (m) h = parseInt(m[1], 10);
+    }
+    if (isPartnerVendor(curr.worked_vendor)) acc.partnerCount += h;
+    else acc.contractorCount += h;
+    acc.normalHours += (Number(curr.normal_hours) || 0);
+    acc.overtimeHours += (Number(curr.overtime_hours) || 0);
+    acc.totalHours += (Number(curr.work_hours) || 0);
+    return acc;
+  }, { partnerCount: 0, contractorCount: 0, normalHours: 0, overtimeHours: 0, totalHours: 0 });
+
+  const currentStats = useMemo(() => {
+    const targetData = activeTab === 'summary' ? filteredChartData : filteredDetailData;
+    return calcStats(targetData);
+  }, [activeTab, filteredChartData, filteredDetailData]);
+
+  // C1: 전기 통계
+  const priorStats = useMemo(() => {
+    const priorData = attendanceData.filter(row => {
+      if (!isDateInRange(row.work_date, priorStart, priorEnd)) return false;
+      return baseFilterLogic(row);
+    });
+    return calcStats(priorData);
+  }, [attendanceData, priorStart, priorEnd, selectedVendor, searchTerm, workerTypeFilter, locationFilter, workerMasterMap]);
+
   const handleSelectAll = (e) => setSelectedIds(e.target.checked ? filteredDetailData.map(i => i.id) : []);
   const handleSelectOne = (e, id) => {
     if (e && e.nativeEvent && e.nativeEvent.shiftKey && lastSelectedId) {
@@ -157,23 +206,33 @@ const AttendanceManagement = () => {
     setLastSelectedId(id);
   };
 
-  const currentStats = useMemo(() => {
-    const targetData = activeTab === 'summary' ? filteredChartData : filteredDetailData;
-    return targetData.reduce((acc, curr) => {
-      let actualHeadcount = 1;
-      if (curr.worker_name === 'IPC_통합') {
-        const match = curr.remark?.match(/총 (\d+)명/);
-        if (match) actualHeadcount = parseInt(match[1], 10);
-      }
-      if (isPartnerVendor(curr.worked_vendor)) acc.partnerCount += actualHeadcount;
-      else acc.contractorCount += actualHeadcount;
-
-      acc.normalHours += (Number(curr.normal_hours) || 0);
-      acc.overtimeHours += (Number(curr.overtime_hours) || 0);
-      acc.totalHours += (Number(curr.work_hours) || 0);
-      return acc;
-    }, { partnerCount: 0, contractorCount: 0, normalHours: 0, overtimeHours: 0, totalHours: 0 });
-  }, [activeTab, filteredChartData, filteredDetailData]);
+  // B3: 엑셀 내보내기
+  const handleExportExcel = async () => {
+    try {
+      const XLSXmod = await import('xlsx');
+      const XLSX = XLSXmod.default || XLSXmod;
+      const exportData = sortedDetailData.map(row => ({
+        '근무일자': row.work_date,
+        '구분': row.company_type,
+        '소속업체': row.vendor_name,
+        '실투입처': row.worked_vendor,
+        '지원/파견': row.vendor_name !== row.worked_vendor ? 'Y' : '',
+        '성명': row.worker_name,
+        '출근': row.start_time || '',
+        '퇴근': row.end_time || '',
+        '정상(H)': Number(row.normal_hours) || 0,
+        '연장(H)': Number(row.overtime_hours) || 0,
+        '합계(H)': Number(row.work_hours) || 0,
+        '비고': row.remark || '',
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '근태내역');
+      XLSX.writeFile(wb, `근태내역_${startDate}_${endDate}.xlsx`);
+    } catch (e) {
+      alert('엑셀 내보내기 실패: ' + (e.message || e));
+    }
+  };
 
   const fixed1 = (v) => v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -197,26 +256,42 @@ const AttendanceManagement = () => {
           </button>
         </div>
 
+        {/* C1: KPI 카드 + 전기 대비 ▲▼% */}
         <div className="grid grid-cols-5 gap-4 shrink-0">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 border-b-blue-400">
             <span className="text-xs font-bold text-blue-500 mb-1">조회 기간 협력사 투입</span>
-            <span className="text-2xl font-black text-blue-600">{currentStats.partnerCount.toLocaleString()} <span className="text-sm font-bold text-blue-300 ml-1">명</span></span>
+            <span className="text-2xl font-black text-blue-600">
+              {currentStats.partnerCount.toLocaleString()} <span className="text-sm font-bold text-blue-300 ml-1">명</span>
+              <DeltaBadge curr={currentStats.partnerCount} prior={priorStats.partnerCount} />
+            </span>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 border-b-orange-400">
             <span className="text-xs font-bold text-orange-500 mb-1">조회 기간 도급사 투입</span>
-            <span className="text-2xl font-black text-orange-600">{currentStats.contractorCount.toLocaleString()} <span className="text-sm font-bold text-orange-300 ml-1">명</span></span>
+            <span className="text-2xl font-black text-orange-600">
+              {currentStats.contractorCount.toLocaleString()} <span className="text-sm font-bold text-orange-300 ml-1">명</span>
+              <DeltaBadge curr={currentStats.contractorCount} prior={priorStats.contractorCount} />
+            </span>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 border-b-emerald-400">
             <span className="text-xs font-bold text-emerald-500 mb-1">조회 기간 정상근무</span>
-            <span className="text-2xl font-black text-emerald-600">{fixed1(currentStats.normalHours)} <span className="text-sm font-bold text-emerald-300 ml-1">H</span></span>
+            <span className="text-2xl font-black text-emerald-600">
+              {fixed1(currentStats.normalHours)} <span className="text-sm font-bold text-emerald-300 ml-1">H</span>
+              <DeltaBadge curr={currentStats.normalHours} prior={priorStats.normalHours} />
+            </span>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 border-b-purple-400">
             <span className="text-xs font-bold text-purple-500 mb-1">조회 기간 연장근무</span>
-            <span className="text-2xl font-black text-purple-600">{fixed1(currentStats.overtimeHours)} <span className="text-sm font-bold text-purple-300 ml-1">H</span></span>
+            <span className="text-2xl font-black text-purple-600">
+              {fixed1(currentStats.overtimeHours)} <span className="text-sm font-bold text-purple-300 ml-1">H</span>
+              <DeltaBadge curr={currentStats.overtimeHours} prior={priorStats.overtimeHours} />
+            </span>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 border-b-red-400">
             <span className="text-xs font-bold text-red-500 mb-1">조회 기간 총 근무시간</span>
-            <span className="text-2xl font-black text-red-600">{fixed1(currentStats.totalHours)} <span className="text-sm font-bold text-red-300 ml-1">H</span></span>
+            <span className="text-2xl font-black text-red-600">
+              {fixed1(currentStats.totalHours)} <span className="text-sm font-bold text-red-300 ml-1">H</span>
+              <DeltaBadge curr={currentStats.totalHours} prior={priorStats.totalHours} />
+            </span>
           </div>
         </div>
       </div>
@@ -290,6 +365,16 @@ const AttendanceManagement = () => {
                   <input type="text" placeholder="사원/업체 검색..." value={inputValue} onChange={(e) => setInputValue(e.target.value)} className="border border-gray-200 rounded-lg pl-8 pr-3 py-[7px] text-xs font-bold text-gray-700 outline-none focus:border-letusBlue w-40" />
                   <svg className="w-4 h-4 text-gray-400 absolute left-2.5 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
+                {/* B2: 지원/파견만 토글 */}
+                <button
+                  onClick={() => setDispatchOnly(prev => !prev)}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 h-[38px] rounded-lg border transition-all ${dispatchOnly ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'bg-white text-gray-500 border-gray-300 hover:border-red-300 hover:text-red-500'}`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  지원/파견만
+                </button>
                 <div className="flex items-center justify-end flex-1 gap-2">
                   {filterType === 'CUSTOM' && (
                     <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 animate-fade-in shadow-sm h-[38px]">
@@ -314,6 +399,17 @@ const AttendanceManagement = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     칼럼 초기화
+                  </button>
+                  {/* B3: 엑셀 내보내기 */}
+                  <button
+                    onClick={handleExportExcel}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gray-600 border border-gray-300 bg-white rounded shadow-sm px-3 h-[38px] hover:bg-gray-50 transition-colors"
+                    title="현재 필터 결과를 엑셀로 내보내기"
+                  >
+                    <svg className="w-3.5 h-3.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    엑셀 내보내기
                   </button>
                   <div className="relative z-50 ml-1">
                     <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="flex items-center text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded px-3 py-1.5 h-[38px] hover:bg-slate-50 min-w-[100px] justify-between shadow-sm transition-all">

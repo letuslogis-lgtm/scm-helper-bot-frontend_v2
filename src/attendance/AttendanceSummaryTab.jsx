@@ -1,14 +1,13 @@
 // ===========================================================================
 // 기간별 집계 현황 탭
-//   업체별/브랜드별 뷰 모드에 따라 그룹핑 기준을 전환하고,
-//   월별 누적 차트 + 그룹/서브그룹 집계표를 렌더링한다.
+//   A1: 차트가 업체별/브랜드별 토글과 연동
+//   A2: 집계표에 비중(%) 막대 컬럼 추가
 // ===========================================================================
 import React, { useState, useMemo } from 'react';
 import { isPartnerVendor } from './constants.js';
 
 const fmt = (v) => v === 0 ? '-' : v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-// 행의 브랜드명 결정: 1순위 마스터 브랜드, 2순위 비고의 [브랜드] 태그
 const resolveBrand = (row, masterInfo) => {
   let brandName = (masterInfo.brand && masterInfo.brand !== '미지정/공통') ? masterInfo.brand : null;
   if (!brandName && row.remark) {
@@ -26,25 +25,20 @@ export const AttendanceSummaryTab = ({ chartData, summaryViewMode, workerMasterM
   const [expandedGroups, setExpandedGroups] = useState([]);
   const toggleGroup = (name) => setExpandedGroups(prev => prev.includes(name) ? prev.filter(v => v !== name) : [...prev, name]);
 
-  const { summaryDataList, chartDataList, totalSummary } = useMemo(() => {
+  const { summaryDataList, totalSummary } = useMemo(() => {
     const groupSummaryMap = {};
-    const chartDataMap = {};
 
     chartData.forEach(row => {
-      const monthStr = row.work_date ? row.work_date.substring(0, 7) : '미상';
       const actualVendor = row.worked_vendor || '미분류';
-
       let groupKey = '';
       let groupType = '';
       let subGroupKey = '';
 
       if (summaryViewMode === 'vendor') {
-        // 🏢 업체별 보기 — 대분류: 실투입 업체, 중분류: 월
         groupKey = actualVendor;
         groupType = isPartnerVendor(groupKey) ? '사내협력사' : '외주도급사';
-        subGroupKey = monthStr;
+        subGroupKey = row.work_date ? row.work_date.substring(0, 7) : '미상';
       } else {
-        // 🏷️ 브랜드별 보기 — 대분류: 브랜드, 중분류: 실투입 업체
         const cleanName = row.worker_name?.replace(/\s/g, '') || '';
         const masterInfo = workerMasterMap[cleanName] || {};
         groupKey = resolveBrand(row, masterInfo);
@@ -66,10 +60,6 @@ export const AttendanceSummaryTab = ({ chartData, summaryViewMode, workerMasterM
       if (!gMap.subMap[subGroupKey]) gMap.subMap[subGroupKey] = { subName: subGroupKey, normal: 0, overtime: 0, total: 0, weighted: 0 };
       gMap.subMap[subGroupKey].normal += normalH; gMap.subMap[subGroupKey].overtime += overH;
       gMap.subMap[subGroupKey].total += totalH; gMap.subMap[subGroupKey].weighted += weightedH;
-
-      // 차트는 항상 월별 누적
-      if (!chartDataMap[monthStr]) chartDataMap[monthStr] = { name: monthStr, normal: 0, overtime: 0, total: 0 };
-      chartDataMap[monthStr].normal += normalH; chartDataMap[monthStr].overtime += overH; chartDataMap[monthStr].total += totalH;
     });
 
     const sortedSummary = Object.values(groupSummaryMap).map(v => ({
@@ -78,31 +68,55 @@ export const AttendanceSummaryTab = ({ chartData, summaryViewMode, workerMasterM
     })).sort((a, b) => {
       if (a.type === '사내협력사' && b.type !== '사내협력사') return -1;
       if (a.type !== '사내협력사' && b.type === '사내협력사') return 1;
-      return a.name.localeCompare(b.name);
+      return b.total - a.total;
     });
 
-    const sortedChart = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
     const totals = sortedSummary.reduce((acc, curr) => {
       acc.normal += curr.normal; acc.overtime += curr.overtime; acc.total += curr.total; acc.weighted += curr.weighted; return acc;
     }, { normal: 0, overtime: 0, total: 0, weighted: 0 });
 
-    return { summaryDataList: sortedSummary, chartDataList: sortedChart, totalSummary: totals };
+    return { summaryDataList: sortedSummary, totalSummary: totals };
   }, [chartData, summaryViewMode, workerMasterMap]);
+
+  // A1: 차트 데이터 = 현재 뷰 모드의 그룹별 합계 (상위 12개)
+  const chartDisplayData = summaryDataList
+    .slice(0, 12)
+    .map(v => ({
+      name: v.name.length > 8 ? v.name.slice(0, 8) + '…' : v.name,
+      정상: +(v.normal.toFixed(1)),
+      연장: +(v.overtime.toFixed(1)),
+    }));
+
+  const chartTitle = summaryViewMode === 'vendor' ? '업체별 총 근무시간' : '브랜드별 총 근무시간';
 
   return (
     <div className="p-6 flex flex-col gap-6">
-      {window.Recharts && chartDataList.length > 0 && (
+      {/* A1: 토글 연동 차트 */}
+      {window.Recharts && chartDisplayData.length > 0 && (
         <div className="bg-white p-5 border border-gray-200 rounded-lg shadow-sm h-72">
-          <h4 className="text-xs font-bold text-gray-500 mb-4">월별 총 근무시간 추이 ({summaryViewMode === 'vendor' ? '업체별' : '브랜드별'} 누적)</h4>
+          <h4 className="text-xs font-bold text-gray-500 mb-4">{chartTitle} (상위 12개 · 정상+연장 누적)</h4>
           <window.Recharts.ResponsiveContainer width="100%" height="100%">
-            <window.Recharts.BarChart data={chartDataList} margin={{ top: 0, right: 0, left: -20, bottom: 25 }}>
+            <window.Recharts.BarChart data={chartDisplayData} margin={{ top: 0, right: 0, left: -20, bottom: 30 }}>
               <window.Recharts.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-              <window.Recharts.XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6b7280' }} dy={10} />
+              <window.Recharts.XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#6b7280' }}
+                dy={10}
+                interval={0}
+                angle={chartDisplayData.length > 6 ? -30 : 0}
+                textAnchor={chartDisplayData.length > 6 ? 'end' : 'middle'}
+              />
               <window.Recharts.YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6b7280' }} />
-              <window.Recharts.Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '12px', padding: '8px 12px' }} />
-              <window.Recharts.Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', color: '#4b5563', paddingTop: '15px' }} />
-              <window.Recharts.Bar dataKey="normal" name="정상근무" stackId="a" fill="#4b89ff" radius={[0, 0, 4, 4]} barSize={30} />
-              <window.Recharts.Bar dataKey="overtime" name="연장근무" stackId="a" fill="#f58220" radius={[4, 4, 0, 0]} />
+              <window.Recharts.Tooltip
+                cursor={{ fill: '#f3f4f6' }}
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '12px', padding: '8px 12px' }}
+                formatter={(value) => [`${value.toLocaleString()}H`, undefined]}
+              />
+              <window.Recharts.Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', color: '#4b5563', paddingTop: '8px' }} />
+              <window.Recharts.Bar dataKey="정상" name="정상근무" stackId="a" fill="#4b89ff" radius={[0, 0, 4, 4]} barSize={28} />
+              <window.Recharts.Bar dataKey="연장" name="연장근무" stackId="a" fill="#f58220" radius={[4, 4, 0, 0]} />
             </window.Recharts.BarChart>
           </window.Recharts.ResponsiveContainer>
         </div>
@@ -121,20 +135,34 @@ export const AttendanceSummaryTab = ({ chartData, summaryViewMode, workerMasterM
               <th className="p-3 border-r border-gray-200">정상근무</th>
               <th className="p-3 border-r border-gray-200">연장근무</th>
               <th className="p-3 border-r border-gray-200 bg-blue-50/50">총 시간 합계</th>
+              {/* A2: 비중 컬럼 */}
+              <th className="p-3 border-r border-gray-200 w-36">비중</th>
               <th className="p-3 bg-orange-50/50">정산 가중시간</th>
             </tr>
           </thead>
           <tbody className="text-[13px] text-gray-800">
             {summaryDataList.map((row) => {
               const isExpanded = expandedGroups.includes(row.name);
+              const pct = totalSummary.total > 0 ? (row.total / totalSummary.total * 100) : 0;
               return (
                 <React.Fragment key={row.name}>
                   <tr onClick={() => toggleGroup(row.name)} className={`border-b border-gray-200 cursor-pointer transition-colors ${isExpanded ? 'bg-blue-50/40' : 'hover:bg-blue-50/20'}`}>
                     <td className="p-3 border-r border-gray-200 font-black text-gray-600 bg-gray-50/30">{row.type}</td>
-                    <td className="p-3 border-r border-gray-200 font-bold text-left pl-6 flex items-center gap-2"><span className="text-[10px] text-letusBlue w-3">{isExpanded ? '▼' : '▶'}</span>{row.name}</td>
+                    <td className="p-3 border-r border-gray-200 font-bold text-left pl-6 flex items-center gap-2">
+                      <span className="text-[10px] text-letusBlue w-3">{isExpanded ? '▼' : '▶'}</span>{row.name}
+                    </td>
                     <td className="p-3 border-r border-gray-200 text-right pr-6 font-mono text-gray-700 font-medium">{fmt(row.normal)}</td>
                     <td className="p-3 border-r border-gray-200 text-right pr-6 font-mono text-gray-700 font-medium">{fmt(row.overtime)}</td>
                     <td className="p-3 border-r border-gray-200 text-right pr-6 font-mono font-bold text-letusBlue bg-blue-50/10">{fmt(row.total)}</td>
+                    {/* A2: 비중 막대 */}
+                    <td className="p-3 border-r border-gray-200">
+                      <div className="flex items-center gap-2 px-1">
+                        <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden min-w-[60px]">
+                          <div className="h-full bg-letusBlue/70 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-[11px] font-bold text-gray-500 w-10 text-right shrink-0">{pct.toFixed(1)}%</span>
+                      </div>
+                    </td>
                     <td className="p-3 text-right pr-6 font-mono font-bold text-red-500 bg-orange-50/10">{fmt(row.weighted)}</td>
                   </tr>
 
@@ -145,6 +173,7 @@ export const AttendanceSummaryTab = ({ chartData, summaryViewMode, workerMasterM
                       <td className="p-2 border-r border-gray-100 text-right pr-6 font-mono text-[12px]">{fmt(sub.normal)}</td>
                       <td className="p-2 border-r border-gray-100 text-right pr-6 font-mono text-[12px]">{fmt(sub.overtime)}</td>
                       <td className="p-2 border-r border-gray-100 text-right pr-6 font-mono font-bold text-[12px] text-blue-400">{fmt(sub.total)}</td>
+                      <td className="p-2 border-r border-gray-100"></td>
                       <td className="p-2 text-right pr-6 font-mono font-bold text-[12px] text-red-400">{fmt(sub.weighted)}</td>
                     </tr>
                   ))}
@@ -156,6 +185,7 @@ export const AttendanceSummaryTab = ({ chartData, summaryViewMode, workerMasterM
               <td className="p-4 border-r border-gray-300 text-right pr-6 font-mono text-[14px]">{totalSummary.normal.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
               <td className="p-4 border-r border-gray-300 text-right pr-6 font-mono text-[14px]">{totalSummary.overtime.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
               <td className="p-4 border-r border-gray-300 text-right pr-6 font-mono text-[14px] text-blue-700">{totalSummary.total.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+              <td className="p-4 border-r border-gray-300 text-center text-[12px] text-gray-500">100%</td>
               <td className="p-4 text-right pr-6 font-mono text-[14px] text-red-700">{totalSummary.weighted.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
             </tr>
           </tbody>
