@@ -562,17 +562,21 @@ def run_wms_if(headless: bool) -> None:
             modal_btn.click()
             print('[WMS] IF 실행 중...')
 
-            # ③ 완료 팝업 확인 (처리 건수 0일 때만 나타남 — 있으면 바로 결과모달로 감)
-            try:
-                page.locator(WMS_IDS['if_complete_ok']).wait_for(state='visible', timeout=5000)
-                page.locator(WMS_IDS['if_complete_ok']).click()
-                page.wait_for_timeout(300)
-            except PWTimeout:
-                pass
-
-            # ④ 결과 모달 닫기 — 실제 완료 신호 (120초 대기)
-            page.locator('button.cancelBtn.mr10').wait_for(state='visible', timeout=120000)
-            page.locator('button.cancelBtn.mr10').click()
+            # ③④ 완료 팝업 + 결과 모달을 120초 동안 함께 감시
+            # - 완료 팝업(alertModal)이 먼저 뜨면 클릭 후 결과 모달 대기
+            # - 결과 모달 닫기 버튼이 뜨면 바로 클릭
+            ok_sel    = WMS_IDS['if_complete_ok']
+            close_sel = 'button.cancelBtn.mr10'
+            for _ in range(240):  # 0.5s × 240 = 120s
+                if page.locator(close_sel).is_visible():
+                    page.locator(close_sel).click()
+                    break
+                if page.locator(ok_sel).is_visible():
+                    page.locator(ok_sel).click()
+                    page.wait_for_timeout(300)
+                page.wait_for_timeout(500)
+            else:
+                raise PWTimeout('WMS IF 완료 대기 120초 초과')
             print('[WMS] 입고예정정보 IF 완료')
 
         except Exception as e:
