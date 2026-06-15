@@ -58,10 +58,10 @@ WMS_URL   = 'https://wms.letus4u.com/'
 ERP_SYSCD = 'T05S02'
 
 WMS_IDS = {
-    'if_page_btn':     'button.modalBtn',  # 페이지 상단 "+ 입고예정정보 IF" (기준정보누락품목은 modalBtn 없음)
-    'if_modal_btn':    '#saveAsnIfBtn',      # 모달 내 오렌지 버튼
-    'if_complete_ok':  'button.okBtn',       # IF 완료 팝업 "확인"
-    'if_result_close': 'button.cancelBtn',  # IF결과 모달 "닫기"
+    'if_page_btn':     'button.modalBtn',
+    'if_modal_btn':    '#saveAsnIfBtn',
+    'if_complete_ok':  '#alertModal button.okBtn',
+    'if_result_close': 'button.cancelBtn.mr10, #ifResultModal button.cancelBtn',
 }
 
 # 화면 prefix (내부 코드: 06002008 = 관계사입고예정생성)
@@ -543,16 +543,9 @@ def run_wms_if(headless: bool) -> None:
                 raise RuntimeError('WMS 로그인 실패 — 아이디/비밀번호 확인')
             print('[WMS] 로그인 성공')
 
-            # 입고 예정 정보 관리 메뉴 이동
-            # 전략 ①: 사이드바 메뉴 클릭
-            try:
-                page.get_by_text('입고관리').first.click(timeout=5000)
-                page.get_by_text('입고 예정 정보 관리').first.click(timeout=5000)
-                page.wait_for_load_state('networkidle')
-            except PWTimeout:
-                # 전략 ②: 직접 URL 이동
-                page.goto('https://wms.letus4u.com/v1/inbound/asn', timeout=30000)
-                page.wait_for_load_state('networkidle')
+            # 입고 예정 정보 관리 직접 이동
+            page.goto('http://wms.letus4u.com/v1/inbound/asn', timeout=30000)
+            page.wait_for_load_state('networkidle')
             page.wait_for_timeout(3000)
             print('[WMS] 입고 예정 정보 관리 진입')
 
