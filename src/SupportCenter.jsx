@@ -293,6 +293,15 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  status: '이관 중',
  }).eq('id', row.id);
  if (error) throw error;
+ supabase.functions.invoke('send-push-notification', {
+  body: {
+   mode: 'direct',
+   user_name: row.reporter,
+   title: '📋 이슈가 이관 처리되었습니다',
+   body: `${row.reception_no} 건이 이관 부서로 전달되었습니다.`,
+   url: '/mobile/my-issues',
+  },
+ }).catch(() => {});
  await onReload(); onClose();
  } catch (e) { alert(`오류: ${e.message}`); } finally { setIsSaving(false); }
  };
@@ -304,6 +313,15 @@ const RequestModal = ({ row, onClose, onReload, userProfile, onDirectHandle }) =
  status: '처리 중',
  }).eq('id', row.id);
  if (error) throw error;
+ supabase.functions.invoke('send-push-notification', {
+  body: {
+   mode: 'direct',
+   user_name: row.reporter,
+   title: '🔄 이슈가 접수되었습니다',
+   body: `${row.reception_no} 건이 담당자에게 접수되어 처리 중입니다.`,
+   url: '/mobile/my-issues',
+  },
+ }).catch(() => {});
  await onReload();
  onDirectHandle?.({ ...row, status: '처리 중' });
  } catch (e) { alert(`오류: ${e.message}`); } finally { setIsSaving(false); }

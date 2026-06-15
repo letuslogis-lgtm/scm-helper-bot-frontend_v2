@@ -64,6 +64,15 @@ const IssueDetailSheet = ({ issue, onClose, onReload, userProfile }) => {
                 status: '이관 중',
             }).eq('id', issue.id);
             if (error) throw error;
+            supabase.functions.invoke('send-push-notification', {
+                body: {
+                    mode: 'direct',
+                    user_name: issue.reporter,
+                    title: '📋 이슈가 이관 처리되었습니다',
+                    body: `${issue.reception_no} 건이 이관 부서로 전달되었습니다.`,
+                    url: '/mobile/my-issues',
+                },
+            }).catch(() => {});
             await onReload();
             onClose();
         } catch {
