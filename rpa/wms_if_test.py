@@ -111,14 +111,20 @@ def run(headless: bool):
             print('    IF 실행 중... (최대 120초 대기)')
 
             print('[7/8] 완료 팝업 + 결과 모달 감시 (최대 120초)...')
-            _js = ("(sel) => { const el = document.querySelector(sel);"
-                   " if (!el) return 'not_found';"
-                   " const r = el.getBoundingClientRect();"
-                   " const s = window.getComputedStyle(el);"
-                   " if (r.width > 0 && r.height > 0"
-                   "     && s.display !== 'none' && s.visibility !== 'hidden')"
-                   "   { el.click(); return 'clicked'; }"
-                   " return 'hidden'; }")
+            _js = """
+(sel) => {
+    const btn = document.querySelector(sel);
+    if (!btn) return 'not_found';
+    let el = btn;
+    while (el && el !== document.body) {
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden') return 'hidden';
+        el = el.parentElement;
+    }
+    btn.click();
+    return 'clicked';
+}
+"""
             for i in range(240):
                 if page.evaluate(_js, 'button.cancelBtn.mr10') == 'clicked':
                     break

@@ -560,17 +560,22 @@ def run_wms_if(headless: bool) -> None:
             print('[WMS] IF 실행 중...')
 
             # ③④ 완료 팝업 + 결과 모달을 120초 동안 함께 감시
-            # - 완료 팝업(alertModal)이 먼저 뜨면 클릭 후 결과 모달 대기
-            # - 결과 모달 닫기 버튼이 뜨면 바로 클릭
-            # JS로 가시성 확인 후 클릭 (headless 모드에서 is_visible() 오판 우회)
-            _js = ("(sel) => { const el = document.querySelector(sel);"
-                   " if (!el) return 'not_found';"
-                   " const r = el.getBoundingClientRect();"
-                   " const s = window.getComputedStyle(el);"
-                   " if (r.width > 0 && r.height > 0"
-                   "     && s.display !== 'none' && s.visibility !== 'hidden')"
-                   "   { el.click(); return 'clicked'; }"
-                   " return 'hidden'; }")
+            # DOM 트리 위로 올라가며 display:none 조상이 없으면 클릭
+            # (transform/scale 애니메이션으로 getBoundingClientRect가 0 반환하는 문제 우회)
+            _js = """
+(sel) => {
+    const btn = document.querySelector(sel);
+    if (!btn) return 'not_found';
+    let el = btn;
+    while (el && el !== document.body) {
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden') return 'hidden';
+        el = el.parentElement;
+    }
+    btn.click();
+    return 'clicked';
+}
+"""
             for i in range(240):  # 0.5s × 240 = 120s
                 if page.evaluate(_js, 'button.cancelBtn.mr10') == 'clicked':
                     break
