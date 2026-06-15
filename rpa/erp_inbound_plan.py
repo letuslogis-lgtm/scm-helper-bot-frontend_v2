@@ -217,31 +217,28 @@ def navigate_to_screen(page) -> None:
 # ---------------------------------------------------------------------------
 def select_combo(page, btn_id: str, value: str, label: str) -> None:
     page.locator(f'#{btn_id}').click()
-    page.wait_for_timeout(400)
+    page.wait_for_timeout(150)  # 팝업 열림 최소 대기
 
-    # 전략 ①: 콤보 팝업 내 텍스트 매칭
-    try:
-        popup = page.locator('[id*="_pdiv_"]').filter(has_text=value).first
-        popup.wait_for(state='visible', timeout=2000)
-        popup.get_by_text(value, exact=True).click()
-        page.wait_for_timeout(300)
-        print(f'    {label}: "{value}" 선택 (팝업 매칭)')
-        return
-    except Exception:
-        pass
-
-    # 전략 ②: 전체 페이지에서 텍스트 클릭 (fallback)
+    # 전략 ①: 전체 페이지에서 텍스트 클릭
     try:
         page.get_by_text(value, exact=True).last.click()
-        page.wait_for_timeout(300)
-        print(f'    {label}: "{value}" 선택 (텍스트 매칭)')
+        print(f'    {label}: "{value}" 선택')
         return
     except Exception:
         pass
 
-    # 실패 시 Escape 후 예외
+    # 전략 ②: 팝업 컨테이너 내 텍스트 (fallback)
+    try:
+        popup = page.locator('[id*="_pdiv_"]').filter(has_text=value).first
+        popup.wait_for(state='visible', timeout=1000)
+        popup.get_by_text(value, exact=True).click()
+        print(f'    {label}: "{value}" 선택 (팝업)')
+        return
+    except Exception:
+        pass
+
     page.keyboard.press('Escape')
-    raise RuntimeError(f'{label} 콤보 선택 실패: "{value}" — --show 모드로 확인 필요')
+    raise RuntimeError(f'{label} 콤보 선택 실패: "{value}"')
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +294,7 @@ def select_one_checkbox(page, row_idx: int) -> None:
         ).first
         try:
             loc.evaluate('el => el.scrollIntoView({block: "center", behavior: "instant"})')
-            page.wait_for_timeout(300)
+            page.wait_for_timeout(100)
         except Exception:
             pass
         loc.click(force=True, timeout=2000)
@@ -490,9 +487,9 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
             # ② 해당 날짜 행 전체 선택 → 생성
             for row in rows:
                 select_one_checkbox(page, row['row_idx'])
-                page.wait_for_timeout(800)  # 체크박스 간 딜레이
+                page.wait_for_timeout(300)
 
-            page.wait_for_timeout(1000)  # 전체 선택 후 버튼 활성화 대기
+            page.wait_for_timeout(500)  # 전체 선택 후 버튼 활성화 대기
             popup = click_create_button(page)
             is_error = popup and any(w in popup for w in ['오류', '에러', 'error', '실패'])
 
