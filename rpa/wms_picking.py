@@ -61,9 +61,9 @@ if not all([SUPABASE_URL, SUPABASE_KEY, WMS_USER, WMS_PASSWORD]):
 
 
 def parse_args():
-    yesterday = str(date.today() - timedelta(days=1))
+    default_start = str(date.today() - timedelta(days=3))
     parser = argparse.ArgumentParser(description='WMS 피킹실적 추출')
-    parser.add_argument('--start', default=yesterday, help='조회 시작일 YYYY-MM-DD (기본: 어제)')
+    parser.add_argument('--start', default=default_start, help='조회 시작일 YYYY-MM-DD (기본: 3일 전)')
     parser.add_argument('--end',   default=None,      help='조회 종료일 YYYY-MM-DD (기본: start와 동일)')
     parser.add_argument('--show',  action='store_true', help='브라우저 표시')
     args = parser.parse_args()
