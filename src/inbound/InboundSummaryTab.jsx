@@ -43,12 +43,24 @@ export const InboundSummaryTab = () => {
           .lte('business_date', endDate);
         setData(rows || []);
       } else {
-        const { data: rows } = await supabase
-          .from('inbound_cut_list')
-          .select('brand_category, cut_type, 공급업체명, owner, cut수량')
-          .gte('business_date', startDate)
-          .lte('business_date', endDate);
-        setData(rows || []);
+        // 부족컷: wms_shortage_list (RPA 수집), 직송컷: inbound_cut_list (수동 업로드)
+        const [{ data: shortageRows }, { data: directRows }] = await Promise.all([
+          supabase
+            .from('wms_shortage_list')
+            .select('brand, shortage_qty')
+            .gte('upload_date', startDate)
+            .lte('upload_date', endDate),
+          supabase
+            .from('inbound_cut_list')
+            .select('brand_category, cut수량')
+            .eq('cut_type', '직송컷')
+            .gte('business_date', startDate)
+            .lte('business_date', endDate),
+        ]);
+        setData({
+          shortage: shortageRows || [],
+          direct:   directRows   || [],
+        });
       }
     } catch (err) {
       console.error(err);
@@ -95,18 +107,26 @@ export const InboundSummaryTab = () => {
   }, [data, subTab]);
 
   // ── CUT 집계 ─────────────────────────────────────────────────────────────
+  // 부족컷: wms_shortage_list (brand = OWNER), 직송컷: inbound_cut_list (brand_category)
   const cutSummary = useMemo(() => {
     if (subTab !== 'cut') return { 부족컷: [], 직송컷: [] };
-    const mkMap = (type) => {
+    const shortage = Array.isArray(data?.shortage) ? data.shortage : [];
+    const direct   = Array.isArray(data?.direct)   ? data.direct   : [];
+
+    const mkMap = (rows, brandKey, qtyKey) => {
       const map = {};
-      data.filter(r => r.cut_type === type).forEach(r => {
-        const key = r.brand_category || '미분류';
+      rows.forEach(r => {
+        const key = r[brandKey] || '미분류';
         if (!map[key]) map[key] = { brand: key, cut수량: 0 };
-        map[key].cut수량 += r.cut수량 || 0;
+        map[key].cut수량 += r[qtyKey] || 0;
       });
       return Object.values(map).sort((a, b) => b.cut수량 - a.cut수량);
     };
-    return { 부족컷: mkMap('부족컷'), 직송컷: mkMap('직송컷') };
+
+    return {
+      부족컷: mkMap(shortage, 'brand',          'shortage_qty'),
+      직송컷: mkMap(direct,   'brand_category', 'cut수량'),
+    };
   }, [data, subTab]);
 
   const totalPerf = useMemo(() =>
@@ -136,7 +156,7 @@ export const InboundSummaryTab = () => {
 
       {loading ? (
         <div className="text-center py-16 text-gray-400 text-sm font-bold">데이터 로딩 중...</div>
-      ) : data.length === 0 ? (
+      ) : (subTab !== 'cut' ? data.length === 0 : (data?.shortage?.length === 0 && data?.direct?.length === 0)) ? (
         <div className="text-center py-16 text-gray-400 text-sm font-bold">해당 기간의 데이터가 없습니다.</div>
       ) : (
         <>

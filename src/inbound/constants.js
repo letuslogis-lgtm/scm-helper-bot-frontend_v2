@@ -2,9 +2,9 @@ export const FILE_TYPES = [
   { id: '입고실적',  label: '입고실적등록',  needsWarehouse: true,  colorKey: 'blue',   desc: 'ERP 입고실적등록 Excel' },
   { id: '반입집계',  label: '반입집계표',    needsWarehouse: true,  colorKey: 'green',  desc: '사업장별 반출입 집계 (반입) Excel' },
   { id: '반출집계',  label: '반출집계표',    needsWarehouse: true,  colorKey: 'orange', desc: '사업장별 반출입 집계 (반출) Excel' },
-  { id: 'WMS부족컷', label: 'WMS 부족컷',   needsWarehouse: false, colorKey: 'red',    desc: 'WMS 부족량 CUT LIST Excel' },
   { id: 'WMS직송컷', label: 'WMS 직송컷',   needsWarehouse: false, colorKey: 'purple', desc: 'WMS 사업장 직송 CUT LIST Excel' },
 ];
+// ※ 부족컷은 기존 RPA(wms_extract.py)가 wms_shortage_list에 수집 → 별도 업로드 불필요
 
 export const FILE_TYPE_MAP = Object.fromEntries(FILE_TYPES.map(t => [t.id, t]));
 

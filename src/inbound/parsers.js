@@ -127,7 +127,6 @@ export const parseFile = (XLSX, binaryData, { file_type, business_date, warehous
     case '입고실적':  return parseInboundPerformance(XLSX, binaryData, { business_date, warehouse_name });
     case '반입집계':  return parseTransfer(XLSX, binaryData, { business_date, transfer_type: '반입' });
     case '반출집계':  return parseTransfer(XLSX, binaryData, { business_date, transfer_type: '반출' });
-    case 'WMS부족컷': return parseWmsCut(XLSX, binaryData, { business_date });
     case 'WMS직송컷': return parseWmsDirectCut(XLSX, binaryData, { business_date });
     default: return [];
   }
