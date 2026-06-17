@@ -28,6 +28,7 @@ import { WmsShortageList } from './WmsShortageList.jsx';
 import { LogisticsClosing } from './LogisticsClosing.jsx';
 import { WmsStockDashboard } from './WmsStockDashboard.jsx';
 import { ErpInboundConfig } from './ErpInboundConfig.jsx';
+import { InboundClosing } from './inbound/InboundClosing.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
 import { MobileReturnsRegister } from './MobileReturnsRegister.jsx';
 import { MobilePreDeliveryManage } from './MobilePreDeliveryManage.jsx';
@@ -134,6 +135,7 @@ const AppContent = () => {
                 <Route path="/ai_lab" element={<AiInsightLab />} />
                 <Route path="/returns_management" element={<ReturnsManagement userProfile={logic.userProfile} />} />
                 <Route path="/logistics_closing" element={<LogisticsClosing />} />
+                <Route path="/inbound_closing" element={<InboundClosing />} />
                 <Route path="/wms_stock" element={<WmsStockDashboard userProfile={logic.userProfile} />} />
                 <Route path="/wms_shortage" element={<WmsShortageList userProfile={logic.userProfile} />} />
                 <Route path="/erp_inbound_config" element={<ErpInboundConfig />} />

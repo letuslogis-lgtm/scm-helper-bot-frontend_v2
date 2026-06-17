@@ -35,6 +35,7 @@ export const ALL_MENUS = [
         icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
         children: [
             { id: 'logistics_closing', label: '물류 마감 자동화' },
+            { id: 'inbound_closing', label: '입고 실적 마감' },
             { id: 'attendance', label: '근무자 근태 관리' },
             { id: 'wms_stock', label: '창고별 재고현황' },
         ]
