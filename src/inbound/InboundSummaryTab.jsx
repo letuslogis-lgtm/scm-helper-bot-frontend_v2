@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient.js';
 
 const fmt = (v) => (v || 0).toLocaleString();
-const todayStr = () => new Date(Date.now() + 9 * 3600000).toISOString().split('T')[0];
+const todayStr   = () => new Date(Date.now() + 9 * 3600000).toISOString().split('T')[0];
 const monthStart = () => todayStr().substring(0, 8) + '01';
 
 const SUB_TABS = [
@@ -15,52 +15,47 @@ const SUB_TABS = [
 ];
 
 export const InboundSummaryTab = () => {
-  const [subTab,      setSubTab]      = useState('performance');
-  const [startDate,   setStartDate]   = useState(monthStart());
-  const [endDate,     setEndDate]     = useState(todayStr());
-  const [data,        setData]        = useState([]);
-  const [loading,     setLoading]     = useState(false);
+  const [subTab,     setSubTab]     = useState('performance');
+  const [startDate,  setStartDate]  = useState(monthStart());
+  const [endDate,    setEndDate]    = useState(todayStr());
+  const [rows,       setRows]       = useState([]);          // performance / transfer 용 (항상 배열)
+  const [cutRows,    setCutRows]    = useState({ shortage: [], direct: [] }); // CUT 전용
+  const [loading,    setLoading]    = useState(false);
 
   useEffect(() => { loadData(); }, [subTab, startDate, endDate]);
 
   const loadData = async () => {
     setLoading(true);
-    setData([]);
+    // 탭 전환 시 이전 데이터를 즉시 초기화
+    setRows([]);
+    setCutRows({ shortage: [], direct: [] });
+
     try {
-      let query;
       if (subTab === 'performance') {
-        const { data: rows } = await supabase
+        const { data } = await supabase
           .from('inbound_performance')
           .select('brand_category, warehouse_name, 입고유형, 수량, 입고금액')
           .gte('business_date', startDate)
           .lte('business_date', endDate);
-        setData(rows || []);
+        setRows(data || []);
+
       } else if (subTab === 'transfer') {
-        const { data: rows } = await supabase
+        const { data } = await supabase
           .from('inbound_transfer')
           .select('brand_category, transfer_type, other_warehouse, 수량, 금액')
           .gte('business_date', startDate)
           .lte('business_date', endDate);
-        setData(rows || []);
+        setRows(data || []);
+
       } else {
-        // 부족컷: wms_shortage_list (RPA 수집), 직송컷: inbound_cut_list (수동 업로드)
-        const [{ data: shortageRows }, { data: directRows }] = await Promise.all([
-          supabase
-            .from('wms_shortage_list')
-            .select('brand, shortage_qty')
-            .gte('upload_date', startDate)
-            .lte('upload_date', endDate),
-          supabase
-            .from('inbound_cut_list')
-            .select('brand_category, cut수량')
-            .eq('cut_type', '직송컷')
-            .gte('business_date', startDate)
-            .lte('business_date', endDate),
+        // 부족컷: wms_shortage_list (RPA), 직송컷: inbound_cut_list (수동 업로드)
+        const [res1, res2] = await Promise.all([
+          supabase.from('wms_shortage_list').select('brand, shortage_qty')
+            .gte('upload_date', startDate).lte('upload_date', endDate),
+          supabase.from('inbound_cut_list').select('brand_category, cut수량')
+            .eq('cut_type', '직송컷').gte('business_date', startDate).lte('business_date', endDate),
         ]);
-        setData({
-          shortage: shortageRows || [],
-          direct:   directRows   || [],
-        });
+        setCutRows({ shortage: res1.data || [], direct: res2.data || [] });
       }
     } catch (err) {
       console.error(err);
@@ -70,32 +65,30 @@ export const InboundSummaryTab = () => {
   };
 
   // ── 입고실적 집계 ────────────────────────────────────────────────────────
-  const performanceSummary = useMemo(() => {
-    if (subTab !== 'performance') return [];
+  const { performanceSummary, allInboundTypes, totalPerf } = useMemo(() => {
+    if (subTab !== 'performance') return { performanceSummary: [], allInboundTypes: [], totalPerf: { 수량: 0, 금액: 0 } };
     const map = {};
-    data.forEach(r => {
+    const typeSet = new Set();
+    rows.forEach(r => {
       const key = r.brand_category || '미분류';
       if (!map[key]) map[key] = { brand: key, total수량: 0, total금액: 0, types: {} };
       map[key].total수량 += r.수량 || 0;
       map[key].total금액 += r.입고금액 || 0;
       const t = r.입고유형 || '기타';
       map[key].types[t] = (map[key].types[t] || 0) + (r.수량 || 0);
+      typeSet.add(t);
     });
-    return Object.values(map).sort((a, b) => b.total수량 - a.total수량);
-  }, [data, subTab]);
-
-  const allInboundTypes = useMemo(() => {
-    const set = new Set();
-    data.forEach(r => { if (r.입고유형) set.add(r.입고유형); });
-    return [...set].sort();
-  }, [data]);
+    const summary = Object.values(map).sort((a, b) => b.total수량 - a.total수량);
+    const total   = summary.reduce((a, r) => ({ 수량: a.수량 + r.total수량, 금액: a.금액 + r.total금액 }), { 수량: 0, 금액: 0 });
+    return { performanceSummary: summary, allInboundTypes: [...typeSet].sort(), totalPerf: total };
+  }, [rows, subTab]);
 
   // ── 반출입 집계 ──────────────────────────────────────────────────────────
   const transferSummary = useMemo(() => {
     if (subTab !== 'transfer') return { 반입: [], 반출: [] };
     const mkMap = (type) => {
       const map = {};
-      data.filter(r => r.transfer_type === type).forEach(r => {
+      rows.filter(r => r.transfer_type === type).forEach(r => {
         const key = r.brand_category || '미분류';
         if (!map[key]) map[key] = { brand: key, 수량: 0, 금액: 0 };
         map[key].수량 += r.수량 || 0;
@@ -104,40 +97,36 @@ export const InboundSummaryTab = () => {
       return Object.values(map).sort((a, b) => b.수량 - a.수량);
     };
     return { 반입: mkMap('반입'), 반출: mkMap('반출') };
-  }, [data, subTab]);
+  }, [rows, subTab]);
 
   // ── CUT 집계 ─────────────────────────────────────────────────────────────
-  // 부족컷: wms_shortage_list (brand = OWNER), 직송컷: inbound_cut_list (brand_category)
   const cutSummary = useMemo(() => {
     if (subTab !== 'cut') return { 부족컷: [], 직송컷: [] };
-    const shortage = Array.isArray(data?.shortage) ? data.shortage : [];
-    const direct   = Array.isArray(data?.direct)   ? data.direct   : [];
-
-    const mkMap = (rows, brandKey, qtyKey) => {
+    const mkMap = (arr, brandKey, qtyKey) => {
       const map = {};
-      rows.forEach(r => {
+      arr.forEach(r => {
         const key = r[brandKey] || '미분류';
         if (!map[key]) map[key] = { brand: key, cut수량: 0 };
         map[key].cut수량 += r[qtyKey] || 0;
       });
       return Object.values(map).sort((a, b) => b.cut수량 - a.cut수량);
     };
-
     return {
-      부족컷: mkMap(shortage, 'brand',          'shortage_qty'),
-      직송컷: mkMap(direct,   'brand_category', 'cut수량'),
+      부족컷: mkMap(cutRows.shortage, 'brand',          'shortage_qty'),
+      직송컷: mkMap(cutRows.direct,   'brand_category', 'cut수량'),
     };
-  }, [data, subTab]);
+  }, [cutRows, subTab]);
 
-  const totalPerf = useMemo(() =>
-    performanceSummary.reduce((a, r) => ({ 수량: a.수량 + r.total수량, 금액: a.금액 + r.total금액 }), { 수량: 0, 금액: 0 })
-  , [performanceSummary]);
+  // ── 빈 데이터 판단 ───────────────────────────────────────────────────────
+  const isEmpty = subTab === 'cut'
+    ? cutRows.shortage.length === 0 && cutRows.direct.length === 0
+    : rows.length === 0;
 
   return (
     <div className="p-6 flex flex-col gap-4">
-      {/* 날짜 범위 + 서브탭 */}
+      {/* 서브탭 + 날짜 범위 */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
           {SUB_TABS.map(t => (
             <button key={t.id} onClick={() => setSubTab(t.id)}
               className={`px-4 py-1.5 rounded-md text-xs font-black transition-colors ${subTab === t.id ? 'bg-white text-letusBlue shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -156,7 +145,7 @@ export const InboundSummaryTab = () => {
 
       {loading ? (
         <div className="text-center py-16 text-gray-400 text-sm font-bold">데이터 로딩 중...</div>
-      ) : (subTab !== 'cut' ? data.length === 0 : (data?.shortage?.length === 0 && data?.direct?.length === 0)) ? (
+      ) : isEmpty ? (
         <div className="text-center py-16 text-gray-400 text-sm font-bold">해당 기간의 데이터가 없습니다.</div>
       ) : (
         <>
@@ -186,7 +175,7 @@ export const InboundSummaryTab = () => {
                     </tr>
                   ))}
                   <tr className="bg-gray-100 font-black border-t-2 border-gray-300 text-sm">
-                    <td className="px-4 py-3 text-center tracking-wider" colSpan={1 + allInboundTypes.length}>합계</td>
+                    <td className="px-4 py-3 text-center" colSpan={1 + allInboundTypes.length}>합계</td>
                     <td className="px-4 py-3 text-right font-mono text-letusBlue">{fmt(totalPerf.수량)}</td>
                     <td className="px-4 py-3 text-right font-mono">{fmt(totalPerf.금액)}</td>
                   </tr>
@@ -198,11 +187,9 @@ export const InboundSummaryTab = () => {
           {/* ── 반출입 집계 ── */}
           {subTab === 'transfer' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {[{ type: '반입', color: 'green' }, { type: '반출', color: 'orange' }].map(({ type, color }) => (
+              {[{ type: '반입', colorClass: 'text-green-700 bg-green-50/50' }, { type: '반출', colorClass: 'text-orange-700 bg-orange-50/50' }].map(({ type, colorClass }) => (
                 <div key={type} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-                  <div className={`px-4 py-2.5 border-b border-gray-100 text-xs font-black text-${color}-700 bg-${color}-50/50`}>
-                    {type} 집계
-                  </div>
+                  <div className={`px-4 py-2.5 border-b border-gray-100 text-xs font-black ${colorClass}`}>{type} 집계</div>
                   <table className="w-full text-left">
                     <thead className="bg-slate-50 border-b border-gray-100 text-xs text-slate-500 font-black">
                       <tr>
@@ -231,10 +218,14 @@ export const InboundSummaryTab = () => {
           {/* ── CUT 현황 ── */}
           {subTab === 'cut' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {[{ type: '부족컷', color: 'red' }, { type: '직송컷', color: 'purple' }].map(({ type, color }) => (
+              {[
+                { type: '부족컷', colorClass: 'text-red-700 bg-red-50/50',    note: 'WMS RPA 자동 수집' },
+                { type: '직송컷', colorClass: 'text-purple-700 bg-purple-50/50', note: '수동 업로드' },
+              ].map(({ type, colorClass, note }) => (
                 <div key={type} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-                  <div className={`px-4 py-2.5 border-b border-gray-100 text-xs font-black text-${color}-700 bg-${color}-50/50`}>
-                    {type}
+                  <div className={`px-4 py-2.5 border-b border-gray-100 text-xs font-black ${colorClass} flex items-center justify-between`}>
+                    <span>{type}</span>
+                    <span className="text-[9px] font-normal opacity-60">{note}</span>
                   </div>
                   <table className="w-full text-left">
                     <thead className="bg-slate-50 border-b border-gray-100 text-xs text-slate-500 font-black">
