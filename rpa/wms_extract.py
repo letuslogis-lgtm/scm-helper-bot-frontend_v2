@@ -273,6 +273,7 @@ def parse_and_upload(rows: list[dict], upload_date: str, center: str,
             'upload_date':       upload_date,
             'source_center':     center,
             'uploaded_by':       'RPA',
+            'cut_no':            (r.get('cutNo') or '').strip() or None,
             'wave_name':         wave_name,
             'wave_type':         r.get('waveTypeNm') or None,
             'order_no':          (r.get('orderNo') or '').strip() or None,
@@ -305,15 +306,6 @@ def parse_and_upload(rows: list[dict], upload_date: str, center: str,
         print('    업로드할 데이터 없음 (0건 제외 후)')
         return 0
 
-    # 중복 제거 (자연키 기준 마지막 행 유지)
-    seen = {}
-    for rec in records:
-        key = (rec.get('source_center'), rec.get('upload_date'),
-               rec.get('order_no'), rec.get('item_code'), rec.get('wave_name'))
-        seen[key] = rec
-    records = list(seen.values())
-    print(f'    중복 제거 후: {len(records)}건')
-
     # 공급업체명 정규화 (vendor_aliases 테이블 적용)
     normalized = []
     for rec in records:
@@ -342,7 +334,7 @@ def parse_and_upload(rows: list[dict], upload_date: str, center: str,
         try:
             result = supabase.table('wms_shortage_list').upsert(
                 chunk,
-                on_conflict='source_center,upload_date,order_no,item_code,wave_name',
+                on_conflict='cut_no',
                 ignore_duplicates=False,
             ).execute()
             if hasattr(result, 'error') and result.error:
