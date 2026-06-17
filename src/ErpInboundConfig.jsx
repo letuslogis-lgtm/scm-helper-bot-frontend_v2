@@ -12,11 +12,17 @@ const CLOSING_COLUMNS = [
     { label: '회사',       key: 'company',        w: 140 },
     { label: '창고명',     key: 'warehouse_name', w: 180 },
     { label: '데이터유형', key: 'data_type',      w: 140 },
+    { label: '입고구분',   key: 'inbound_type',   w: 120 },
+    { label: '시작일',     key: 'date_from',      w: 110 },
+    { label: '종료일',     key: 'date_to',        w: 110 },
     { label: '활성',       key: 'is_active',      w: 90  },
-    { label: '비고',       key: 'note',           w: 240 },
+    { label: '비고',       key: 'note',           w: 200 },
     { label: '수정/삭제',  key: null,             w: 110 },
 ];
-const CLOSING_EMPTY = { company: '', warehouse_name: '', data_type: '입고실적', note: '', is_active: true };
+const getClosingEmpty = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return { company: '', warehouse_name: '', data_type: '입고실적', inbound_type: '', date_from: today, date_to: today, note: '', is_active: true };
+};
 const DATA_TYPE_BADGE = {
     '입고실적': 'bg-blue-100 text-blue-700 border-blue-200',
     '반입집계': 'bg-green-100 text-green-700 border-green-200',
@@ -480,7 +486,7 @@ const ErpInboundConfigPanel = () => {
 
 // ── 모달: 입고 실적 마감 설정 ─────────────────────────────────────────────────
 const ClosingConfigModal = ({ initial, onClose, onSaved }) => {
-    const [form, setForm] = useState(initial || CLOSING_EMPTY);
+    const [form, setForm] = useState(initial || getClosingEmpty());
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState('');
     const isEdit = !!initial?.id;
@@ -496,6 +502,9 @@ const ClosingConfigModal = ({ initial, onClose, onSaved }) => {
                 company:        form.company.trim(),
                 warehouse_name: form.warehouse_name.trim(),
                 data_type:      form.data_type,
+                inbound_type:   form.inbound_type?.trim() || null,
+                date_from:      form.date_from || new Date().toISOString().split('T')[0],
+                date_to:        form.date_to   || new Date().toISOString().split('T')[0],
                 note:           (form.note ?? '').trim() || null,
                 is_active:      form.is_active,
             };
@@ -531,9 +540,10 @@ const ClosingConfigModal = ({ initial, onClose, onSaved }) => {
 
                 <div className="p-5 space-y-3">
                     {[
-                        { label: '회사',   key: 'company',        ph: '예) 퍼시스',  required: true },
+                        { label: '회사',   key: 'company',        ph: '예) 퍼시스',    required: true },
                         { label: '창고명', key: 'warehouse_name', ph: '예) 퍼시스양지', required: true },
-                        { label: '비고',   key: 'note',           ph: '(선택)',       required: false },
+                        { label: '입고구분', key: 'inbound_type', ph: '예) 구매입고 (선택)', required: false },
+                        { label: '비고',   key: 'note',           ph: '(선택)',         required: false },
                     ].map(({ label, key, ph, required }) => (
                         <div key={key}>
                             <label className="block text-xs font-bold text-gray-600 mb-1">
@@ -561,6 +571,23 @@ const ClosingConfigModal = ({ initial, onClose, onSaved }) => {
                                 <option key={t} value={t}>{t}</option>
                             ))}
                         </select>
+                    </div>
+
+                    <div className="flex gap-3">
+                        {[
+                            { label: '입고일자 시작일', key: 'date_from' },
+                            { label: '입고일자 종료일', key: 'date_to'   },
+                        ].map(({ label, key }) => (
+                            <div key={key} className="flex-1">
+                                <label className="block text-xs font-bold text-gray-600 mb-1">{label}</label>
+                                <input
+                                    type="date"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-letusBlue/30 focus:border-letusBlue transition-colors"
+                                    value={form[key] || ''}
+                                    onChange={e => set(key, e.target.value)}
+                                />
+                            </div>
+                        ))}
                     </div>
 
                     <div className="flex items-center gap-2 pt-1">
@@ -700,7 +727,10 @@ const ErpClosingConfigPanel = () => {
                     </span>
                 </td>
             );
-            case 3: return (
+            case 3: return <td key={oIdx} className="p-4 text-gray-500 text-sm text-center">{row.inbound_type || <span className="text-gray-200">—</span>}</td>;
+            case 4: return <td key={oIdx} className="p-4 text-gray-500 text-sm text-center">{row.date_from || '—'}</td>;
+            case 5: return <td key={oIdx} className="p-4 text-gray-500 text-sm text-center">{row.date_to || '—'}</td>;
+            case 6: return (
                 <td key={oIdx} className="p-4 text-center">
                     <button onClick={() => toggleActive(row)}
                         className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
@@ -712,8 +742,8 @@ const ErpClosingConfigPanel = () => {
                     </button>
                 </td>
             );
-            case 4: return <td key={oIdx} className="p-4 text-gray-400 text-sm">{row.note || <span className="text-gray-200">—</span>}</td>;
-            case 5: return (
+            case 7: return <td key={oIdx} className="p-4 text-gray-400 text-sm">{row.note || <span className="text-gray-200">—</span>}</td>;
+            case 8: return (
                 <td key={oIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1.5 justify-center">
                         <button onClick={() => setModal(row)}
