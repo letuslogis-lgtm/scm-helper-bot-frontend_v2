@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient.js';
 
 const CENTER_ORDER = ['양지1','양지2','양지3','안성','평택','음성','대전','대구','부산','광주','전북','전남','울산','창원','기장','제주','이케아'];
@@ -425,6 +425,24 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
 // ─────────────────────────────────────────────────────────
 // 메인 — 일일점검 관리자 화면
 // ─────────────────────────────────────────────────────────
+const DEFAULT_COLUMNS_DAILYCHECK = [
+    { label: '관리번호',    key: 'no',          w: 100 },
+    { label: '센터',        key: 'center',      w: 80  },
+    { label: '관리주체',    key: 'manager_org', w: 90  },
+    { label: '탑승자',      key: 'driver_day',  w: 80  },
+    { label: '점검상태',    key: 'status',      w: 80  },
+    { label: '외관점검',    key: null,          w: 80  },
+    { label: '운행 전',     key: null,          w: 80  },
+    { label: '완료 후',     key: null,          w: 80  },
+    { label: '시작',        key: 'startTime',   w: 70  },
+    { label: '종료',        key: 'endTime',     w: 70  },
+    { label: '작업시간',    key: null,          w: 70  },
+    { label: '불량',        key: 'faultCnt',    w: 60  },
+    { label: '관리자 승인', key: 'approved',    w: 110 },
+    { label: '점검내용',    key: null,          w: 150 },
+    { label: '상세',        key: null,          w: 60  },
+];
+
 export const ForkliftDailyCheck = ({ userProfile }) => {
     const [selectedDate,   setSelectedDate]   = useState(toDateStr(new Date()));
     const [filterOrg,      setFilterOrg]      = useState('전체');
@@ -447,6 +465,13 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     const [printOrg,       setPrintOrg]       = useState('전체');
     const [printCenter,    setPrintCenter]    = useState('전체');
     const [printFaultOnly, setPrintFaultOnly] = useState(true);
+
+    const [colOrder,     setColOrder]     = useState(DEFAULT_COLUMNS_DAILYCHECK.map((_, i) => i));
+    const [colWidths,    setColWidths]    = useState(DEFAULT_COLUMNS_DAILYCHECK.map(c => c.w));
+    const [dragOverIdx,  setDragOverIdx]  = useState(null);
+    const resizingRef   = useRef(null);
+    const dragSrcRef    = useRef(null);
+    const wasDraggedRef = useRef(false);
 
     // ── forklifts 로딩 (반납·매각 제외)
     useEffect(() => {
@@ -475,6 +500,26 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
 
     // 날짜/필터 바뀌면 체크박스 초기화
     useEffect(() => { setSelectedIds([]); }, [selectedDate, filterOrg, filterCenter]);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(`letus_dailycheck_col_${userProfile.id}`));
+            if (saved?.order?.length === DEFAULT_COLUMNS_DAILYCHECK.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS_DAILYCHECK.length) setColWidths(saved.widths);
+        } catch {}
+    }, [userProfile?.id]);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        localStorage.setItem(`letus_dailycheck_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths, userProfile?.id]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS_DAILYCHECK.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS_DAILYCHECK.map(c => c.w));
+        if (userProfile?.id) localStorage.removeItem(`letus_dailycheck_col_${userProfile.id}`);
+    };
 
     const ORGS    = useMemo(() => ['전체', ...new Set(forklifts.map(f => f.manager_org).filter(Boolean))], [forklifts]);
     const CENTERS = useMemo(() => ['전체', ...sortCenters([...new Set(forklifts.map(f => f.center).filter(Boolean))])], [forklifts]);
@@ -590,10 +635,33 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             prev.key === key && prev.dir === 'asc' ? { key, dir: 'desc' } : { key, dir: 'asc' }
         );
     }, []);
-    const sortIcon = (key) => {
+    const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
         return <span className="text-letusBlue font-black text-[10px] ml-0.5">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>;
     };
+
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
 
     // 필터 + 정렬 적용
     const filtered = useMemo(() => {
@@ -664,6 +732,123 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
 
     // 점검율 계산
     const checkRate = stats.total > 0 ? Math.round((stats.done + stats.inProgress) / stats.total * 100) : 0;
+
+    const renderCell = (origIdx, row) => {
+        const { forklift: f, record, status, fault, faultCnt } = row;
+        const preExterior = record?.pre_exterior;
+        const preOp       = record?.pre_op;
+        const postOp      = record?.post_op;
+        const worked = postOp ? diffHours(record?.created_at, record?.updated_at) : null;
+
+        switch (origIdx) {
+            case 0: // 관리번호
+                return <td key={origIdx} className="px-3 py-2 font-bold text-letusBlue">{f.no}</td>;
+            case 1: // 센터
+                return <td key={origIdx} className="px-3 py-2 text-gray-600">{f.center}</td>;
+            case 2: // 관리주체
+                return <td key={origIdx} className="px-3 py-2 text-gray-600">{f.manager_org}</td>;
+            case 3: // 탑승자
+                return <td key={origIdx} className="px-3 py-2 text-gray-700">{f.driver_day || '-'}</td>;
+            case 4: // 점검상태
+                return <td key={origIdx} className="px-3 py-2"><StatusBadge status={status} /></td>;
+            case 5: // 외관점검
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        {preExterior ? (() => {
+                            const cnt = preExterior.filter(item => item.checked === false).length;
+                            return (
+                                <span className={`font-bold ${cnt > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                    {cnt > 0 ? `불량 ${cnt}건` : '이상없음'}
+                                </span>
+                            );
+                        })() : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 6: // 운행 전
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        {preOp ? (() => {
+                            const cnt = preOp.filter(item => item.checked === false).length;
+                            return (
+                                <span className={`font-bold ${cnt > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                    {cnt > 0 ? `불량 ${cnt}건` : '이상없음'}
+                                </span>
+                            );
+                        })() : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 7: // 완료 후
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        {postOp ? (
+                            <span className={`font-bold ${
+                                postOp.filter(item => item.checked === false).length > 0
+                                    ? 'text-red-500' : 'text-green-600'}`}>
+                                {postOp.filter(item => item.checked === false).length > 0
+                                    ? `불량 ${postOp.filter(item => item.checked === false).length}건`
+                                    : '이상없음'}
+                            </span>
+                        ) : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 8: // 시작
+                return <td key={origIdx} className="px-3 py-2 text-center text-gray-600">{fmtTime(record?.created_at)}</td>;
+            case 9: // 종료
+                return <td key={origIdx} className="px-3 py-2 text-center text-gray-600">{postOp ? fmtTime(record?.updated_at) : '-'}</td>;
+            case 10: // 작업시간
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        {worked
+                            ? <span className="font-bold text-letusBlue">{worked}</span>
+                            : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 11: // 불량
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        {faultCnt > 0
+                            ? <span className="font-black text-red-500">{faultCnt}</span>
+                            : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 12: // 관리자 승인
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        {record?.approved_at ? (
+                            <div className="flex flex-col items-center gap-0.5">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    {record.approved_by}
+                                </span>
+                                <span className="text-[10px] text-gray-400">{fmtTime(record.approved_at)}</span>
+                            </div>
+                        ) : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 13: // 점검내용
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center max-w-[160px]">
+                        {record?.notes
+                            ? <span className="text-[11px] text-gray-700 break-words">{record.notes}</span>
+                            : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            case 14: // 상세
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        {record ? (
+                            <button onClick={() => setDetailRecord(record)}
+                                className="text-[11px] font-bold text-letusBlue border border-letusBlue/30 bg-blue-50 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors">
+                                보기
+                            </button>
+                        ) : <span className="text-gray-300">-</span>}
+                    </td>
+                );
+            default: return null;
+        }
+    };
 
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
@@ -755,6 +940,14 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
                             placeholder="관리번호·탑승자 검색"
                             className="text-xs border border-gray-300 rounded px-2.5 h-[28px] w-40 focus:outline-none focus:border-letusBlue" />
+                        <button onClick={resetColSettings}
+                            className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[28px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                            title="컬럼 너비·순서를 기본값으로 초기화">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            칼럼 초기화
+                        </button>
                         <button onClick={() => setPrintModal(true)}
                             className="flex items-center gap-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg px-3 h-[28px] transition-colors">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -778,49 +971,45 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             {/* ━━━ 테이블 ━━━ */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
-                    <table className="w-full text-left whitespace-nowrap text-xs">
-                        <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold sticky top-0 z-10">
+                    <table className="w-full text-left whitespace-nowrap table-fixed">
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-3 py-2.5 w-8">
+                                <th className="px-3 py-2.5 w-8 shrink-0">
                                     <input type="checkbox"
                                         checked={filtered.length > 0 && filtered.every(r => selectedIds.includes(r.forklift.id))}
                                         onChange={e => setSelectedIds(e.target.checked ? filtered.map(r => r.forklift.id) : [])}
                                         className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                                 </th>
-                                {[
-                                    { label: '관리번호', key: 'no' },
-                                    { label: '센터',     key: 'center' },
-                                    { label: '관리주체', key: 'manager_org' },
-                                    { label: '탑승자',   key: 'driver_day' },
-                                    { label: '점검상태', key: 'status' },
-                                    { label: '외관점검', key: null },
-                                    { label: '운행 전',  key: null },
-                                    { label: '완료 후',  key: null },
-                                    { label: '시작',     key: 'startTime', center: true },
-                                    { label: '종료',     key: 'endTime',   center: true },
-                                    { label: '작업시간', key: null,        center: true },
-                                    { label: '불량',     key: 'faultCnt',  center: true },
-                                    { label: '관리자 승인', key: 'approved', center: true },
-                                    { label: '점검내용', key: null,        center: true },
-                                    { label: '상세',     key: null,        center: true },
-                                ].map(({ label, key, center }) => (
-                                    <th key={label}
-                                        className={`px-3 py-2.5 ${center ? 'text-center' : ''} ${key ? 'cursor-pointer select-none hover:text-letusBlue' : ''}`}
-                                        onClick={() => key && requestSort(key)}>
-                                        {label}{key && sortIcon(key)}
-                                    </th>
-                                ))}
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS_DAILYCHECK[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative px-3 py-2.5 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            draggable
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragStart={e => handleDragStart(e, visualIdx)}
+                                            onDragEnd={handleDragEnd}
+                                            onDragOver={e => handleDragOver(e, visualIdx)}
+                                            onDrop={e => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-gray-50 text-xs">
                             {filtered.length === 0 && (
-                                <tr><td colSpan={16} className="text-center py-12 text-gray-400">데이터가 없습니다</td></tr>
+                                <tr><td colSpan={colOrder.length + 1} className="text-center py-12 text-gray-400">데이터가 없습니다</td></tr>
                             )}
                             {filtered.map(({ forklift: f, record, status, fault, faultCnt }) => {
-                                const preExterior = record?.pre_exterior;
-                                const preOp       = record?.pre_op;
-                                const postOp      = record?.post_op;
-                                const worked = postOp ? diffHours(record?.created_at, record?.updated_at) : null;
                                 const isSelected = selectedIds.includes(f.id);
                                 return (
                                     <tr key={f.id}
@@ -836,84 +1025,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                                     className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                                             </label>
                                         </td>
-                                        <td className="px-3 py-2 font-bold text-letusBlue">{f.no}</td>
-                                        <td className="px-3 py-2 text-gray-600">{f.center}</td>
-                                        <td className="px-3 py-2 text-gray-600">{f.manager_org}</td>
-                                        <td className="px-3 py-2 text-gray-700">{f.driver_day || '-'}</td>
-                                        <td className="px-3 py-2"><StatusBadge status={status} /></td>
-                                        {/* 외관점검 */}
-                                        <td className="px-3 py-2 text-center">
-                                            {preExterior ? (() => {
-                                                const cnt = preExterior.filter(item => item.checked === false).length;
-                                                return (
-                                                    <span className={`font-bold ${cnt > 0 ? 'text-red-500' : 'text-green-600'}`}>
-                                                        {cnt > 0 ? `불량 ${cnt}건` : '이상없음'}
-                                                    </span>
-                                                );
-                                            })() : <span className="text-gray-300">-</span>}
-                                        </td>
-                                        {/* 운행 전 점검 */}
-                                        <td className="px-3 py-2 text-center">
-                                            {preOp ? (() => {
-                                                const cnt = preOp.filter(item => item.checked === false).length;
-                                                return (
-                                                    <span className={`font-bold ${cnt > 0 ? 'text-red-500' : 'text-green-600'}`}>
-                                                        {cnt > 0 ? `불량 ${cnt}건` : '이상없음'}
-                                                    </span>
-                                                );
-                                            })() : <span className="text-gray-300">-</span>}
-                                        </td>
-                                        {/* 작업완료 후 점검 */}
-                                        <td className="px-3 py-2 text-center">
-                                            {postOp ? (
-                                                <span className={`font-bold ${
-                                                    postOp.filter(item => item.checked === false).length > 0
-                                                        ? 'text-red-500' : 'text-green-600'}`}>
-                                                    {postOp.filter(item => item.checked === false).length > 0
-                                                        ? `불량 ${postOp.filter(item => item.checked === false).length}건`
-                                                        : '이상없음'}
-                                                </span>
-                                            ) : <span className="text-gray-300">-</span>}
-                                        </td>
-                                        <td className="px-3 py-2 text-center text-gray-600">{fmtTime(record?.created_at)}</td>
-                                        <td className="px-3 py-2 text-center text-gray-600">{postOp ? fmtTime(record?.updated_at) : '-'}</td>
-                                        <td className="px-3 py-2 text-center">
-                                            {worked
-                                                ? <span className="font-bold text-letusBlue">{worked}</span>
-                                                : <span className="text-gray-300">-</span>}
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            {faultCnt > 0
-                                                ? <span className="font-black text-red-500">{faultCnt}</span>
-                                                : <span className="text-gray-300">-</span>}
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            {record?.approved_at ? (
-                                                <div className="flex flex-col items-center gap-0.5">
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                        {record.approved_by}
-                                                    </span>
-                                                    <span className="text-[10px] text-gray-400">{fmtTime(record.approved_at)}</span>
-                                                </div>
-                                            ) : <span className="text-gray-300">-</span>}
-                                        </td>
-                                        {/* 점검내용 */}
-                                        <td className="px-3 py-2 text-center max-w-[160px]">
-                                            {record?.notes
-                                                ? <span className="text-[11px] text-gray-700 break-words">{record.notes}</span>
-                                                : <span className="text-gray-300">-</span>}
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            {record ? (
-                                                <button onClick={() => setDetailRecord(record)}
-                                                    className="text-[11px] font-bold text-letusBlue border border-letusBlue/30 bg-blue-50 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors">
-                                                    보기
-                                                </button>
-                                            ) : <span className="text-gray-300">-</span>}
-                                        </td>
+                                        {colOrder.map(origIdx => renderCell(origIdx, { forklift: f, record, status, fault, faultCnt }))}
                                     </tr>
                                 );
                             })}

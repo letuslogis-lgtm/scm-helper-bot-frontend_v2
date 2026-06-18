@@ -455,6 +455,21 @@ const ApproveConfirmModal = ({ issue, forklift, onConfirm, onClose }) => (
 );
 
 // ── 메인
+const DEFAULT_COLUMNS_FORKLIFT_ISSUE = [
+    { label: '신고일시',  key: 'reported_at',   w: 130 },
+    { label: '장비번호',  key: null,            w: 100 },
+    { label: '센터',      key: null,            w: 72  },
+    { label: '관리주체',  key: null,            w: 100 },
+    { label: '소유',      key: null,            w: 54  },
+    { label: '고장유형',  key: 'fault_type',    w: 100 },
+    { label: '에러코드',  key: 'error_code',    w: 90  },
+    { label: '고장내용',  key: null,            w: 150 },
+    { label: '정비업체',  key: 'repair_vendor', w: 100 },
+    { label: '완료일',    key: 'completed_at',  w: 88  },
+    { label: '상태',      key: 'status',        w: 80  },
+    { label: '처리',      key: null,            w: 170 },
+];
+
 export const ForkliftIssue = ({ userProfile }) => {
     const [forklifts,     setForklifts]     = useState([]);
     const [issues,        setIssues]        = useState([]);
@@ -471,6 +486,12 @@ export const ForkliftIssue = ({ userProfile }) => {
     const [completeIssue, setCompleteIssue] = useState(null);
     const [approveIssue,  setApproveIssue]  = useState(null);
     const [sortConfig,    setSortConfig]    = useState({ key: 'reported_at', dir: 'desc' });
+    const [colOrder,     setColOrder]     = useState(DEFAULT_COLUMNS_FORKLIFT_ISSUE.map((_, i) => i));
+    const [colWidths,    setColWidths]    = useState(DEFAULT_COLUMNS_FORKLIFT_ISSUE.map(c => c.w));
+    const [dragOverIdx,  setDragOverIdx]  = useState(null);
+    const resizingRef   = useRef(null);
+    const dragSrcRef    = useRef(null);
+    const wasDraggedRef = useRef(false);
 
     // forklifts 로딩
     useEffect(() => {
@@ -497,6 +518,20 @@ export const ForkliftIssue = ({ userProfile }) => {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(`letus_forklift_issue_col_${userProfile.id}`));
+            if (saved?.order?.length === DEFAULT_COLUMNS_FORKLIFT_ISSUE.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS_FORKLIFT_ISSUE.length) setColWidths(saved.widths);
+        } catch {}
+    }, [userProfile?.id]);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        localStorage.setItem(`letus_forklift_issue_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths, userProfile?.id]);
 
     const activeForklifts = useMemo(() =>
         forklifts.filter(f => !EXCLUDE_STATUSES.includes(f.status)), [forklifts]);
@@ -574,10 +609,39 @@ export const ForkliftIssue = ({ userProfile }) => {
     const requestSort = useCallback((key) => {
         setSortConfig(prev => prev.key === key && prev.dir === 'asc' ? { key, dir: 'desc' } : { key, dir: 'asc' });
     }, []);
-    const sortIcon = (key) => {
+    const getSortIcon = (key) => {
         if (sortConfig.key !== key) return null;
         return <span className="text-letusBlue font-black text-[10px] ml-0.5">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>;
     };
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS_FORKLIFT_ISSUE.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS_FORKLIFT_ISSUE.map(c => c.w));
+        if (userProfile?.id) localStorage.removeItem(`letus_forklift_issue_col_${userProfile.id}`);
+    };
+
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
 
     // 관리주체·센터 필터 기반 (1행 카드 + 리스트 공통)
     const filteredBase = useMemo(() => activeIssues.filter(issue => {
@@ -622,6 +686,74 @@ export const ForkliftIssue = ({ userProfile }) => {
             };
         }).filter(s => s.total > 0);
     }, [activeForklifts]);
+
+    const renderCell = (origIdx, issue) => {
+        const f = forkliftMap[issue.forklift_id];
+        switch (origIdx) {
+            case 0: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDt(issue.reported_at)}</td>
+            );
+            case 1: return (
+                <td key={origIdx} className="px-3 py-2 font-bold text-letusBlue whitespace-nowrap">{f?.no||'-'}</td>
+            );
+            case 2: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.center||'-'}</td>
+            );
+            case 3: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.manager_org||'-'}</td>
+            );
+            case 4: return (
+                <td key={origIdx} className="px-3 py-2">
+                    <span className={`text-xs font-bold ${f?.own_type==='자가'?'text-orange-600':'text-letusBlue'}`}>{f?.own_type||'-'}</span>
+                </td>
+            );
+            case 5: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{issue.fault_type||'-'}</td>
+            );
+            case 6: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap font-mono">{issue.error_code||'-'}</td>
+            );
+            case 7: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-600 break-keep">{issue.fault_desc}</td>
+            );
+            case 8: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-500">{issue.repair_vendor||'-'}</td>
+            );
+            case 9: return (
+                <td key={origIdx} className="px-3 py-2 text-gray-500">{fmtDate(issue.completed_at)}</td>
+            );
+            case 10: return (
+                <td key={origIdx} className="px-3 py-2 text-center"><StatusBadge status={issue.status} /></td>
+            );
+            case 11: return (
+                <td key={origIdx} className="px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => setDetailIssue(issue)}
+                            className="text-xs font-bold text-gray-500 border border-gray-200 bg-gray-50 rounded px-2 py-0.5 hover:bg-gray-100">
+                            상세
+                        </button>
+                        <button onClick={() => setEditIssue(issue)}
+                            className="text-xs font-bold text-amber-600 border border-amber-200 bg-amber-50 rounded px-2 py-0.5 hover:bg-amber-100">
+                            수정
+                        </button>
+                        {issue.status === 'accepted' && (
+                            <button onClick={() => setCompleteIssue(issue)}
+                                className="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 rounded px-2 py-0.5 hover:bg-blue-100">
+                                완료입력
+                            </button>
+                        )}
+                        {issue.status === 'completed' && (
+                            <button onClick={() => setApproveIssue(issue)}
+                                className="text-xs font-bold text-green-600 border border-green-200 bg-green-50 rounded px-2 py-0.5 hover:bg-green-100">
+                                검수승인
+                            </button>
+                        )}
+                    </div>
+                </td>
+            );
+            default: return null;
+        }
+    };
 
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
@@ -724,6 +856,14 @@ export const ForkliftIssue = ({ userProfile }) => {
                             className="w-4 h-4 accent-letusBlue cursor-pointer" />
                         <span className="text-[13px] font-bold text-gray-500">검수완료 제외</span>
                     </label>
+                    <button onClick={resetColSettings}
+                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[29px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                        title="컬럼 너비·순서를 기본값으로 초기화">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        칼럼 초기화
+                    </button>
                     <span className="ml-auto text-[13px] text-gray-400">총 {filtered.length}건</span>
                 </div>
             </div>
@@ -731,102 +871,52 @@ export const ForkliftIssue = ({ userProfile }) => {
             {/* ━━━ 테이블 ━━━ */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
-                    <table className="w-full text-left text-[13px]">
-                        <colgroup>
-                            <col style={{width:'130px'}} />
-                            <col style={{width:'100px'}} />
-                            <col style={{width:'72px'}} />
-                            <col style={{width:'100px'}} />
-                            <col style={{width:'54px'}} />
-                            <col style={{width:'100px'}} />
-                            <col style={{width:'90px'}} />
-                            <col />
-                            <col style={{width:'100px'}} />
-                            <col style={{width:'88px'}} />
-                            <col style={{width:'80px'}} />
-                            <col style={{width:'170px'}} />
-                        </colgroup>
-                        <thead className="bg-slate-50 border-b border-gray-200 text-slate-500 font-bold sticky top-0 z-10">
+                    <table className="w-full text-left whitespace-nowrap table-fixed text-[13px]">
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                {[
-                                    { label: '신고일시',  key: 'reported_at' },
-                                    { label: '장비번호',  key: null },
-                                    { label: '센터',      key: null },
-                                    { label: '관리주체',  key: null },
-                                    { label: '소유',      key: null },
-                                    { label: '고장유형',  key: 'fault_type' },
-                                    { label: '에러코드',  key: 'error_code' },
-                                    { label: '고장내용',  key: null },
-                                    { label: '정비업체',  key: 'repair_vendor' },
-                                    { label: '완료일',    key: 'completed_at' },
-                                    { label: '상태',      key: 'status', center: true },
-                                    { label: '처리',      key: null,     center: true },
-                                ].map(({ label, key, center }) => (
-                                    <th key={label}
-                                        className={`px-3 py-2.5 whitespace-nowrap ${center ? 'text-center' : ''} ${key ? 'cursor-pointer select-none hover:text-letusBlue' : ''}`}
-                                        onClick={() => key && requestSort(key)}>
-                                        {label}{key && sortIcon(key)}
-                                    </th>
-                                ))}
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS_FORKLIFT_ISSUE[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative px-3 py-2.5 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            draggable
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragStart={e => handleDragStart(e, visualIdx)}
+                                            onDragEnd={handleDragEnd}
+                                            onDragOver={e => handleDragOver(e, visualIdx)}
+                                            onDrop={e => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {isLoading && (
-                                <tr><td colSpan={12} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+                                <tr><td colSpan={colOrder.length} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
                             )}
                             {!isLoading && filtered.length === 0 && (
-                                <tr><td colSpan={12} className="text-center py-12 text-gray-400">
+                                <tr><td colSpan={colOrder.length} className="text-center py-12 text-gray-400">
                                     {activeIssues.length === 0 ? '등록된 이슈가 없습니다.' : '조건에 맞는 이슈가 없습니다.'}
                                 </td></tr>
                             )}
-                            {filtered.map(issue => {
-                                const f = forkliftMap[issue.forklift_id];
-                                return (
-                                    <tr key={issue.id}
-                                        className={`hover:bg-blue-50/30 transition-colors ${
-                                            issue.status === 'reported' ? 'bg-red-50/30' :
-                                            issue.status === 'accepted' ? 'bg-orange-50/20' : ''
-                                        }`}>
-                                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDt(issue.reported_at)}</td>
-                                        <td className="px-3 py-2 font-bold text-letusBlue whitespace-nowrap">{f?.no||'-'}</td>
-                                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.center||'-'}</td>
-                                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.manager_org||'-'}</td>
-                                        <td className="px-3 py-2">
-                                            <span className={`text-xs font-bold ${f?.own_type==='자가'?'text-orange-600':'text-letusBlue'}`}>{f?.own_type||'-'}</span>
-                                        </td>
-                                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{issue.fault_type||'-'}</td>
-                                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap font-mono">{issue.error_code||'-'}</td>
-                                        <td className="px-3 py-2 text-gray-600 break-keep">{issue.fault_desc}</td>
-                                        <td className="px-3 py-2 text-gray-500">{issue.repair_vendor||'-'}</td>
-                                        <td className="px-3 py-2 text-gray-500">{fmtDate(issue.completed_at)}</td>
-                                        <td className="px-3 py-2 text-center"><StatusBadge status={issue.status} /></td>
-                                        <td className="px-3 py-2 text-center">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button onClick={() => setDetailIssue(issue)}
-                                                    className="text-xs font-bold text-gray-500 border border-gray-200 bg-gray-50 rounded px-2 py-0.5 hover:bg-gray-100">
-                                                    상세
-                                                </button>
-                                                <button onClick={() => setEditIssue(issue)}
-                                                    className="text-xs font-bold text-amber-600 border border-amber-200 bg-amber-50 rounded px-2 py-0.5 hover:bg-amber-100">
-                                                    수정
-                                                </button>
-                                                {issue.status === 'accepted' && (
-                                                    <button onClick={() => setCompleteIssue(issue)}
-                                                        className="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 rounded px-2 py-0.5 hover:bg-blue-100">
-                                                        완료입력
-                                                    </button>
-                                                )}
-                                                {issue.status === 'completed' && (
-                                                    <button onClick={() => setApproveIssue(issue)}
-                                                        className="text-xs font-bold text-green-600 border border-green-200 bg-green-50 rounded px-2 py-0.5 hover:bg-green-100">
-                                                        검수승인
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {filtered.map(issue => (
+                                <tr key={issue.id}
+                                    className={`hover:bg-blue-50/30 transition-colors ${
+                                        issue.status === 'reported' ? 'bg-red-50/30' :
+                                        issue.status === 'accepted' ? 'bg-orange-50/20' : ''
+                                    }`}>
+                                    {colOrder.map(origIdx => renderCell(origIdx, issue))}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>

@@ -360,7 +360,24 @@ const ManualAddModal = ({ forklifts, onSave, onClose }) => {
 };
 
 // ── 탭1: 이력 목록
-const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual }) => {
+const DEFAULT_COLUMNS_REPAIR = [
+    { label: '출처',     key: null,             w: 70  },
+    { label: '장비번호', key: 'no',             w: 110 },
+    { label: '센터',     key: 'center',         w: 80  },
+    { label: '관리주체', key: 'manager_org',    w: 90  },
+    { label: '소유',     key: 'own_type',       w: 60  },
+    { label: '고장유형', key: 'fault_type',     w: 90  },
+    { label: '정비업체', key: 'repair_vendor',  w: 90  },
+    { label: '신고일',   key: 'reported_at',    w: 90  },
+    { label: '완료일',   key: 'completed_at',   w: 90  },
+    { label: '소요일수', key: 'days',           w: 70  },
+    { label: '부품비',   key: 'parts_cost',     w: 80  },
+    { label: '공임',     key: 'labor_cost',     w: 80  },
+    { label: '합계',     key: 'total_cost',     w: 90  },
+    { label: '액션',     key: null,             w: 120 },
+];
+
+const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual, userProfile }) => {
     const [filterCenter, setFilterCenter] = useState('전체');
     const [filterOrg,    setFilterOrg]    = useState('전체');
     const [filterNoCost, setFilterNoCost] = useState(false);
@@ -369,6 +386,14 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
     const today = new Date();
     const [selYear,  setSelYear]  = useState(today.getFullYear());
     const [selMonth, setSelMonth] = useState(today.getMonth());
+
+    const [sortConfig,   setSortConfig]   = useState({ key: 'completed_at', dir: 'desc' });
+    const [colOrder,     setColOrder]     = useState(DEFAULT_COLUMNS_REPAIR.map((_, i) => i));
+    const [colWidths,    setColWidths]    = useState(DEFAULT_COLUMNS_REPAIR.map(c => c.w));
+    const [dragOverIdx,  setDragOverIdx]  = useState(null);
+    const resizingRef   = useRef(null);
+    const dragSrcRef    = useRef(null);
+    const wasDraggedRef = useRef(false);
 
     const prevMonth = () => { if (selMonth === 0) { setSelYear(y => y-1); setSelMonth(11); } else setSelMonth(m => m-1); };
     const nextMonth = () => { if (selMonth === 11) { setSelYear(y => y+1); setSelMonth(0); } else setSelMonth(m => m+1); };
@@ -388,7 +413,7 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
 
     const filtered = useMemo(() => {
         const noQ = filterNo.trim().toLowerCase();
-        return repairs.filter(r => {
+        let result = repairs.filter(r => {
             if (!isSameMonth(r.completed_at, selYear, selMonth)) return false;
             const f = forkliftMap[r.forklift_id];
             if (filterCenter !== '전체' && f?.center !== filterCenter) return false;
@@ -397,12 +422,179 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
             if (noQ && !(f?.no?.toLowerCase().includes(noQ))) return false;
             return true;
         });
-    }, [repairs, forkliftMap, filterCenter, filterOrg, filterNoCost, filterNo, selYear, selMonth]);
+        const { key, dir } = sortConfig;
+        if (key) {
+            result = [...result].sort((a, b) => {
+                let av, bv;
+                const fa = forkliftMap[a.forklift_id];
+                const fb = forkliftMap[b.forklift_id];
+                if (key === 'no')               { av = fa?.no ?? ''; bv = fb?.no ?? ''; }
+                else if (key === 'center')      { av = fa?.center ?? ''; bv = fb?.center ?? ''; }
+                else if (key === 'manager_org') { av = fa?.manager_org ?? ''; bv = fb?.manager_org ?? ''; }
+                else if (key === 'own_type')    { av = fa?.own_type ?? ''; bv = fb?.own_type ?? ''; }
+                else if (key === 'fault_type')  { av = a.fault_type ?? ''; bv = b.fault_type ?? ''; }
+                else if (key === 'repair_vendor') { av = a.repair_vendor ?? ''; bv = b.repair_vendor ?? ''; }
+                else if (key === 'reported_at')   { av = a.reported_at ?? ''; bv = b.reported_at ?? ''; }
+                else if (key === 'completed_at')  { av = a.completed_at ?? ''; bv = b.completed_at ?? ''; }
+                else if (key === 'days') {
+                    const calcDays = (s, e) => s && e ? Math.floor((new Date(e)-new Date(s))/(1000*60*60*24)) : -1;
+                    av = calcDays(a.reported_at, a.completed_at);
+                    bv = calcDays(b.reported_at, b.completed_at);
+                }
+                else if (key === 'parts_cost')  { av = a.parts_cost ?? -1; bv = b.parts_cost ?? -1; }
+                else if (key === 'labor_cost')  { av = a.labor_cost ?? -1; bv = b.labor_cost ?? -1; }
+                else if (key === 'total_cost')  { av = (a.parts_cost||0)+(a.labor_cost||0); bv = (b.parts_cost||0)+(b.labor_cost||0); }
+                else { av = ''; bv = ''; }
+                if (av < bv) return dir === 'asc' ? -1 : 1;
+                if (av > bv) return dir === 'asc' ?  1 : -1;
+                return 0;
+            });
+        }
+        return result;
+    }, [repairs, forkliftMap, filterCenter, filterOrg, filterNoCost, filterNo, selYear, selMonth, sortConfig]);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(`letus_repair_col_${userProfile.id}`));
+            if (saved?.order?.length === DEFAULT_COLUMNS_REPAIR.length) setColOrder(saved.order);
+            if (saved?.widths?.length === DEFAULT_COLUMNS_REPAIR.length) setColWidths(saved.widths);
+        } catch {}
+    }, [userProfile?.id]);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        localStorage.setItem(`letus_repair_col_${userProfile.id}`, JSON.stringify({ order: colOrder, widths: colWidths }));
+    }, [colOrder, colWidths, userProfile?.id]);
+
+    const resetColSettings = () => {
+        setColOrder(DEFAULT_COLUMNS_REPAIR.map((_, i) => i));
+        setColWidths(DEFAULT_COLUMNS_REPAIR.map(c => c.w));
+        if (userProfile?.id) localStorage.removeItem(`letus_repair_col_${userProfile.id}`);
+    };
+
+    const requestSort = (key) => {
+        setSortConfig(prev => prev.key === key && prev.dir === 'asc' ? { key, dir: 'desc' } : { key, dir: 'asc' });
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return null;
+        return <span className="text-letusBlue font-black text-[10px] ml-0.5">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>;
+    };
+
+    const handleResizeStart = (e, visualIdx) => {
+        e.preventDefault(); e.stopPropagation();
+        const origIdx = colOrder[visualIdx];
+        resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const onMove = (ev) => {
+            const { origIdx, startX, startW } = resizingRef.current;
+            setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+        };
+        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    };
+    const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
+    const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
+    const handleDrop = (e, visualIdx) => {
+        e.preventDefault(); setDragOverIdx(null);
+        if (dragSrcRef.current === null || dragSrcRef.current === visualIdx) return;
+        wasDraggedRef.current = true;
+        const newOrder = [...colOrder]; const [moved] = newOrder.splice(dragSrcRef.current, 1); newOrder.splice(visualIdx, 0, moved);
+        setColOrder(newOrder); dragSrcRef.current = null;
+    };
+    const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
 
     const handleCostSave = useCallback((data) => {
         onCostSave(costTarget.id, data);
         setCostTarget(null);
     }, [costTarget, onCostSave]);
+
+    const renderCell = (origIdx, r) => {
+        const f = forkliftMap[r.forklift_id];
+        const days = diffDays(r.reported_at, r.completed_at);
+        const isPending = r.parts_cost == null && r.labor_cost == null && !r.cost_free;
+        const total = (r.parts_cost || 0) + (r.labor_cost || 0);
+
+        switch (origIdx) {
+            case 0: // 출처 배지
+                return (
+                    <td key={origIdx} className="px-3 py-2">
+                        {r.source === 'issue'
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">이슈</span>
+                            : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600">직접</span>
+                        }
+                    </td>
+                );
+            case 1: // 장비번호
+                return <td key={origIdx} className="px-3 py-2 font-bold text-letusBlue whitespace-nowrap">{f?.no || '-'}</td>;
+            case 2: // 센터
+                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.center || '-'}</td>;
+            case 3: // 관리주체
+                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.manager_org || '-'}</td>;
+            case 4: // 소유
+                return (
+                    <td key={origIdx} className="px-3 py-2 whitespace-nowrap">
+                        {f?.own_type ? <span className={`text-xs font-bold ${f.own_type === '자가' ? 'text-orange-500' : 'text-blue-400'}`}>{f.own_type}</span> : '-'}
+                    </td>
+                );
+            case 5: // 고장유형
+                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.fault_type || '-'}</td>;
+            case 6: // 정비업체
+                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.repair_vendor || '-'}</td>;
+            case 7: // 신고일
+                return <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(r.reported_at)}</td>;
+            case 8: // 완료일
+                return <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(r.completed_at)}</td>;
+            case 9: // 소요일수
+                return <td key={origIdx} className="px-3 py-2 text-center text-gray-500">{days != null ? `${days}일` : '-'}</td>;
+            case 10: // 부품비
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-right text-gray-600">
+                        {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}
+                    </td>
+                );
+            case 11: // 공임
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-right text-gray-600">
+                        {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}
+                    </td>
+                );
+            case 12: // 합계
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-right font-bold text-gray-700">
+                        {r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPending ? '-' : total.toLocaleString()}
+                    </td>
+                );
+            case 13: // 액션
+                return (
+                    <td key={origIdx} className="px-3 py-2 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                            {isPending ? (
+                                <button onClick={() => setCostTarget(r)}
+                                    className="bg-orange-500 text-white rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap">
+                                    비용 입력
+                                </button>
+                            ) : (
+                                <button onClick={() => setCostTarget(r)}
+                                    className="bg-gray-100 text-gray-600 border border-gray-200 rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap hover:bg-gray-200">
+                                    수정
+                                </button>
+                            )}
+                            {r.source === 'manual' && (
+                                <button onClick={() => onDelete(r.id)}
+                                    className="text-red-400 hover:text-red-600 p-1 ml-0.5" title="삭제">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+                    </td>
+                );
+            default: return null;
+        }
+    };
 
     return (
         <div className="flex flex-col h-full">
@@ -459,8 +651,16 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
                     <span className="text-[13px] font-bold text-gray-500">비용미입력만</span>
                 </label>
                 <span className="text-[13px] text-gray-400">총 {filtered.length}건</span>
+                <button onClick={resetColSettings}
+                    className="ml-auto flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[34px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="컬럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                </button>
                 <button onClick={onAddManual}
-                    className="ml-auto flex items-center gap-1.5 text-sm font-bold text-white bg-letusBlue hover:opacity-90 rounded-xl px-4 h-[34px] transition-opacity">
+                    className="flex items-center gap-1.5 text-sm font-bold text-white bg-letusBlue hover:opacity-90 rounded-xl px-4 h-[34px] transition-opacity">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
@@ -471,90 +671,45 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
             {/* 테이블 */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
-                    <table className="w-full text-left text-[13px]">
-                        <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs font-bold uppercase sticky top-0 z-10">
+                    <table className="w-full text-left whitespace-nowrap table-fixed text-[13px]">
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-3 py-2.5 whitespace-nowrap">출처</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">장비번호</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">센터</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">관리주체</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">소유</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">고장유형</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">정비업체</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">신고일</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">완료일</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap text-center">소요일수</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap text-right">부품비</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap text-right">공임</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap text-right">합계</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap text-center">액션</th>
+                                {colOrder.map((origIdx, visualIdx) => {
+                                    const col = DEFAULT_COLUMNS_REPAIR[origIdx];
+                                    return (
+                                        <th key={origIdx}
+                                            className={`relative px-3 py-2.5 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            style={{ width: colWidths[origIdx] }}
+                                            draggable
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                            onDragStart={e => handleDragStart(e, visualIdx)}
+                                            onDragEnd={handleDragEnd}
+                                            onDragOver={e => handleDragOver(e, visualIdx)}
+                                            onDrop={e => handleDrop(e, visualIdx)}
+                                            onDragLeave={() => setDragOverIdx(null)}
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                {col.label}
+                                                {col.key && getSortIcon(col.key)}
+                                            </div>
+                                            <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
+                                                onMouseDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {filtered.length === 0 && (
-                                <tr><td colSpan={14} className="text-center py-12 text-gray-400">
+                                <tr><td colSpan={colOrder.length} className="text-center py-12 text-gray-400">
                                     {repairs.length === 0 ? '정비이력이 없습니다.' : '조건에 맞는 이력이 없습니다.'}
                                 </td></tr>
                             )}
-                            {filtered.map(r => {
-                                const f = forkliftMap[r.forklift_id];
-                                const days = diffDays(r.reported_at, r.completed_at);
-                                const isPending = r.parts_cost == null && r.labor_cost == null && !r.cost_free;
-                                const total = (r.parts_cost || 0) + (r.labor_cost || 0);
-                                return (
-                                    <tr key={r.id} className="hover:bg-blue-50/20 transition-colors">
-                                        <td className="px-3 py-2">
-                                            {r.source === 'issue'
-                                                ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">이슈</span>
-                                                : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600">직접</span>
-                                            }
-                                        </td>
-                                        <td className="px-3 py-2 font-bold text-letusBlue whitespace-nowrap">{f?.no || '-'}</td>
-                                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.center || '-'}</td>
-                                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.manager_org || '-'}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">
-                                            {f?.own_type ? <span className={`text-xs font-bold ${f.own_type === '자가' ? 'text-orange-500' : 'text-blue-400'}`}>{f.own_type}</span> : '-'}
-                                        </td>
-                                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.fault_type || '-'}</td>
-                                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.repair_vendor || '-'}</td>
-                                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(r.reported_at)}</td>
-                                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(r.completed_at)}</td>
-                                        <td className="px-3 py-2 text-center text-gray-500">{days != null ? `${days}일` : '-'}</td>
-                                        <td className="px-3 py-2 text-right text-gray-600">
-                                            {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}
-                                        </td>
-                                        <td className="px-3 py-2 text-right text-gray-600">
-                                            {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}
-                                        </td>
-                                        <td className="px-3 py-2 text-right font-bold text-gray-700">
-                                            {r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPending ? '-' : total.toLocaleString()}
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <div className="flex items-center justify-center gap-1">
-                                                {isPending ? (
-                                                    <button onClick={() => setCostTarget(r)}
-                                                        className="bg-orange-500 text-white rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap">
-                                                        비용 입력
-                                                    </button>
-                                                ) : (
-                                                    <button onClick={() => setCostTarget(r)}
-                                                        className="bg-gray-100 text-gray-600 border border-gray-200 rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap hover:bg-gray-200">
-                                                        수정
-                                                    </button>
-                                                )}
-                                                {r.source === 'manual' && (
-                                                    <button onClick={() => onDelete(r.id)}
-                                                        className="text-red-400 hover:text-red-600 p-1 ml-0.5" title="삭제">
-                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {filtered.map(r => (
+                                <tr key={r.id} className="hover:bg-blue-50/20 transition-colors">
+                                    {colOrder.map(origIdx => renderCell(origIdx, r))}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
@@ -986,6 +1141,7 @@ export const ForkliftRepair = ({ userProfile }) => {
                         onCostSave={handleCostSave}
                         onDelete={handleDelete}
                         onAddManual={() => setShowAdd(true)}
+                        userProfile={userProfile}
                     />
                 ) : (
                     <Tab2
