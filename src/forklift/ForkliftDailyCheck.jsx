@@ -478,10 +478,9 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         const loadForklifts = async () => {
             const { data } = await supabase
                 .from('forklifts')
-                .select('id, no, model, driver_name, center, manager_org, status, shape, driver_day')
-                .not('status', 'in', '("반납","매각")')
+                .select('id, no, model, center, manager_org, status, shape, driver_day')
                 .order('no');
-            setForklifts(data || []);
+            setForklifts((data || []).filter(f => f.status !== '반납' && f.status !== '매각'));
         };
         loadForklifts();
     }, []);

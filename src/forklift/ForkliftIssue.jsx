@@ -496,8 +496,8 @@ export const ForkliftIssue = ({ userProfile }) => {
     // forklifts 로딩
     useEffect(() => {
         const fetch = async () => {
-            const { data } = await supabase.from('forklifts').select('*').not('status', 'in', '("반납","매각")').order('no');
-            setForklifts(data || []);
+            const { data } = await supabase.from('forklifts').select('id, no, model, center, manager_org, status, shape, driver_day').order('no');
+            setForklifts((data || []).filter(f => f.status !== '반납' && f.status !== '매각'));
         };
         fetch();
     }, []);
