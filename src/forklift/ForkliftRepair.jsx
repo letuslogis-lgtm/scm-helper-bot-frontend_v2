@@ -949,9 +949,9 @@ export const ForkliftRepair = ({ userProfile }) => {
     }
 
     return (
-        <div className="flex flex-col h-full bg-letusBg">
-            {/* 헤더 */}
-            <div className="px-6 pt-4 pb-0 bg-white border-b shrink-0">
+        <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
+            {/* 헤더 카드 */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 z-30 shrink-0">
                 <div className="flex items-center justify-between mb-3">
                     <div>
                         <span className="text-base font-black text-gray-800">정비·수리 이력</span>

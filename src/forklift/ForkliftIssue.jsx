@@ -624,10 +624,10 @@ export const ForkliftIssue = ({ userProfile }) => {
     }, [activeForklifts]);
 
     return (
-        <div className="flex flex-col h-full bg-letusBg">
+        <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ━━━ 헤더 ━━━ */}
-            <div className="px-6 pt-4 pb-3 bg-white border-b shrink-0">
+            {/* ━━━ 헤더 + 필터 카드 ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
                 <div className="flex items-center justify-between mb-3">
                     <div>
                         <span className="text-base font-black text-gray-800">이슈 등록</span>
@@ -650,82 +650,82 @@ export const ForkliftIssue = ({ userProfile }) => {
                     <IssueStatCard label="전체"     value={totalStats.reported + totalStats.accepted + totalStats.completed} color="text-gray-700" active={filterStatus==='전체'} onClick={() => setFilterStatus('전체')} />
                     <div className="flex-1" />
                 </div>
-            </div>
 
-            {/* ━━━ 관리주체별 현황 ━━━ */}
-            <div className="px-6 py-2.5 bg-white border-b shrink-0">
-                <div className="flex gap-2.5 overflow-x-auto pb-0.5">
-                    {orgStats.map(s => (
-                        <div key={s.org} className={`flex-shrink-0 rounded-xl border px-3.5 py-2 min-w-[140px] ${s.broken > 0 ? 'border-red-200 bg-red-50/40' : s.inRepair > 0 ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200 bg-gray-50'}`}>
-                            <p className="text-[13px] font-black text-gray-700 mb-1.5">{s.org}</p>
-                            <div className="flex gap-2.5 text-[11px]">
-                                <span className="text-green-600 font-bold">정상 {s.normal}</span>
-                                {s.inRepair > 0 && <span className="text-orange-500 font-bold">정비중 {s.inRepair}</span>}
-                                {s.broken   > 0 && <span className="text-red-500 font-bold">고장 {s.broken}</span>}
+                {/* 관리주체별 현황 */}
+                <div className="border-t border-gray-100 pt-2.5 mt-2.5">
+                    <div className="flex gap-2.5 overflow-x-auto pb-0.5">
+                        {orgStats.map(s => (
+                            <div key={s.org} className={`flex-shrink-0 rounded-xl border px-3.5 py-2 min-w-[140px] ${s.broken > 0 ? 'border-red-200 bg-red-50/40' : s.inRepair > 0 ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200 bg-gray-50'}`}>
+                                <p className="text-[13px] font-black text-gray-700 mb-1.5">{s.org}</p>
+                                <div className="flex gap-2.5 text-[11px]">
+                                    <span className="text-green-600 font-bold">정상 {s.normal}</span>
+                                    {s.inRepair > 0 && <span className="text-orange-500 font-bold">정비중 {s.inRepair}</span>}
+                                    {s.broken   > 0 && <span className="text-red-500 font-bold">고장 {s.broken}</span>}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
-            </div>
 
-            {/* ━━━ 필터 ━━━ */}
-            <div className="px-6 py-2.5 bg-white border-b shrink-0 flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">관리주체</span>
-                    <select value={filterOrg} onChange={e => { setFilterOrg(e.target.value); setFilterCenters([]); }}
-                        className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
-                        {ORGS.map(o => <option key={o}>{o}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center gap-1.5 relative" ref={centerDropRef}>
-                    <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">센터</span>
-                    <button
-                        onClick={() => setCenterDropOpen(v => !v)}
-                        className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white flex items-center gap-1.5 hover:border-gray-400"
-                    >
-                        {filterCenters.length === 0 ? '전체' : `${filterCenters.length}개 선택`}
-                        <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {centerDropOpen && (
-                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 py-1.5 min-w-[130px] max-h-60 overflow-y-auto">
-                            <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                                <input type="checkbox" checked={filterCenters.length === 0}
-                                    onChange={() => setFilterCenters([])}
-                                    className="w-3.5 h-3.5 accent-letusBlue" />
-                                <span className="text-xs font-bold text-gray-600">전체</span>
-                            </label>
-                            <div className="border-t border-gray-100 my-1" />
-                            {filteredCenters.filter(c => c !== '전체').map(c => (
-                                <label key={c} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" checked={filterCenters.includes(c)}
-                                        onChange={() => setFilterCenters(prev =>
-                                            prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
-                                        )}
+                {/* 필터 */}
+                <div className="border-t border-gray-100 pt-2.5 mt-2.5 flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">관리주체</span>
+                        <select value={filterOrg} onChange={e => { setFilterOrg(e.target.value); setFilterCenters([]); }}
+                            className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
+                            {ORGS.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-1.5 relative" ref={centerDropRef}>
+                        <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">센터</span>
+                        <button
+                            onClick={() => setCenterDropOpen(v => !v)}
+                            className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white flex items-center gap-1.5 hover:border-gray-400"
+                        >
+                            {filterCenters.length === 0 ? '전체' : `${filterCenters.length}개 선택`}
+                            <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        {centerDropOpen && (
+                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 py-1.5 min-w-[130px] max-h-60 overflow-y-auto">
+                                <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" checked={filterCenters.length === 0}
+                                        onChange={() => setFilterCenters([])}
                                         className="w-3.5 h-3.5 accent-letusBlue" />
-                                    <span className="text-xs text-gray-700">{c}</span>
+                                    <span className="text-xs font-bold text-gray-600">전체</span>
                                 </label>
-                            ))}
-                        </div>
-                    )}
+                                <div className="border-t border-gray-100 my-1" />
+                                {filteredCenters.filter(c => c !== '전체').map(c => (
+                                    <label key={c} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                                        <input type="checkbox" checked={filterCenters.includes(c)}
+                                            onChange={() => setFilterCenters(prev =>
+                                                prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
+                                            )}
+                                            className="w-3.5 h-3.5 accent-letusBlue" />
+                                        <span className="text-xs text-gray-700">{c}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">상태</span>
+                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                            className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
+                            <option value="전체">전체</option>
+                            <option value="reported">고장접수</option>
+                            <option value="accepted">정비중</option>
+                            <option value="completed">정비완료</option>
+                            {!excludeApproved && <option value="approved">검수완료</option>}
+                        </select>
+                    </div>
+                    <div className="w-px h-4 bg-gray-200" />
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" checked={excludeApproved} onChange={e => { setExcludeApproved(e.target.checked); if (!e.target.checked && filterStatus === 'approved') setFilterStatus('전체'); }}
+                            className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                        <span className="text-[13px] font-bold text-gray-500">검수완료 제외</span>
+                    </label>
+                    <span className="ml-auto text-[13px] text-gray-400">총 {filtered.length}건</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">상태</span>
-                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                        className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
-                        <option value="전체">전체</option>
-                        <option value="reported">고장접수</option>
-                        <option value="accepted">정비중</option>
-                        <option value="completed">정비완료</option>
-                        {!excludeApproved && <option value="approved">검수완료</option>}
-                    </select>
-                </div>
-                <div className="w-px h-4 bg-gray-200" />
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={excludeApproved} onChange={e => { setExcludeApproved(e.target.checked); if (!e.target.checked && filterStatus === 'approved') setFilterStatus('전체'); }}
-                        className="w-4 h-4 accent-letusBlue cursor-pointer" />
-                    <span className="text-[13px] font-bold text-gray-500">검수완료 제외</span>
-                </label>
-                <span className="ml-auto text-[13px] text-gray-400">총 {filtered.length}건</span>
             </div>
 
             {/* ━━━ 테이블 ━━━ */}

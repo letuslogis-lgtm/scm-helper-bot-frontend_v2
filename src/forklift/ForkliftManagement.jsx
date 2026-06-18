@@ -1055,10 +1055,10 @@ export const ForkliftManagement = ({ userProfile }) => {
         : null;
 
     return (
-        <div className="flex flex-col h-full bg-letusBg">
+        <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ━━━ 1영역: 현황판 ━━━ */}
-            <div className="px-6 pt-4 pb-3 bg-white border-b shrink-0">
+            {/* ━━━ 헤더 + 필터 + 툴바 카드 ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
                 <div className="flex items-center gap-2 mb-3">
                     <span className="text-base font-black text-gray-800">지게차 관리대장</span>
                     <span className="text-xs text-gray-400">전동식 운영 현황</span>
@@ -1071,10 +1071,9 @@ export const ForkliftManagement = ({ userProfile }) => {
                     <SummaryCard label="정비중"    value={stats.repair} color="text-yellow-600"  bg="bg-yellow-50 border-yellow-200" />
                     <SummaryCard label="고장"      value={stats.fault}  color="text-red-600"     bg="bg-red-50 border-red-200" />
                 </div>
-            </div>
 
-            {/* ━━━ 2영역: 조회 필터 ━━━ */}
-            <div className="px-6 py-3 bg-white border-b shrink-0">
+                {/* 조회 필터 */}
+                <div className="border-t border-gray-100 pt-2.5 mt-2.5">
                 <div className="flex items-center gap-3 flex-wrap">
                     <LabeledSelect label="관리주체" options={MANAGER_ORGS} value={filterManagerOrg} onChange={v => { setFilterManagerOrg(v); setFilterCenter([]); }} />
                     <div className="w-px h-5 bg-gray-200" />
@@ -1104,8 +1103,8 @@ export const ForkliftManagement = ({ userProfile }) => {
                 </div>
             </div>
 
-            {/* ━━━ 필터↔리스트 사이 툴바 ━━━ */}
-            <div className="px-6 py-2 bg-white border-b flex items-center shrink-0">
+                {/* 툴바 */}
+                <div className="border-t border-gray-100 pt-2.5 mt-2.5 flex items-center">
                 {/* 왼쪽: 조회 결과 수 */}
                 <span className="text-sm text-gray-500">
                     총 <strong className="text-letusBlue">{filteredData.length}</strong>건
@@ -1185,10 +1184,12 @@ export const ForkliftManagement = ({ userProfile }) => {
                         </>
                     )}
                 </div>
+                </div>
             </div>
 
             {/* ━━━ 3영역: 리스트 테이블 ━━━ */}
-            <div className="overflow-auto flex-1 custom-scrollbar outline-none">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
+            <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
                 <table className="w-full text-left whitespace-nowrap table-fixed">
                     <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                         <tr>
@@ -1268,6 +1269,7 @@ export const ForkliftManagement = ({ userProfile }) => {
                         </tbody>
                     )}
                 </table>
+            </div>
             </div>
 
             {/* ── 모달들 */}
