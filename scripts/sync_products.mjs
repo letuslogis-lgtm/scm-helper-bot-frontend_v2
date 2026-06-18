@@ -97,8 +97,7 @@ async function syncProducts() {
                 사용구분,
                 [최종변경일시(단품)]
             FROM [group].[DM_단품마스터+소속법인사별단품마스터]
-            WHERE 사용구분 <> '단종'
-              AND (
+            WHERE (
                 [최종변경일시(단품)] >= DATEADD(YEAR, -1, GETDATE())
                 OR [최종변경일시(단품)] IS NULL
               )
