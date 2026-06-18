@@ -64,6 +64,7 @@ export const MobileIssueRegister = () => {
     const [showPhotoSheet, setShowPhotoSheet] = useState(false);
     const cameraRef = useRef(null);
     const galleryRef = useRef(null);
+    const isAnalyzingRef = useRef(false);
 
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
@@ -154,49 +155,62 @@ export const MobileIssueRegister = () => {
     };
 
     const handleAiBarcode = async () => {
+        if (isAnalyzingRef.current) return;
         if (photos.length === 0) return alert('사진을 먼저 촬영해주세요.');
+        isAnalyzingRef.current = true;
         setIsAnalyzing(true);
         setAiResult(null);
         await new Promise(resolve => setTimeout(resolve, 50));
 
         try {
-            const base64 = await compressImage(photos[0].file);
+            // 순차 폴백: 코드 인식 성공 시 즉시 중단, 실패 시 다음 사진으로
+            let data = null;
+            let imageUrl = null;
 
-            // 업로드 & AI 분석 병렬 실행
-            const uploadImage = async () => {
-                try {
-                    const byteCharacters = atob(base64);
-                    const byteArray = new Uint8Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
-                    const blob = new Blob([byteArray], { type: 'image/jpeg' });
-                    const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
-                    const { error: uploadError } = await supabase.storage
-                        .from('issue_images')
-                        .upload(`barcode_scans/${filename}`, blob, { contentType: 'image/jpeg' });
-                    if (uploadError) return null;
-                    const { data: urlData } = supabase.storage.from('issue_images').getPublicUrl(`barcode_scans/${filename}`);
-                    return urlData?.publicUrl || null;
-                } catch (uploadErr) {
-                    console.warn('바코드 이미지 업로드 실패 (분석은 계속):', uploadErr);
-                    return null;
+            for (let photoIdx = 0; photoIdx < photos.length; photoIdx++) {
+                const base64 = await compressImage(photos[photoIdx].file);
+
+                const uploadThisImage = async () => {
+                    try {
+                        const byteCharacters = atob(base64);
+                        const byteArray = new Uint8Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+                        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                        const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+                        const { error: uploadError } = await supabase.storage
+                            .from('issue_images')
+                            .upload(`barcode_scans/${filename}`, blob, { contentType: 'image/jpeg' });
+                        if (uploadError) return null;
+                        const { data: urlData } = supabase.storage.from('issue_images').getPublicUrl(`barcode_scans/${filename}`);
+                        return urlData?.publicUrl || null;
+                    } catch (uploadErr) {
+                        console.warn('바코드 이미지 업로드 실패 (분석은 계속):', uploadErr);
+                        return null;
+                    }
+                };
+
+                const [url, analysisResult] = await Promise.all([
+                    uploadThisImage(),
+                    supabase.functions.invoke('analyze-barcode', { body: { image: base64, mimeType: 'image/jpeg' } }),
+                ]);
+
+                let { data: d, error } = analysisResult;
+                if (error) throw error;
+
+                // AI 서버 과부하 → 알림 표시 후 1.5초 뒤 1회 재시도
+                if (d?.retryable) {
+                    setAiResult({ retrying: true, message: '⚠️ AI 서버가 일시적으로 혼잡합니다. 재시도 중...' });
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    const retryResult = await supabase.functions.invoke('analyze-barcode', { body: { image: base64, mimeType: 'image/jpeg' } });
+                    if (retryResult.error) throw retryResult.error;
+                    d = retryResult.data;
                 }
-            };
 
-            const [imageUrl, analysisResult] = await Promise.all([
-                uploadImage(),
-                supabase.functions.invoke('analyze-barcode', { body: { image: base64, mimeType: 'image/jpeg' } }),
-            ]);
+                imageUrl = url;
+                data = d;
 
-            let { data, error } = analysisResult;
-            if (error) throw error;
-
-            // AI 서버 과부하 → 알림 표시 후 1.5초 뒤 1회 재시도
-            if (data?.retryable) {
-                setAiResult({ retrying: true, message: '⚠️ AI 서버가 일시적으로 혼잡합니다. 재시도 중...' });
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                const retryResult = await supabase.functions.invoke('analyze-barcode', { body: { image: base64, mimeType: 'image/jpeg' } });
-                if (retryResult.error) throw retryResult.error;
-                data = retryResult.data;
+                // 코드 인식 성공 시 즉시 중단
+                if (data?.product_code && data.product_code !== 'NULL') break;
             }
 
             if (data?.product_code && data?.is_valid) {
@@ -244,6 +258,7 @@ export const MobileIssueRegister = () => {
             console.error('바코드 분석 실패:', err);
             setAiResult({ success: false, message: '분석 중 오류가 발생했습니다.' });
         } finally {
+            isAnalyzingRef.current = false;
             setIsAnalyzing(false);
         }
     };
