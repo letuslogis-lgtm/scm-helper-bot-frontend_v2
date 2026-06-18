@@ -115,10 +115,13 @@ const useCountUp = (target) => {
     return display;
 };
 
-const SummaryCard = ({ label, value, labelClass, valueClass, borderClass }) => {
+const SummaryCard = ({ label, value, labelClass, valueClass, borderClass, onClick, active }) => {
     const display = useCountUp(value);
     return (
-        <div className={`bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 ${borderClass}`}>
+        <div
+            onClick={onClick}
+            className={`bg-white rounded-xl shadow-sm border p-4 flex flex-col justify-center transition-all border-b-4 ${borderClass} ${onClick ? 'cursor-pointer hover:shadow-md' : ''} ${active ? 'ring-2 ring-offset-1 ring-current shadow-md' : 'border-slate-200'}`}
+        >
             <span className={`text-xs font-bold mb-1 ${labelClass}`}>{label}</span>
             <span className={`text-2xl font-black ${valueClass}`}>
                 {display} <span className="text-sm font-bold opacity-30 ml-0.5">대</span>
@@ -1075,12 +1078,24 @@ export const ForkliftManagement = ({ userProfile }) => {
 
             {/* ━━━ 요약 카드 ━━━ */}
             <div className="grid grid-cols-6 gap-4 shrink-0">
-                <SummaryCard label="전체 장비" value={stats.total}  labelClass="text-gray-500"    valueClass="text-gray-700"    borderClass="border-b-gray-400" />
-                <SummaryCard label="자가"      value={stats.own}    labelClass="text-orange-500"  valueClass="text-orange-600"  borderClass="border-b-orange-400" />
-                <SummaryCard label="렌탈"      value={stats.rental} labelClass="text-blue-500"    valueClass="text-blue-600"    borderClass="border-b-blue-400" />
-                <SummaryCard label="정상"      value={stats.normal} labelClass="text-emerald-500" valueClass="text-emerald-600" borderClass="border-b-emerald-400" />
-                <SummaryCard label="정비중"    value={stats.repair} labelClass="text-yellow-500"  valueClass="text-yellow-600"  borderClass="border-b-yellow-400" />
-                <SummaryCard label="고장"      value={stats.fault}  labelClass="text-red-500"     valueClass="text-red-600"     borderClass="border-b-red-400" />
+                <SummaryCard label="전체 장비" value={stats.total}  labelClass="text-gray-500"    valueClass="text-gray-700"    borderClass="border-b-gray-400"
+                    active={filterOwn === '전체' && filterStatus.length === 0 && filterCenter.length === 0 && filterShape.length === 0 && filterManagerOrg === '전체'}
+                    onClick={() => { setFilterOwn('전체'); setFilterStatus([]); setFilterCenter([]); setFilterShape([]); setFilterManagerOrg('전체'); setExcludeRetired(true); setSearchValue(''); }} />
+                <SummaryCard label="자가"      value={stats.own}    labelClass="text-orange-500"  valueClass="text-orange-600"  borderClass="border-b-orange-400"
+                    active={filterOwn === '자가'}
+                    onClick={() => { setFilterOwn('자가'); setFilterStatus([]); }} />
+                <SummaryCard label="렌탈"      value={stats.rental} labelClass="text-blue-500"    valueClass="text-blue-600"    borderClass="border-b-blue-400"
+                    active={filterOwn === '렌탈'}
+                    onClick={() => { setFilterOwn('렌탈'); setFilterStatus([]); }} />
+                <SummaryCard label="정상"      value={stats.normal} labelClass="text-emerald-500" valueClass="text-emerald-600" borderClass="border-b-emerald-400"
+                    active={filterStatus.length === 1 && filterStatus[0] === '정상'}
+                    onClick={() => { setFilterStatus(['정상']); setFilterOwn('전체'); setExcludeRetired(true); }} />
+                <SummaryCard label="정비중"    value={stats.repair} labelClass="text-yellow-500"  valueClass="text-yellow-600"  borderClass="border-b-yellow-400"
+                    active={filterStatus.length === 1 && filterStatus[0] === '정비중'}
+                    onClick={() => { setFilterStatus(['정비중']); setFilterOwn('전체'); setExcludeRetired(true); }} />
+                <SummaryCard label="고장"      value={stats.fault}  labelClass="text-red-500"     valueClass="text-red-600"     borderClass="border-b-red-400"
+                    active={filterStatus.length === 1 && filterStatus[0] === '고장'}
+                    onClick={() => { setFilterStatus(['고장']); setFilterOwn('전체'); setExcludeRetired(true); }} />
             </div>
 
             {/* ━━━ 필터 + 툴바 카드 ━━━ */}
@@ -1090,20 +1105,15 @@ export const ForkliftManagement = ({ userProfile }) => {
                 <div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <LabeledSelect label="관리주체" options={MANAGER_ORGS} value={filterManagerOrg} onChange={v => { setFilterManagerOrg(v); setFilterCenter([]); }} />
-                    <div className="w-px h-5 bg-gray-200" />
                     <CheckboxDropdown label="센터" options={filterManagerOrg === '전체' ? CENTERS : CENTERS.filter(c => data.some(x => x.manager_org === filterManagerOrg && x.center === c))} selected={filterCenter} onChange={setFilterCenter} />
-                    <div className="w-px h-5 bg-gray-200" />
                     <CheckboxDropdown label="장비형태" options={SHAPES} selected={filterShape} onChange={setFilterShape} />
-                    <div className="w-px h-5 bg-gray-200" />
                     <LabeledSelect label="소유구분" options={OWN_TYPES} value={filterOwn} onChange={setFilterOwn} />
-                    <div className="w-px h-5 bg-gray-200" />
                     <CheckboxDropdown label="장비상태" options={STATUSES} selected={filterStatus} onChange={setFilterStatus} />
                     <label className="flex items-center gap-1.5 cursor-pointer">
                         <input type="checkbox" checked={excludeRetired} onChange={e => setExcludeRetired(e.target.checked)}
                             className="w-4 h-4 accent-letusBlue cursor-pointer" />
                         <span className="text-xs font-bold text-gray-500">반납·매각 제외</span>
                     </label>
-                    <div className="w-px h-5 bg-gray-200" />
                     <div className="flex items-center gap-1">
                         <select value={searchField} onChange={e => setSearchField(e.target.value)}
                             className="text-xs font-bold text-gray-600 border border-gray-300 rounded px-2 h-[28px] bg-white focus:outline-none focus:border-letusBlue">
