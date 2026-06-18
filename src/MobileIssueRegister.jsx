@@ -285,23 +285,29 @@ export const MobileIssueRegister = () => {
     };
 
     const handleSubmit = async () => {
+        // 사진 있고 AI 미분석, 품목코드 미입력 → AI 먼저 실행 후 리턴 (사용자가 결과 확인 후 재탭)
+        const needsAi = photos.length > 0 && !aiResult && !productCode.trim();
+        if (needsAi) {
+            await handleAiBarcode();
+            return;
+        }
+
         if (!brand) return alert('브랜드를 선택해주세요.');
         if (!issueType) return alert('이슈 유형을 선택해주세요.');
+        if (!productCode.trim()) return alert('품목코드를 입력해주세요.');
 
-        // 당일 중복 체크 (product_code 있을 때만)
-        if (productCode.trim()) {
-            const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
-            const { data } = await supabase
-                .from('logistics_issues')
-                .select('issue_type, reporter, created_at')
-                .eq('product_code', productCode.trim())
-                .gte('created_at', todayKST)
-                .lte('created_at', todayKST + 'T23:59:59');
+        // 당일 중복 체크
+        const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const { data } = await supabase
+            .from('logistics_issues')
+            .select('issue_type, reporter, created_at')
+            .eq('product_code', productCode.trim())
+            .gte('created_at', todayKST)
+            .lte('created_at', todayKST + 'T23:59:59');
 
-            if (data?.length > 0) {
-                setDuplicateCheck({ count: data.length, items: data });
-                return; // 팝업 표시 후 중단
-            }
+        if (data?.length > 0) {
+            setDuplicateCheck({ count: data.length, items: data });
+            return;
         }
 
         await doSubmit();
@@ -432,18 +438,6 @@ export const MobileIssueRegister = () => {
                         </div>
                     )}
 
-                    {photos.length > 0 && (
-                        <button
-                            onClick={handleAiBarcode}
-                            disabled={isAnalyzing}
-                            className={`w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm ${isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-letusBlue hover:bg-blue-800 active:scale-[0.98] text-white'}`}
-                        >
-                            {isAnalyzing ? (
-                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>인식 중...</>
-                            ) : <>🤖 AI 바코드 인식</>}
-                        </button>
-                    )}
-
                     {aiResult && (
                         <div className={`mt-3 p-3 rounded-xl text-sm font-bold border ${aiResult.retrying ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : aiResult.success ? 'bg-green-50 text-green-700 border-green-200' : aiResult.suspect ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                             {aiResult.retrying ? (
@@ -550,7 +544,7 @@ export const MobileIssueRegister = () => {
                         상세 정보
                     </h3>
                     <div>
-                        <label className="text-slate-500 text-xs font-bold mb-1.5 block">품목코드</label>
+                        <label className="text-slate-500 text-xs font-bold mb-1.5 block">품목코드 <span className="text-red-400 font-black">*</span></label>
                         <input
                             type="text"
                             value={productCode}
@@ -642,17 +636,29 @@ export const MobileIssueRegister = () => {
                 </>
             )}
 
-            {/* 하단 고정 등록 버튼 */}
+            {/* 하단 고정 버튼 (AI 분석 + 등록 통합) */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white/95 to-transparent pt-8">
-                <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className={`w-full py-[18px] rounded-xl font-black text-base flex items-center justify-center gap-2 shadow-lg transition-all ${isSubmitting ? 'bg-slate-200 text-slate-400' : 'bg-letusOrange hover:bg-orange-500 active:bg-orange-600 active:scale-[0.98] text-white shadow-orange-200'}`}
-                >
-                    {isSubmitting ? (
-                        <><svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>등록 중...</>
-                    ) : <>📋 특이사항 등록하기</>}
-                </button>
+                {(() => {
+                    const needsAi = photos.length > 0 && !aiResult && !productCode.trim();
+                    const isProcessing = isAnalyzing || isSubmitting;
+                    return (
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isProcessing}
+                            className={`w-full py-[18px] rounded-xl font-black text-base flex items-center justify-center gap-2 shadow-lg transition-all ${isProcessing ? 'bg-slate-200 text-slate-400' : needsAi ? 'bg-letusBlue hover:bg-blue-800 active:scale-[0.98] text-white shadow-blue-200' : 'bg-letusOrange hover:bg-orange-500 active:bg-orange-600 active:scale-[0.98] text-white shadow-orange-200'}`}
+                        >
+                            {isAnalyzing ? (
+                                <><svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>AI 분석 중...</>
+                            ) : isSubmitting ? (
+                                <><svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>등록 중...</>
+                            ) : needsAi ? (
+                                <>🤖 AI 분석 후 등록하기</>
+                            ) : (
+                                <>📋 특이사항 등록하기</>
+                            )}
+                        </button>
+                    );
+                })()}
             </div>
         </div>
     );
