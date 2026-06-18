@@ -42,6 +42,11 @@ import { MobileAdminIssueList } from './MobileAdminIssueList.jsx';
 import { MobileBarcodeTester } from './MobileBarcodeTester.jsx';
 import { MobileSuggestion } from './MobileSuggestion.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
+import { ForkliftDashboard } from './forklift/ForkliftDashboard.jsx';
+import { ForkliftManagement } from './forklift/ForkliftManagement.jsx';
+import { ForkliftDailyCheck } from './forklift/ForkliftDailyCheck.jsx';
+import { ForkliftRepair } from './forklift/ForkliftRepair.jsx';
+import { ForkliftIssue } from './forklift/ForkliftIssue.jsx';
 
 import { useAuth } from './hooks/useAuth.jsx';
 import { useIssues } from './hooks/useIssues.jsx';
@@ -139,6 +144,11 @@ const AppContent = () => {
                 <Route path="/wms_stock" element={<WmsStockDashboard userProfile={logic.userProfile} />} />
                 <Route path="/wms_shortage" element={<WmsShortageList userProfile={logic.userProfile} />} />
                 <Route path="/erp_inbound_config" element={<ErpInboundConfig />} />
+                <Route path="/forklift_dashboard" element={<ForkliftDashboard userProfile={logic.userProfile} />} />
+                <Route path="/forklift_list"      element={<ForkliftManagement userProfile={logic.userProfile} />} />
+                <Route path="/forklift_check"     element={<ForkliftDailyCheck userProfile={logic.userProfile} />} />
+                <Route path="/forklift_repair"    element={<ForkliftRepair userProfile={logic.userProfile} />} />
+                <Route path="/forklift_issue"     element={<ForkliftIssue userProfile={logic.userProfile} />} />
                 <Route path="*" element={<div className="p-8 text-center text-gray-500 font-bold">페이지를 찾을 수 없습니다 (404)</div>} />
             </Routes>
 

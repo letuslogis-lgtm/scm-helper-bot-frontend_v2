@@ -60,6 +60,17 @@ export const ALL_MENUS = [
         ]
     },
     {
+        id: 'forklift_menu', label: '지게차 관리',
+        icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m0 0l-3-3m3 3l-3 3M3 17h3m0 0v-4a1 1 0 011-1h10a1 1 0 011 1v4m0 0h3M6 17a2 2 0 104 0m6 0a2 2 0 104 0" /></svg>,
+        children: [
+            { id: 'forklift_dashboard', label: '지게차 현황' },
+            { id: 'forklift_list',      label: '지게차 관리대장' },
+            { id: 'forklift_check',     label: '일일점검' },
+            { id: 'forklift_repair',    label: '정비·수리 이력' },
+            { id: 'forklift_issue',     label: '이슈 등록' },
+        ]
+    },
+    {
         id: 'support_menu', label: '고객 지원',
         icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
         children: [
