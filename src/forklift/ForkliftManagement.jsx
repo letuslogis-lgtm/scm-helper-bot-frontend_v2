@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient.js';
+import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────
 // 뱃지 컴포넌트
@@ -696,6 +697,7 @@ export const ForkliftManagement = ({ userProfile }) => {
     // 모달
     const [editModal,   setEditModal]   = useState(null);   // { mode, data? }
     const [detailModal, setDetailModal] = useState(null);   // forklift 객체
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
     // ── localStorage 복원/저장 (컬럼 설정 — UI 전용, 마이그레이션 대상 아님)
     useEffect(() => {
@@ -740,6 +742,19 @@ export const ForkliftManagement = ({ userProfile }) => {
         setColOrder(DEFAULT_COLUMNS.map((_, i) => i));
         setColWidths(DEFAULT_COLUMNS.map(c => c.w));
         if (userProfile?.id) localStorage.removeItem(STORAGE_KEY(userProfile.id));
+    };
+
+    const handleExportExcel = () => {
+        setIsActionMenuOpen(false);
+        const target = selectedIds.length > 0
+            ? filteredData.filter(x => selectedIds.includes(x.id))
+            : filteredData;
+        const cols    = DEFAULT_COLUMNS.filter(c => c.key);
+        const rows    = target.map(x => cols.reduce((acc, c) => { acc[c.label] = x[c.key] ?? ''; return acc; }, {}));
+        const ws      = XLSX.utils.json_to_sheet(rows);
+        const wb      = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '지게차관리대장');
+        XLSX.writeFile(wb, `지게차관리대장_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
     // ── 필터 + 정렬
@@ -1109,65 +1124,104 @@ export const ForkliftManagement = ({ userProfile }) => {
                 </div>
             </div>
 
-                {isAdmin && (
-                <div className="border-t border-gray-100 pt-2.5 mt-2.5 flex items-center justify-end gap-2">
-                    {/* 원복 */}
-                    {hasRetired && (
-                        <button onClick={() => setRestoreModal(true)}
-                            className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 border border-emerald-300 bg-white rounded-lg px-3 h-[32px] hover:bg-emerald-50 transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                            </svg>
-                            원복 ({selectedIds.length})
-                        </button>
-                    )}
+            </div>
 
-                    {/* 반납·매각 — 선택 항목이 모두 정상/정비/고장 상태일 때만 표시 */}
-                    {selectedIds.length > 0 && !hasRetired && (
-                        <button onClick={openRetireModal}
-                            className="flex items-center gap-1.5 text-xs font-bold text-amber-600 border border-amber-300 bg-white rounded-lg px-3 h-[32px] hover:bg-amber-50 transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            반납·매각 ({selectedIds.length})
-                        </button>
-                    )}
-
-                    {/* 선택 삭제 */}
-                    {selectedIds.length > 0 && (
-                        <button onClick={openDeleteModal}
-                            className="flex items-center gap-1.5 text-xs font-bold text-red-500 border border-red-300 bg-white rounded-lg px-3 h-[32px] hover:bg-red-50 transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            삭제 ({selectedIds.length})
-                        </button>
-                    )}
-
-                    {/* 수정 — 1개 선택 시 활성화 */}
+            {/* ━━━ 선택실행 바 ━━━ */}
+            <div className="flex justify-end shrink-0 -mt-2 z-30 relative">
+                <div className="relative">
                     <button
-                        onClick={() => selectedOne && setEditModal({ mode: 'edit', data: selectedOne })}
-                        disabled={!selectedOne}
-                        className={`flex items-center gap-1.5 text-xs font-bold border rounded-lg px-3 h-[32px] transition-colors
-                            ${selectedOne
-                                ? 'text-letusBlue border-letusBlue/50 bg-blue-50 hover:bg-blue-100 cursor-pointer'
-                                : 'text-gray-300 border-gray-200 bg-white cursor-not-allowed'}`}>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        onClick={() => setIsActionMenuOpen(v => !v)}
+                        className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 py-[7px] hover:bg-gray-50 transition-all min-w-[100px] h-[32px]"
+                    >
+                        선택실행 {selectedIds.length > 0 && `(${selectedIds.length})`}
+                        <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
-                        {selectedOne ? `수정 (${selectedOne.no})` : '수정'}
                     </button>
 
-                    {/* 장비 등록 */}
-                    <button onClick={() => setEditModal({ mode: 'add' })}
-                        className="flex items-center gap-1.5 text-sm font-bold text-white bg-letusBlue rounded-lg px-4 h-[32px] hover:bg-blue-500 transition-colors shadow-sm">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        장비 등록
-                    </button>
+                    {isActionMenuOpen && (
+                        <>
+                            <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)} />
+                            <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+
+                                {/* 장비 등록 */}
+                                <button onClick={() => { setIsActionMenuOpen(false); setEditModal({ mode: 'add' }); }}
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
+                                    장비 등록
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                </button>
+
+                                {isAdmin && (
+                                    <button onClick={() => { setIsActionMenuOpen(false); alert('준비 중입니다.'); }}
+                                        className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
+                                        일괄 등록 (Excel)
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                    </button>
+                                )}
+
+                                <div className="h-px bg-gray-100 my-1" />
+
+                                {/* 수정 */}
+                                <button
+                                    onClick={() => { if (!selectedOne) return; setIsActionMenuOpen(false); setEditModal({ mode: 'edit', data: selectedOne }); }}
+                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedOne ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                    {selectedOne ? `수정 (${selectedOne.no})` : '수정'}
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+
+                                {isAdmin && (
+                                    <button
+                                        onClick={() => { if (selectedIds.length < 2) return alert('2개 이상 선택해 주세요.'); setIsActionMenuOpen(false); alert('준비 중입니다.'); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length >= 2 ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                        일괄 수정
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </button>
+                                )}
+
+                                <div className="h-px bg-gray-100 my-1" />
+
+                                {/* 엑셀 추출 */}
+                                <button onClick={handleExportExcel}
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-green-600 hover:bg-green-50 transition-colors flex items-center justify-between">
+                                    엑셀 추출 {selectedIds.length > 0 ? `(${selectedIds.length}건)` : '(전체)'}
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                </button>
+
+                                {isAdmin && (
+                                    <>
+                                        <div className="h-px bg-gray-100 my-1" />
+
+                                        {/* 반납·매각 */}
+                                        <button
+                                            onClick={() => { if (!selectedIds.length || hasRetired) return; setIsActionMenuOpen(false); openRetireModal(); }}
+                                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length > 0 && !hasRetired ? 'text-amber-600 hover:bg-amber-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                            반납·매각 {selectedIds.length > 0 && !hasRetired ? `(${selectedIds.length})` : ''}
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                        </button>
+
+                                        {/* 원복 */}
+                                        <button
+                                            onClick={() => { if (!hasRetired) return; setIsActionMenuOpen(false); setRestoreModal(true); }}
+                                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${hasRetired ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                            원복 {hasRetired ? `(${selectedIds.length})` : ''}
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                        </button>
+
+                                        <div className="h-px bg-gray-100 my-1" />
+
+                                        {/* 삭제 */}
+                                        <button
+                                            onClick={() => { if (!selectedIds.length) return; setIsActionMenuOpen(false); openDeleteModal(); }}
+                                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                            삭제 {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
-                )}
             </div>
 
             {/* ━━━ 3영역: 리스트 테이블 ━━━ */}
