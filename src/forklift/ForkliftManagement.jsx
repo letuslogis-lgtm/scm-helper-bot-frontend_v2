@@ -789,7 +789,7 @@ export const ForkliftManagement = ({ userProfile }) => {
         prev.key === key && prev.direction === 'asc' ? { key, direction: 'desc' } : { key, direction: 'asc' }
     );
     const getSortIcon = (key) => {
-        if (sortConfig.key !== key) return <span className="text-gray-300 text-[10px] ml-0.5">↕</span>;
+        if (sortConfig.key !== key) return null;
         return <span className="text-letusBlue font-black text-[10px] ml-0.5">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
     };
 
@@ -1204,21 +1204,18 @@ export const ForkliftManagement = ({ userProfile }) => {
                                 const col = DEFAULT_COLUMNS[origIdx];
                                 return (
                                     <th key={origIdx}
-                                        className={`relative px-2 py-2 text-center select-none transition-colors
-                                            ${col.key ? 'hover:bg-gray-100 cursor-pointer' : ''}
+                                        className={`relative px-2 py-2 text-center select-none transition-colors cursor-grab active:cursor-grabbing
+                                            ${col.key ? 'hover:bg-gray-100' : ''}
                                             ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                         style={{ width: colWidths[origIdx] }}
+                                        draggable
                                         onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
+                                        onDragStart={e => handleDragStart(e, visualIdx)}
+                                        onDragEnd={handleDragEnd}
                                         onDragOver={e => handleDragOver(e, visualIdx)}
                                         onDrop={e => handleDrop(e, visualIdx)}
                                         onDragLeave={() => setDragOverIdx(null)}>
                                         <div className="flex items-center justify-center gap-1">
-                                            <span draggable
-                                                onDragStart={e => handleDragStart(e, visualIdx)}
-                                                onDragEnd={handleDragEnd}
-                                                onClick={e => e.stopPropagation()}
-                                                className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-base leading-none"
-                                                title="드래그로 순서 변경">⠿</span>
                                             {col.label}
                                             {col.key && getSortIcon(col.key)}
                                         </div>

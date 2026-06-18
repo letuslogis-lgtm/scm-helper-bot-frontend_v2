@@ -575,7 +575,7 @@ export const ForkliftIssue = ({ userProfile }) => {
         setSortConfig(prev => prev.key === key && prev.dir === 'asc' ? { key, dir: 'desc' } : { key, dir: 'asc' });
     }, []);
     const sortIcon = (key) => {
-        if (sortConfig.key !== key) return <span className="text-gray-300 text-[10px] ml-0.5">↕</span>;
+        if (sortConfig.key !== key) return null;
         return <span className="text-letusBlue font-black text-[10px] ml-0.5">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>;
     };
 
@@ -729,8 +729,8 @@ export const ForkliftIssue = ({ userProfile }) => {
             </div>
 
             {/* ━━━ 테이블 ━━━ */}
-            <div className="flex-1 overflow-auto px-6 py-3">
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
                     <table className="w-full text-left text-[13px]">
                         <colgroup>
                             <col style={{width:'130px'}} />

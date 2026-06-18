@@ -469,8 +469,8 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
             </div>
 
             {/* 테이블 */}
-            <div className="flex-1 overflow-auto px-6 pb-4">
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
                     <table className="w-full text-left text-[13px]">
                         <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs font-bold uppercase sticky top-0 z-10">
                             <tr>
@@ -949,7 +949,7 @@ export const ForkliftRepair = ({ userProfile }) => {
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-50">
+        <div className="flex flex-col h-full bg-letusBg">
             {/* 헤더 */}
             <div className="px-6 pt-4 pb-0 bg-white border-b shrink-0">
                 <div className="flex items-center justify-between mb-3">
