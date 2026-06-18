@@ -644,13 +644,16 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         e.preventDefault(); e.stopPropagation();
         const origIdx = colOrder[visualIdx];
         resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
         const onMove = (ev) => {
+            if (!resizingRef.current) return;
             const { origIdx, startX, startW } = resizingRef.current;
             setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
         };
-        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        const onUp = () => { resizingRef.current = null; el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); };
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
     };
     const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
     const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
@@ -742,18 +745,18 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
 
         switch (origIdx) {
             case 0: // 관리번호
-                return <td key={origIdx} className="px-3 py-2 font-bold text-letusBlue">{f.no}</td>;
+                return <td key={origIdx} className="p-4 font-bold text-letusBlue">{f.no}</td>;
             case 1: // 센터
-                return <td key={origIdx} className="px-3 py-2 text-gray-600">{f.center}</td>;
+                return <td key={origIdx} className="p-4 text-gray-600">{f.center}</td>;
             case 2: // 관리주체
-                return <td key={origIdx} className="px-3 py-2 text-gray-600">{f.manager_org}</td>;
+                return <td key={origIdx} className="p-4 text-gray-600">{f.manager_org}</td>;
             case 3: // 탑승자
-                return <td key={origIdx} className="px-3 py-2 text-gray-700">{f.driver_day || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-gray-700">{f.driver_day || '-'}</td>;
             case 4: // 점검상태
                 return <td key={origIdx} className="px-3 py-2"><StatusBadge status={status} /></td>;
             case 5: // 외관점검
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         {preExterior ? (() => {
                             const cnt = preExterior.filter(item => item.checked === false).length;
                             return (
@@ -766,7 +769,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 );
             case 6: // 운행 전
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         {preOp ? (() => {
                             const cnt = preOp.filter(item => item.checked === false).length;
                             return (
@@ -779,7 +782,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 );
             case 7: // 완료 후
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         {postOp ? (
                             <span className={`font-bold ${
                                 postOp.filter(item => item.checked === false).length > 0
@@ -792,12 +795,12 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     </td>
                 );
             case 8: // 시작
-                return <td key={origIdx} className="px-3 py-2 text-center text-gray-600">{fmtTime(record?.created_at)}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600">{fmtTime(record?.created_at)}</td>;
             case 9: // 종료
-                return <td key={origIdx} className="px-3 py-2 text-center text-gray-600">{postOp ? fmtTime(record?.updated_at) : '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600">{postOp ? fmtTime(record?.updated_at) : '-'}</td>;
             case 10: // 작업시간
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         {worked
                             ? <span className="font-bold text-letusBlue">{worked}</span>
                             : <span className="text-gray-300">-</span>}
@@ -805,7 +808,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 );
             case 11: // 불량
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         {faultCnt > 0
                             ? <span className="font-black text-red-500">{faultCnt}</span>
                             : <span className="text-gray-300">-</span>}
@@ -813,7 +816,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 );
             case 12: // 관리자 승인
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         {record?.approved_at ? (
                             <div className="flex flex-col items-center gap-0.5">
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
@@ -829,7 +832,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 );
             case 13: // 점검내용
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center max-w-[160px]">
+                    <td key={origIdx} className="p-4 text-center max-w-[160px]">
                         {record?.notes
                             ? <span className="text-[11px] text-gray-700 break-words">{record.notes}</span>
                             : <span className="text-gray-300">-</span>}
@@ -837,7 +840,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 );
             case 14: // 상세
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         {record ? (
                             <button onClick={() => setDetailRecord(record)}
                                 className="text-[11px] font-bold text-letusBlue border border-letusBlue/30 bg-blue-50 rounded px-2 py-0.5 hover:bg-blue-100 transition-colors">
@@ -974,7 +977,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     <table className="w-full text-left whitespace-nowrap table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-3 py-2.5 w-8 shrink-0">
+                                <th className="p-4 w-8 shrink-0">
                                     <input type="checkbox"
                                         checked={filtered.length > 0 && filtered.every(r => selectedIds.includes(r.forklift.id))}
                                         onChange={e => setSelectedIds(e.target.checked ? filtered.map(r => r.forklift.id) : [])}
@@ -984,7 +987,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                     const col = DEFAULT_COLUMNS_DAILYCHECK[origIdx];
                                     return (
                                         <th key={origIdx}
-                                            className={`relative px-3 py-2.5 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                             style={{ width: colWidths[origIdx] }}
                                             draggable
                                             onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
@@ -999,7 +1002,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                                 {col.key && getSortIcon(col.key)}
                                             </div>
                                             <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
-                                                onMouseDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                                onPointerDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
                                         </th>
                                     );
                                 })}

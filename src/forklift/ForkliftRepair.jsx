@@ -486,13 +486,16 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
         e.preventDefault(); e.stopPropagation();
         const origIdx = colOrder[visualIdx];
         resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
         const onMove = (ev) => {
+            if (!resizingRef.current) return;
             const { origIdx, startX, startW } = resizingRef.current;
             setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
         };
-        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        const onUp = () => { resizingRef.current = null; el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); };
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
     };
     const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
     const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
@@ -527,48 +530,48 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
                     </td>
                 );
             case 1: // 장비번호
-                return <td key={origIdx} className="px-3 py-2 font-bold text-letusBlue whitespace-nowrap">{f?.no || '-'}</td>;
+                return <td key={origIdx} className="p-4 font-bold text-letusBlue whitespace-nowrap">{f?.no || '-'}</td>;
             case 2: // 센터
-                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.center || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{f?.center || '-'}</td>;
             case 3: // 관리주체
-                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.manager_org || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{f?.manager_org || '-'}</td>;
             case 4: // 소유
                 return (
-                    <td key={origIdx} className="px-3 py-2 whitespace-nowrap">
+                    <td key={origIdx} className="p-4 whitespace-nowrap">
                         {f?.own_type ? <span className={`text-xs font-bold ${f.own_type === '자가' ? 'text-orange-500' : 'text-blue-400'}`}>{f.own_type}</span> : '-'}
                     </td>
                 );
             case 5: // 고장유형
-                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.fault_type || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{r.fault_type || '-'}</td>;
             case 6: // 정비업체
-                return <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{r.repair_vendor || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{r.repair_vendor || '-'}</td>;
             case 7: // 신고일
-                return <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(r.reported_at)}</td>;
+                return <td key={origIdx} className="p-4 text-gray-500 whitespace-nowrap">{fmtDate(r.reported_at)}</td>;
             case 8: // 완료일
-                return <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(r.completed_at)}</td>;
+                return <td key={origIdx} className="p-4 text-gray-500 whitespace-nowrap">{fmtDate(r.completed_at)}</td>;
             case 9: // 소요일수
-                return <td key={origIdx} className="px-3 py-2 text-center text-gray-500">{days != null ? `${days}일` : '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-500">{days != null ? `${days}일` : '-'}</td>;
             case 10: // 부품비
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-right text-gray-600">
+                    <td key={origIdx} className="p-4 text-right text-gray-600">
                         {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}
                     </td>
                 );
             case 11: // 공임
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-right text-gray-600">
+                    <td key={origIdx} className="p-4 text-right text-gray-600">
                         {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}
                     </td>
                 );
             case 12: // 합계
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-right font-bold text-gray-700">
+                    <td key={origIdx} className="p-4 text-right font-bold text-gray-700">
                         {r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPending ? '-' : total.toLocaleString()}
                     </td>
                 );
             case 13: // 액션
                 return (
-                    <td key={origIdx} className="px-3 py-2 text-center">
+                    <td key={origIdx} className="p-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                             {isPending ? (
                                 <button onClick={() => setCostTarget(r)}
@@ -678,7 +681,7 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
                                     const col = DEFAULT_COLUMNS_REPAIR[origIdx];
                                     return (
                                         <th key={origIdx}
-                                            className={`relative px-3 py-2.5 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                             style={{ width: colWidths[origIdx] }}
                                             draggable
                                             onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
@@ -693,7 +696,7 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
                                                 {col.key && getSortIcon(col.key)}
                                             </div>
                                             <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
-                                                onMouseDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                                onPointerDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
                                         </th>
                                     );
                                 })}
@@ -756,9 +759,9 @@ const SubtotalTable = ({ title, rows, colLabel }) => (
                         return (
                             <tr key={i} className={isTotal ? 'bg-gray-50 font-bold' : 'hover:bg-blue-50/20'}>
                                 <td className={`px-3 py-2 ${isTotal ? 'text-gray-800 font-black' : 'text-gray-700'}`}>{row.label}</td>
-                                <td className="px-3 py-2 text-right text-gray-700">{row.count}</td>
-                                <td className="px-3 py-2 text-right text-gray-700">{row.parts > 0 ? row.parts.toLocaleString() : '-'}</td>
-                                <td className="px-3 py-2 text-right text-gray-700">{row.labor > 0 ? row.labor.toLocaleString() : '-'}</td>
+                                <td className="p-4 text-right text-gray-700">{row.count}</td>
+                                <td className="p-4 text-right text-gray-700">{row.parts > 0 ? row.parts.toLocaleString() : '-'}</td>
+                                <td className="p-4 text-right text-gray-700">{row.labor > 0 ? row.labor.toLocaleString() : '-'}</td>
                                 <td className={`px-3 py-2 text-right ${isTotal ? 'text-letusBlue font-black' : 'text-gray-700'}`}>
                                     {(row.parts + row.labor) > 0 ? (row.parts + row.labor).toLocaleString() : '-'}
                                 </td>
@@ -941,7 +944,7 @@ const Tab2 = ({ repairs, forklifts, forkliftMap }) => {
                                         const isPendingM = r.parts_cost == null && r.labor_cost == null && !r.cost_free;
                                         return (
                                             <tr key={r.id} className="hover:bg-blue-50/20">
-                                                <td className="px-3 py-2 font-bold text-letusBlue whitespace-nowrap overflow-hidden text-ellipsis">{f?.no || '-'}</td>
+                                                <td className="p-4 font-bold text-letusBlue whitespace-nowrap overflow-hidden text-ellipsis">{f?.no || '-'}</td>
                                                 <td className="px-2 py-2 text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap">{f?.work_type || '-'}</td>
                                                 <td className="px-2 py-2 whitespace-nowrap">
                                                     {f?.own_type ? <span className={`text-xs font-bold ${f.own_type === '자가' ? 'text-orange-500' : 'text-blue-400'}`}>{f.own_type}</span> : '-'}

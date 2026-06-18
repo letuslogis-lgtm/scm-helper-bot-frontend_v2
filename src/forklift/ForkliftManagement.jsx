@@ -830,7 +830,7 @@ export const ForkliftManagement = ({ userProfile }) => {
 
     // ── renderCell
     const renderCell = (origIdx, row) => {
-        const cls = "px-2 py-1.5 text-xs text-center";
+        const cls = "p-4 text-[13px] text-center";
         switch (origIdx) {
             case 0:  return <td key={origIdx} className={`${cls} font-bold text-letusBlue cursor-pointer hover:underline`}
                                 onClick={e => { e.stopPropagation(); openDetailModal(row); }}>{row.no}</td>;
@@ -1205,7 +1205,7 @@ export const ForkliftManagement = ({ userProfile }) => {
                                 const col = DEFAULT_COLUMNS[origIdx];
                                 return (
                                     <th key={origIdx}
-                                        className={`relative px-2 py-2 text-center select-none transition-colors cursor-grab active:cursor-grabbing
+                                        className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing
                                             ${col.key ? 'hover:bg-gray-100' : ''}
                                             ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                         style={{ width: colWidths[origIdx] }}

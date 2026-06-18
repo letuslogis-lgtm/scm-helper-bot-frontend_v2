@@ -624,13 +624,16 @@ export const ForkliftIssue = ({ userProfile }) => {
         e.preventDefault(); e.stopPropagation();
         const origIdx = colOrder[visualIdx];
         resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
         const onMove = (ev) => {
+            if (!resizingRef.current) return;
             const { origIdx, startX, startW } = resizingRef.current;
             setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
         };
-        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        const onUp = () => { resizingRef.current = null; el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); };
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
     };
     const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
     const handleDragOver  = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
@@ -691,16 +694,16 @@ export const ForkliftIssue = ({ userProfile }) => {
         const f = forkliftMap[issue.forklift_id];
         switch (origIdx) {
             case 0: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDt(issue.reported_at)}</td>
+                <td key={origIdx} className="p-4 text-gray-500 whitespace-nowrap">{fmtDt(issue.reported_at)}</td>
             );
             case 1: return (
-                <td key={origIdx} className="px-3 py-2 font-bold text-letusBlue whitespace-nowrap">{f?.no||'-'}</td>
+                <td key={origIdx} className="p-4 font-bold text-letusBlue whitespace-nowrap">{f?.no||'-'}</td>
             );
             case 2: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.center||'-'}</td>
+                <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{f?.center||'-'}</td>
             );
             case 3: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{f?.manager_org||'-'}</td>
+                <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{f?.manager_org||'-'}</td>
             );
             case 4: return (
                 <td key={origIdx} className="px-3 py-2">
@@ -708,25 +711,25 @@ export const ForkliftIssue = ({ userProfile }) => {
                 </td>
             );
             case 5: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-600 whitespace-nowrap">{issue.fault_type||'-'}</td>
+                <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{issue.fault_type||'-'}</td>
             );
             case 6: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-500 whitespace-nowrap font-mono">{issue.error_code||'-'}</td>
+                <td key={origIdx} className="p-4 text-gray-500 whitespace-nowrap font-mono">{issue.error_code||'-'}</td>
             );
             case 7: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-600 break-keep">{issue.fault_desc}</td>
+                <td key={origIdx} className="p-4 text-gray-600 break-keep">{issue.fault_desc}</td>
             );
             case 8: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-500">{issue.repair_vendor||'-'}</td>
+                <td key={origIdx} className="p-4 text-gray-500">{issue.repair_vendor||'-'}</td>
             );
             case 9: return (
-                <td key={origIdx} className="px-3 py-2 text-gray-500">{fmtDate(issue.completed_at)}</td>
+                <td key={origIdx} className="p-4 text-gray-500">{fmtDate(issue.completed_at)}</td>
             );
             case 10: return (
-                <td key={origIdx} className="px-3 py-2 text-center"><StatusBadge status={issue.status} /></td>
+                <td key={origIdx} className="p-4 text-center"><StatusBadge status={issue.status} /></td>
             );
             case 11: return (
-                <td key={origIdx} className="px-3 py-2 text-center">
+                <td key={origIdx} className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setDetailIssue(issue)}
                             className="text-xs font-bold text-gray-500 border border-gray-200 bg-gray-50 rounded px-2 py-0.5 hover:bg-gray-100">
@@ -878,7 +881,7 @@ export const ForkliftIssue = ({ userProfile }) => {
                                     const col = DEFAULT_COLUMNS_FORKLIFT_ISSUE[origIdx];
                                     return (
                                         <th key={origIdx}
-                                            className={`relative px-3 py-2.5 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
+                                            className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                             style={{ width: colWidths[origIdx] }}
                                             draggable
                                             onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
@@ -893,7 +896,7 @@ export const ForkliftIssue = ({ userProfile }) => {
                                                 {col.key && getSortIcon(col.key)}
                                             </div>
                                             <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
-                                                onMouseDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                                onPointerDown={e => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
                                         </th>
                                     );
                                 })}
