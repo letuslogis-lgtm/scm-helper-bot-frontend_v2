@@ -1,7 +1,7 @@
 # LETUS LOGIS — 프로젝트 맵
 
 > 일룸 물류 입고 특이사항 통합 관리 시스템  
-> 마지막 업데이트: 2026-05-21
+> 마지막 업데이트: 2026-06-18
 
 ---
 
@@ -22,9 +22,9 @@
 ```
 LetusLogis/
 ├── src/                        # React 프론트엔드
-│   ├── main.jsx                # 진입점 — 라우팅 정의 (데스크톱 28개 + 모바일 6개)
+│   ├── main.jsx                # 진입점 — 라우팅 정의 (데스크톱 33개 + 모바일 6개)
 │   ├── supabaseClient.js       # Supabase 클라이언트 초기화
-│   ├── menuConfig.jsx          # 사이드바 메뉴 구조 (8개 카테고리)
+│   ├── menuConfig.jsx          # 사이드바 메뉴 구조 (9개 카테고리)
 │   ├── MainLayout.jsx          # 전체 레이아웃 (헤더 + 사이드바 + 본문)
 │   │
 │   ├── [대시보드]
@@ -64,6 +64,21 @@ LetusLogis/
 │   │   ├── LoadingMap.jsx                # 상차 맵 관리
 │   │   ├── DatabaseDictionary.jsx        # DB 용어 정의
 │   │   └── LogisticsClosing.jsx          # 물류 마감 자동화
+│   │
+│   ├── [입고 실적 마감] /inbound_closing
+│   │   ├── inbound/InboundClosing.jsx    # 메인 페이지 (업로드 관리 / 집계 현황 탭)
+│   │   ├── inbound/InboundUploadTab.jsx  # 날짜별 파일 업로드 현황 테이블
+│   │   ├── inbound/InboundSummaryTab.jsx # 입고실적 / 반출입 / CUT 집계 뷰
+│   │   ├── inbound/InboundUploadModal.jsx# 파일 업로드 모달 (파일유형·기준일·창고명)
+│   │   ├── inbound/parsers.js            # Excel 파서 × 4종 + 브랜드 매칭 (products JOIN)
+│   │   └── inbound/constants.js          # FILE_TYPES 정의 (입고실적·반입·반출·WMS직송컷)
+│   │
+│   ├── [지게차 관리] /forklift_*
+│   │   ├── forklift/ForkliftDashboard.jsx    # 지게차 현황 대시보드 (PieChart, LineChart)
+│   │   ├── forklift/ForkliftManagement.jsx   # 지게차 관리대장 (CRUD, 변경이력, 수리이력)
+│   │   ├── forklift/ForkliftDailyCheck.jsx   # 일일점검 (사전·사후·외관 점검 + 승인)
+│   │   ├── forklift/ForkliftRepair.jsx       # 정비·수리 이력 (차트 + CRUD)
+│   │   └── forklift/ForkliftIssue.jsx        # 이슈 등록 (reported→accepted→completed→approved)
 │   │
 │   ├── [RPA / AI]
 │   │   ├── RpaManagement.jsx             # RPA 봇 실행 관리
@@ -155,15 +170,24 @@ LetusLogis/
 |--------|------|-----------|
 | `logistics_issues` | 입고 특이사항 | status, brand, item_code, reporter, action_content, worker_response, purchase_response |
 | `logistics_returns` | 회수품 / 선출고 | is_recovered, is_completed, writer |
-| `wms_shortage_list` | D-2 결품 | item_code, vendor, shortage_qty, upload_date, upload_id |
+| `wms_shortage_list` | D-2 결품 / 부족컷 | item_code, vendor, shortage_qty, upload_date, upload_id, brand(=OWNER) |
 | `wms_stock_snapshots` | 창고별 재고 스냅샷 | snapshot_date, warehouse_id, warehouse_name, company_id, company_name, item_count, stock_qty, stock_amount, anomaly_count, unpriced_count |
-| `products` | 상품 마스터 | item_code, item_color, item_name, vendor, stock, product_type |
+| `products` | 상품 마스터 | item_code, item_color, item_name, brand_category, vendor, stock, product_type |
 | `vendor_aliases` | Vendor 정규화 | raw_name, canonical_name |
 | `profiles` | 사용자 프로필 | name, role, email |
 | `rpa_jobs` | RPA 봇 정의 | rpa_name, runner_type, script_command, cron_expr, enabled |
 | `rpa_runs` | RPA 실행 이력 | definition_id, status, started_at, finished_at, triggered_by |
 | `company_holidays` | 공휴일 | holiday_date, holiday_name |
 | `ai_analysis_logs` | AI 분석 결과 | type, input, output |
+| `inbound_upload_batches` | 입고 실적 업로드 배치 | file_type, business_date, warehouse_name, row_count, uploaded_by |
+| `inbound_performance` | 입고실적등록 (ERP) | batch_id, business_date, warehouse_name, item_code, item_color, brand_category, 입고유형, 수량, 입고금액 |
+| `inbound_transfer` | 반출입 집계 (ERP) | batch_id, business_date, transfer_type(반입/반출), other_warehouse, item_code, item_color, brand_category, 수량, 금액 |
+| `inbound_cut_list` | WMS 직송컷 (수동 업로드) | batch_id, business_date, cut_type(직송컷), item_code, item_color, brand_category, wave명, cut수량 |
+| `forklifts` | 지게차 마스터 | no, model, status(정상/정비중/고장/반납/매각), center, driver_name, asset_code, own_type, manager_org |
+| `forklift_repairs` | 수리·정비 이력 | id(REP-xxx), forklift_id, repair_date, repair_type, repair_cost, repair_vendor, technician |
+| `forklift_change_logs` | 지게차 변경 이력 | forklift_id, changed_by, changed_at, fields(jsonb: [{label,before,after}]) |
+| `forklift_daily_checks` | 일일점검 기록 | forklift_id, check_date, checker_name, pre_exterior/pre_op/post_op(jsonb), approved_at, approved_by |
+| `forklift_issues` | 지게차 이슈 | id(ISS-xxx), forklift_id, fault_type, status(reported/accepted/completed/approved), reported_at |
 
 ### Supabase Storage 버킷
 
@@ -347,6 +371,24 @@ npm run preview      # 빌드 결과물 로컬 미리보기
 ---
 
 ## 최근 주요 변경 이력
+
+### 2026-06-18 (지게차 관리 메뉴 신규 개발)
+- `src/forklift/` 폴더 신규: ForkliftDashboard, ForkliftManagement, ForkliftDailyCheck, ForkliftRepair, ForkliftIssue (5개)
+- Supabase 테이블 5개 추가: forklifts, forklift_repairs, forklift_change_logs, forklift_daily_checks, forklift_issues
+- 지게차 144대 실데이터 시드 적재 완료
+- localStorage 전면 → Supabase 마이그레이션 (컬럼 UI 설정만 localStorage 유지)
+- menuConfig: `지게차 관리` 카테고리 추가 (5개 하위 메뉴)
+- 이슈 상태 4단계: reported → accepted → completed → approved
+
+### 2026-06-17 (입고 실적 마감 메뉴 신규 개발)
+- `src/inbound/` 모듈 신규 생성 (InboundClosing, UploadTab, SummaryTab, UploadModal, parsers, constants)
+- DB 테이블 4개 추가: `inbound_upload_batches`, `inbound_performance`, `inbound_transfer`, `inbound_cut_list`
+- Excel 파서 4종: 입고실적(ERP), 반입집계(ERP), 반출집계(ERP), WMS직송컷
+- 브랜드 매칭: `단품코드 + 색상` → `products` JOIN → `brand_category`
+- 부족컷은 기존 `wms_shortage_list` (RPA) 활용, 별도 업로드 불필요
+- 집계 현황: 입고실적·반출입·CUT 탭별 브랜드 집계
+- menuConfig: `물류 마감 관리` 카테고리에 `입고 실적 마감` 추가
+- 향후: 입고실적·반출입집계 RPA 자동화 예정
 
 ### 2026-05-20 (WMS 결품 2차 개발)
 - `WmsShortageList.jsx` 주요 기능 완성
