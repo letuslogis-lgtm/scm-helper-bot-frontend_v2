@@ -114,13 +114,14 @@ const useCountUp = (target) => {
     return display;
 };
 
-const SummaryCard = ({ label, value, color, bg }) => {
+const SummaryCard = ({ label, value, labelClass, valueClass, borderClass }) => {
     const display = useCountUp(value);
     return (
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${bg}`}>
-            <span className="text-xs text-gray-400 font-medium">{label}</span>
-            <span className={`text-xl font-black ${color}`}>{display}</span>
-            <span className="text-xs text-gray-400">대</span>
+        <div className={`bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-center transition-all hover:shadow-md border-b-4 ${borderClass}`}>
+            <span className={`text-xs font-bold mb-1 ${labelClass}`}>{label}</span>
+            <span className={`text-2xl font-black ${valueClass}`}>
+                {display} <span className="text-sm font-bold opacity-30 ml-0.5">대</span>
+            </span>
         </div>
     );
 };
@@ -1058,13 +1059,13 @@ export const ForkliftManagement = ({ userProfile }) => {
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
             {/* ━━━ 요약 카드 ━━━ */}
-            <div className="flex items-center gap-3 flex-wrap shrink-0">
-                <SummaryCard label="전체 장비" value={stats.total}  color="text-gray-800"    bg="bg-gray-50 border-gray-200" />
-                <SummaryCard label="자가"      value={stats.own}    color="text-letusOrange" bg="bg-orange-50 border-orange-200" />
-                <SummaryCard label="렌탈"      value={stats.rental} color="text-letusBlue"   bg="bg-blue-50 border-blue-200" />
-                <SummaryCard label="정상"      value={stats.normal} color="text-green-600"   bg="bg-green-50 border-green-200" />
-                <SummaryCard label="정비중"    value={stats.repair} color="text-yellow-600"  bg="bg-yellow-50 border-yellow-200" />
-                <SummaryCard label="고장"      value={stats.fault}  color="text-red-600"     bg="bg-red-50 border-red-200" />
+            <div className="grid grid-cols-6 gap-4 shrink-0">
+                <SummaryCard label="전체 장비" value={stats.total}  labelClass="text-gray-500"    valueClass="text-gray-700"    borderClass="border-b-gray-400" />
+                <SummaryCard label="자가"      value={stats.own}    labelClass="text-orange-500"  valueClass="text-orange-600"  borderClass="border-b-orange-400" />
+                <SummaryCard label="렌탈"      value={stats.rental} labelClass="text-blue-500"    valueClass="text-blue-600"    borderClass="border-b-blue-400" />
+                <SummaryCard label="정상"      value={stats.normal} labelClass="text-emerald-500" valueClass="text-emerald-600" borderClass="border-b-emerald-400" />
+                <SummaryCard label="정비중"    value={stats.repair} labelClass="text-yellow-500"  valueClass="text-yellow-600"  borderClass="border-b-yellow-400" />
+                <SummaryCard label="고장"      value={stats.fault}  labelClass="text-red-500"     valueClass="text-red-600"     borderClass="border-b-red-400" />
             </div>
 
             {/* ━━━ 필터 + 툴바 카드 ━━━ */}
