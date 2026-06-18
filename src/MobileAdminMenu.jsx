@@ -106,6 +106,20 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
             ],
         },
         {
+            label: '지게차 관리',
+            items: [
+                {
+                    id: 'forklift-check',
+                    icon: '🏗️',
+                    title: '일일 점검',
+                    subtitle: '순차 체크리스트 (17항목)',
+                    iconBg: 'bg-yellow-50',
+                    path: '/mobile/admin/forklift-check',
+                    badge: 0,
+                },
+            ],
+        },
+        {
             label: '개발 · 테스트',
             items: [
                 {
