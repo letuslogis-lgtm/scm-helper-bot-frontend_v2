@@ -1043,7 +1043,7 @@ export const ForkliftManagement = ({ userProfile }) => {
         setDeleteConfirmText('');
     };
 
-    const isAdmin = userProfile?.role === '관리자';
+    const isAdmin = userProfile?.role?.includes('관리자');
 
     // 원복 버튼: 선택 항목 중 반납/매각 상태인 것이 있을 때
     const hasRetired = selectedIds.length > 0
@@ -1057,23 +1057,21 @@ export const ForkliftManagement = ({ userProfile }) => {
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ━━━ 헤더 + 필터 + 툴바 카드 ━━━ */}
+            {/* ━━━ 요약 카드 ━━━ */}
+            <div className="flex items-center gap-3 flex-wrap shrink-0">
+                <SummaryCard label="전체 장비" value={stats.total}  color="text-gray-800"    bg="bg-gray-50 border-gray-200" />
+                <SummaryCard label="자가"      value={stats.own}    color="text-letusOrange" bg="bg-orange-50 border-orange-200" />
+                <SummaryCard label="렌탈"      value={stats.rental} color="text-letusBlue"   bg="bg-blue-50 border-blue-200" />
+                <SummaryCard label="정상"      value={stats.normal} color="text-green-600"   bg="bg-green-50 border-green-200" />
+                <SummaryCard label="정비중"    value={stats.repair} color="text-yellow-600"  bg="bg-yellow-50 border-yellow-200" />
+                <SummaryCard label="고장"      value={stats.fault}  color="text-red-600"     bg="bg-red-50 border-red-200" />
+            </div>
+
+            {/* ━━━ 필터 + 툴바 카드 ━━━ */}
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
-                <div className="flex items-center gap-2 mb-3">
-                    <span className="text-base font-black text-gray-800">지게차 관리대장</span>
-                    <span className="text-xs text-gray-400">전동식 운영 현황</span>
-                </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <SummaryCard label="전체 장비" value={stats.total}  color="text-gray-800"    bg="bg-gray-50 border-gray-200" />
-                    <SummaryCard label="자가"      value={stats.own}    color="text-letusOrange" bg="bg-orange-50 border-orange-200" />
-                    <SummaryCard label="렌탈"      value={stats.rental} color="text-letusBlue"   bg="bg-blue-50 border-blue-200" />
-                    <SummaryCard label="정상"      value={stats.normal} color="text-green-600"   bg="bg-green-50 border-green-200" />
-                    <SummaryCard label="정비중"    value={stats.repair} color="text-yellow-600"  bg="bg-yellow-50 border-yellow-200" />
-                    <SummaryCard label="고장"      value={stats.fault}  color="text-red-600"     bg="bg-red-50 border-red-200" />
-                </div>
 
                 {/* 조회 필터 */}
-                <div className="border-t border-gray-100 pt-2.5 mt-2.5">
+                <div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <LabeledSelect label="관리주체" options={MANAGER_ORGS} value={filterManagerOrg} onChange={v => { setFilterManagerOrg(v); setFilterCenter([]); }} />
                     <div className="w-px h-5 bg-gray-200" />
