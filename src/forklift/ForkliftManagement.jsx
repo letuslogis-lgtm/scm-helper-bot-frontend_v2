@@ -160,30 +160,30 @@ const CheckboxDropdown = ({ label, options, selected, onChange }) => {
     const displayLabel = allSelected ? '전체' : selected.length === 1 ? selected[0] : `${selected.length}개 선택`;
 
     return (
-        <div className="relative flex items-center gap-1.5" ref={ref}>
-            <span className="text-xs font-bold text-gray-500 whitespace-nowrap">{label}</span>
+        <div className="relative flex items-center gap-2" ref={ref}>
+            <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">{label}</span>
             <button
                 onClick={() => setOpen(v => !v)}
-                className={`flex items-center gap-1 text-xs font-bold border rounded px-2.5 h-[28px] min-w-[80px] bg-white hover:border-letusBlue transition-colors ${open ? 'border-letusBlue' : 'border-gray-300'}`}
+                className={`flex items-center gap-1 text-[11px] font-bold border rounded-[3px] px-2.5 h-[30px] min-w-[80px] bg-white hover:border-letusBlue transition-colors ${open ? 'border-letusBlue text-letusBlue' : 'border-gray-200 text-gray-700'}`}
             >
-                <span className="flex-1 text-left text-gray-600">{displayLabel}</span>
+                <span className="flex-1 text-left">{displayLabel}</span>
                 <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
             {open && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[130px] py-1">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-[3px] shadow-lg z-50 min-w-[130px] py-1">
                     <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
                         <input type="checkbox" checked={allSelected} onChange={toggleAll}
-                            className="w-4 h-4 accent-letusBlue cursor-pointer" />
-                        <span className="text-sm font-bold text-gray-700">전체</span>
+                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                        <span className="text-xs font-bold text-gray-700">전체</span>
                     </label>
                     <div className="border-t border-gray-100 my-0.5" />
                     {options.map(opt => (
                         <label key={opt} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
                             <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)}
-                                className="w-4 h-4 accent-letusBlue cursor-pointer" />
-                            <span className="text-sm text-gray-700">{opt}</span>
+                                className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                            <span className="text-xs text-gray-700">{opt}</span>
                         </label>
                     ))}
                 </div>
@@ -194,10 +194,10 @@ const CheckboxDropdown = ({ label, options, selected, onChange }) => {
 
 // 단일선택 드롭다운 (라벨 포함)
 const LabeledSelect = ({ label, options, value, onChange }) => (
-    <div className="flex items-center gap-1.5">
-        <span className="text-xs font-bold text-gray-500 whitespace-nowrap">{label}</span>
+    <div className="flex items-center gap-2">
+        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">{label}</span>
         <select value={value} onChange={e => onChange(e.target.value)}
-            className="text-xs font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[28px] bg-white focus:outline-none focus:border-letusBlue min-w-[80px]">
+            className="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-[3px] px-2.5 h-[30px] bg-white focus:outline-none focus:border-letusBlue min-w-[80px] cursor-pointer">
             <option value="전체">전체</option>
             {options.map(o => <option key={o}>{o}</option>)}
         </select>
@@ -1102,42 +1102,43 @@ export const ForkliftManagement = ({ userProfile }) => {
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
 
                 {/* 조회 필터 */}
-                <div>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-5 flex-wrap">
                     <LabeledSelect label="관리주체" options={MANAGER_ORGS} value={filterManagerOrg} onChange={v => { setFilterManagerOrg(v); setFilterCenter([]); }} />
                     <CheckboxDropdown label="센터" options={filterManagerOrg === '전체' ? CENTERS : CENTERS.filter(c => data.some(x => x.manager_org === filterManagerOrg && x.center === c))} selected={filterCenter} onChange={setFilterCenter} />
                     <CheckboxDropdown label="장비형태" options={SHAPES} selected={filterShape} onChange={setFilterShape} />
                     <LabeledSelect label="소유구분" options={OWN_TYPES} value={filterOwn} onChange={setFilterOwn} />
                     <CheckboxDropdown label="장비상태" options={STATUSES} selected={filterStatus} onChange={setFilterStatus} />
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={excludeRetired} onChange={e => setExcludeRetired(e.target.checked)}
-                            className="w-4 h-4 accent-letusBlue cursor-pointer" />
-                        <span className="text-xs font-bold text-gray-500">반납·매각 제외</span>
-                    </label>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center shrink-0 bg-blue-50/50 px-3 h-[30px] rounded-[3px] border border-blue-100">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-letusBlue h-full">
+                            <input type="checkbox" checked={excludeRetired} onChange={e => setExcludeRetired(e.target.checked)}
+                                className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                            반납·매각 제외
+                        </label>
+                    </div>
+                    <div className="flex items-center gap-0 h-[30px]">
                         <select value={searchField} onChange={e => setSearchField(e.target.value)}
-                            className="text-xs font-bold text-gray-600 border border-gray-300 rounded px-2 h-[28px] bg-white focus:outline-none focus:border-letusBlue">
+                            className="border border-gray-200 border-r-0 rounded-l-[3px] text-[11px] px-2 text-gray-700 bg-gray-50 focus:outline-none cursor-pointer h-full font-bold">
                             <option>관리번호</option>
                             <option>렌탈업체</option>
                         </select>
                         <input type="text" placeholder="검색어 입력"
                             value={searchValue} onChange={e => setSearchValue(e.target.value)}
-                            className="text-xs text-gray-600 border border-gray-300 rounded px-3 h-[28px] w-36 focus:outline-none focus:border-letusBlue" />
+                            className="border border-gray-200 rounded-r-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
                     </div>
-                    <button onClick={resetColSettings}
-                        className="ml-auto flex items-center gap-1.5 text-xs font-bold text-gray-600 border border-gray-300 bg-white rounded-lg px-3 h-[28px] hover:bg-gray-50 transition-colors">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        칼럼 초기화
-                    </button>
                 </div>
-            </div>
 
             </div>
 
             {/* ━━━ 선택실행 바 ━━━ */}
-            <div className="flex justify-end shrink-0 -mt-2 z-30 relative">
+            <div className="flex justify-end items-center gap-2 shrink-0 -mt-2 z-30 relative">
+                <button onClick={resetColSettings}
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="칼럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                </button>
                 <div className="relative">
                     <button
                         onClick={() => setIsActionMenuOpen(v => !v)}
