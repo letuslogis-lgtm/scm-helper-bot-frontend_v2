@@ -1100,91 +1100,75 @@ export const ForkliftManagement = ({ userProfile }) => {
                             value={searchValue} onChange={e => setSearchValue(e.target.value)}
                             className="text-xs text-gray-600 border border-gray-300 rounded px-3 h-[28px] w-36 focus:outline-none focus:border-letusBlue" />
                     </div>
-                </div>
-            </div>
-
-                {/* 툴바 */}
-                <div className="border-t border-gray-100 pt-2.5 mt-2.5 flex items-center">
-                {/* 왼쪽: 조회 결과 수 */}
-                <span className="text-sm text-gray-500">
-                    총 <strong className="text-letusBlue">{filteredData.length}</strong>건
-                    {selectedIds.length > 0 && (
-                        <span className="ml-2 text-letusOrange font-bold">{selectedIds.length}건 선택됨</span>
-                    )}
-                </span>
-
-                {/* 오른쪽: 액션 버튼들 */}
-                <div className="ml-auto flex items-center gap-2">
-                    {/* 칼럼 초기화 */}
                     <button onClick={resetColSettings}
-                        className="flex items-center gap-1.5 text-xs font-bold text-gray-600 border border-gray-300 bg-white rounded-lg px-3 h-[32px] hover:bg-gray-50 transition-colors">
+                        className="ml-auto flex items-center gap-1.5 text-xs font-bold text-gray-600 border border-gray-300 bg-white rounded-lg px-3 h-[28px] hover:bg-gray-50 transition-colors">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                         칼럼 초기화
                     </button>
+                </div>
+            </div>
 
-                    {isAdmin && (
-                        <>
-                            {/* 원복 */}
-                            {hasRetired && (
-                                <button onClick={() => setRestoreModal(true)}
-                                    className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 border border-emerald-300 bg-white rounded-lg px-3 h-[32px] hover:bg-emerald-50 transition-colors">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                    </svg>
-                                    원복 ({selectedIds.length})
-                                </button>
-                            )}
-
-                            {/* 반납·매각 — 선택 항목이 모두 정상/정비/고장 상태일 때만 표시 */}
-                            {selectedIds.length > 0 && !hasRetired && (
-                                <button onClick={openRetireModal}
-                                    className="flex items-center gap-1.5 text-xs font-bold text-amber-600 border border-amber-300 bg-white rounded-lg px-3 h-[32px] hover:bg-amber-50 transition-colors">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    반납·매각 ({selectedIds.length})
-                                </button>
-                            )}
-
-                            {/* 선택 삭제 */}
-                            {selectedIds.length > 0 && (
-                                <button onClick={openDeleteModal}
-                                    className="flex items-center gap-1.5 text-xs font-bold text-red-500 border border-red-300 bg-white rounded-lg px-3 h-[32px] hover:bg-red-50 transition-colors">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    삭제 ({selectedIds.length})
-                                </button>
-                            )}
-
-                            {/* 수정 — 1개 선택 시 활성화 */}
-                            <button
-                                onClick={() => selectedOne && setEditModal({ mode: 'edit', data: selectedOne })}
-                                disabled={!selectedOne}
-                                className={`flex items-center gap-1.5 text-xs font-bold border rounded-lg px-3 h-[32px] transition-colors
-                                    ${selectedOne
-                                        ? 'text-letusBlue border-letusBlue/50 bg-blue-50 hover:bg-blue-100 cursor-pointer'
-                                        : 'text-gray-300 border-gray-200 bg-white cursor-not-allowed'}`}>
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                                {selectedOne ? `수정 (${selectedOne.no})` : '수정'}
-                            </button>
-
-                            {/* 장비 등록 */}
-                            <button onClick={() => setEditModal({ mode: 'add' })}
-                                className="flex items-center gap-1.5 text-sm font-bold text-white bg-letusBlue rounded-lg px-4 h-[32px] hover:bg-blue-500 transition-colors shadow-sm">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                장비 등록
-                            </button>
-                        </>
+                {isAdmin && (
+                <div className="border-t border-gray-100 pt-2.5 mt-2.5 flex items-center justify-end gap-2">
+                    {/* 원복 */}
+                    {hasRetired && (
+                        <button onClick={() => setRestoreModal(true)}
+                            className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 border border-emerald-300 bg-white rounded-lg px-3 h-[32px] hover:bg-emerald-50 transition-colors">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
+                            원복 ({selectedIds.length})
+                        </button>
                     )}
+
+                    {/* 반납·매각 — 선택 항목이 모두 정상/정비/고장 상태일 때만 표시 */}
+                    {selectedIds.length > 0 && !hasRetired && (
+                        <button onClick={openRetireModal}
+                            className="flex items-center gap-1.5 text-xs font-bold text-amber-600 border border-amber-300 bg-white rounded-lg px-3 h-[32px] hover:bg-amber-50 transition-colors">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            반납·매각 ({selectedIds.length})
+                        </button>
+                    )}
+
+                    {/* 선택 삭제 */}
+                    {selectedIds.length > 0 && (
+                        <button onClick={openDeleteModal}
+                            className="flex items-center gap-1.5 text-xs font-bold text-red-500 border border-red-300 bg-white rounded-lg px-3 h-[32px] hover:bg-red-50 transition-colors">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            삭제 ({selectedIds.length})
+                        </button>
+                    )}
+
+                    {/* 수정 — 1개 선택 시 활성화 */}
+                    <button
+                        onClick={() => selectedOne && setEditModal({ mode: 'edit', data: selectedOne })}
+                        disabled={!selectedOne}
+                        className={`flex items-center gap-1.5 text-xs font-bold border rounded-lg px-3 h-[32px] transition-colors
+                            ${selectedOne
+                                ? 'text-letusBlue border-letusBlue/50 bg-blue-50 hover:bg-blue-100 cursor-pointer'
+                                : 'text-gray-300 border-gray-200 bg-white cursor-not-allowed'}`}>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        {selectedOne ? `수정 (${selectedOne.no})` : '수정'}
+                    </button>
+
+                    {/* 장비 등록 */}
+                    <button onClick={() => setEditModal({ mode: 'add' })}
+                        className="flex items-center gap-1.5 text-sm font-bold text-white bg-letusBlue rounded-lg px-4 h-[32px] hover:bg-blue-500 transition-colors shadow-sm">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        장비 등록
+                    </button>
                 </div>
-                </div>
+                )}
             </div>
 
             {/* ━━━ 3영역: 리스트 테이블 ━━━ */}

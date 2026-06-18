@@ -193,6 +193,36 @@ const renderCell = (origIdx, row) => {
 - `getSortIcon(key)` 함수: 활성 컬럼만 `↑`/`↓` (`text-letusBlue font-black`), 비활성은 `null` 반환
 - 행 선택 스타일: `bg-blue-50` (선택), `hover:bg-blue-50/30` (hover)
 
+### ⚠️ 패딩 규칙 (절대 변경 금지)
+- **`<th>` 패딩**: 반드시 `p-4` — `px-2 py-2`, `px-3 py-2.5` 등 변형 절대 사용 금지
+- **`<td>` 패딩**: 반드시 `p-4` — `px-2 py-1.5`, `px-3 py-2` 등 변형 절대 사용 금지
+- **폰트 크기**: `text-[13px]` (table 또는 td 레벨) — `text-xs` 사용 금지
+- renderCell의 각 `<td>` 첫 className은 반드시 `"p-4 ..."`로 시작
+
+### ⚠️ 칼럼 리사이즈 핸들러 (반드시 pointer capture 방식 사용)
+`<th draggable>` 내부에서 `onMouseDown` + `document.mousemove` 방식은 브라우저 drag-and-drop에 의해 mousemove가 차단됨. 반드시 아래 방식 사용:
+```jsx
+// resize handle div: onMouseDown → onPointerDown
+<div ... onPointerDown={e => handleResizeStart(e, visualIdx)} />
+
+// handleResizeStart: document 이벤트 → el.setPointerCapture + el 이벤트
+const handleResizeStart = (e, visualIdx) => {
+    e.preventDefault(); e.stopPropagation();
+    const origIdx = colOrder[visualIdx];
+    resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const onMove = (ev) => {
+        if (!resizingRef.current) return;
+        const { origIdx, startX, startW } = resizingRef.current;
+        setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
+    };
+    const onUp = () => { resizingRef.current = null; el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); };
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+};
+```
+
 ---
 
 ## 프로젝트 개요
