@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const SECTIONS = [
@@ -61,26 +61,160 @@ const Spinner = () => (
     </svg>
 );
 
-// ── 시작 화면
+// ── 시작 화면 (NFC 3트랙: 자동스캔 / 수동버튼 / 텍스트 입력)
 const StartScreen = ({ onStart }) => {
     const [forkliftNo, setForkliftNo] = useState('');
-    return (
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-            <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mb-5 text-3xl">🏗️</div>
-            <h2 className="text-xl font-black text-slate-800 mb-1">일일 지게차 점검</h2>
-            <p className="text-slate-400 text-sm mb-8 text-center">총 {TOTAL}개 항목을 순서대로 점검합니다.<br/>지게차 번호를 입력하고 시작해 주세요.</p>
+    // 'checking' | 'auto-scanning' | 'scanning' | 'success' | 'error' | 'unsupported'
+    const [nfcStatus, setNfcStatus] = useState('checking');
+    const abortRef = useRef(null);
 
-            <div className="w-full max-w-sm space-y-4">
+    const doScan = async () => {
+        if (abortRef.current) abortRef.current.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        try {
+            const reader = new window.NDEFReader();
+            await reader.scan({ signal: controller.signal });
+            reader.onreading = (e) => {
+                const rec = e.message.records[0];
+                if (!rec) return;
+                const text = new TextDecoder(rec.encoding || 'utf-8').decode(rec.data).trim();
+                setForkliftNo(text);
+                setNfcStatus('success');
+                controller.abort();
+            };
+            reader.onerror = () => setNfcStatus('error');
+        } catch (err) {
+            if (err.name !== 'AbortError') setNfcStatus('error');
+        }
+    };
+
+    useEffect(() => {
+        if (!('NDEFReader' in window)) {
+            setNfcStatus('unsupported');
+            return;
+        }
+        // 트랙 ①: 진입 시 자동 스캔
+        setNfcStatus('auto-scanning');
+        doScan();
+        return () => abortRef.current?.abort();
+    }, []);
+
+    // 트랙 ②: 수동 재스캔
+    const handleRescan = () => {
+        setForkliftNo('');
+        setNfcStatus('scanning');
+        doScan();
+    };
+
+    const isScanning = nfcStatus === 'auto-scanning' || nfcStatus === 'scanning';
+    const nfcVisible = nfcStatus !== 'unsupported' && nfcStatus !== 'checking';
+
+    return (
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+            <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mb-4 text-3xl">🏗️</div>
+            <h2 className="text-xl font-black text-slate-800 mb-1">일일 지게차 점검</h2>
+            <p className="text-slate-400 text-sm mb-7 text-center">총 {TOTAL}개 항목을 순서대로 점검합니다.</p>
+
+            <div className="w-full max-w-sm space-y-5">
+
+                {/* NFC 영역 — Android Chrome (NDEFReader 지원) 에서만 표시 */}
+                {nfcVisible && (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-center gap-4 shadow-sm">
+                        {/* 링 애니메이션 */}
+                        <div className={`relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300 ${
+                            nfcStatus === 'success' ? 'bg-green-50 border-2 border-green-300' :
+                            nfcStatus === 'error'   ? 'bg-red-50 border-2 border-red-300' :
+                                                      'bg-blue-50 border-2 border-blue-200'
+                        }`}>
+                            {isScanning && (
+                                <>
+                                    <span className="absolute inset-0 rounded-full border-2 border-blue-300 animate-ping opacity-40" />
+                                    <span className="absolute rounded-full border border-blue-200 animate-ping opacity-20"
+                                          style={{ inset: '-10px', animationDelay: '0.35s' }} />
+                                </>
+                            )}
+                            <span className="text-4xl select-none">
+                                {nfcStatus === 'success' ? '✅' : nfcStatus === 'error' ? '❌' : '📶'}
+                            </span>
+                        </div>
+
+                        {/* 상태 메시지 */}
+                        <div className="text-center">
+                            {nfcStatus === 'auto-scanning' && (
+                                <>
+                                    <p className="font-bold text-slate-700 text-sm">NFC 자동 인식 대기 중</p>
+                                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                        지게차에 부착된 NFC 스티커에<br/>기기를 가져다 대세요
+                                    </p>
+                                </>
+                            )}
+                            {nfcStatus === 'scanning' && (
+                                <>
+                                    <p className="font-bold text-slate-700 text-sm">스캔 중...</p>
+                                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                        기기를 스티커에 가까이 대주세요
+                                    </p>
+                                </>
+                            )}
+                            {nfcStatus === 'success' && (
+                                <>
+                                    <p className="font-bold text-green-600 text-sm">인식 완료!</p>
+                                    <p className="text-xs text-slate-400 mt-1">지게차 번호가 자동 입력됐어요</p>
+                                </>
+                            )}
+                            {nfcStatus === 'error' && (
+                                <>
+                                    <p className="font-bold text-red-500 text-sm">인식 실패</p>
+                                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                        다시 시도하거나 아래에 직접 입력해 주세요
+                                    </p>
+                                </>
+                            )}
+                        </div>
+
+                        {/* 트랙 ②: 수동 재스캔 버튼 — 성공/실패 시 노출 */}
+                        {(nfcStatus === 'success' || nfcStatus === 'error') && (
+                            <button
+                                onClick={handleRescan}
+                                className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-bold active:bg-slate-200 transition-colors"
+                            >
+                                🔄 다시 스캔
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* 구분선 — NFC 지원 기기에서만 */}
+                {nfcVisible && (
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-slate-200" />
+                        <span className="text-xs text-slate-400">또는 직접 입력</span>
+                        <div className="flex-1 h-px bg-slate-200" />
+                    </div>
+                )}
+
+                {/* 트랙 ③: 텍스트 입력 — 모든 기기에서 항상 표시 */}
                 <div>
-                    <label className="text-xs font-bold text-slate-500 mb-1.5 block">지게차 번호 <span className="text-red-400">*</span></label>
+                    {nfcStatus === 'unsupported' && (
+                        <p className="text-xs text-slate-400 mb-3 text-center">지게차 번호를 입력하고 시작해 주세요.</p>
+                    )}
+                    <label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                        지게차 번호 <span className="text-red-400">*</span>
+                    </label>
                     <input
                         type="text"
                         value={forkliftNo}
                         onChange={e => setForkliftNo(e.target.value)}
                         placeholder="예: F-001"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-letusBlue focus:ring-1 focus:ring-letusBlue transition-all"
+                        className={`w-full rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none transition-all border ${
+                            nfcStatus === 'success'
+                                ? 'bg-green-50 border-green-300 focus:border-green-400 focus:ring-1 focus:ring-green-300'
+                                : 'bg-slate-50 border-slate-200 focus:border-letusBlue focus:ring-1 focus:ring-letusBlue'
+                        }`}
                     />
                 </div>
+
                 <button
                     onClick={() => forkliftNo.trim() && onStart(forkliftNo.trim())}
                     disabled={!forkliftNo.trim()}
