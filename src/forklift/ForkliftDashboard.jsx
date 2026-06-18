@@ -83,9 +83,9 @@ const StatCard = ({ label, value, sub, color }) => {
 // 섹션 카드 래퍼
 // ─────────────────────────────────────────────────────────
 const SectionCard = ({ title, sub, children }) => (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
+    <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-slate-200 p-4 flex flex-col">
         <div className="mb-3">
-            <span className="font-black text-gray-800 text-sm">{title}</span>
+            <span className="font-black text-gray-800 text-base">{title}</span>
             {sub && <span className="text-xs text-gray-400 ml-2">{sub}</span>}
         </div>
         {children}
@@ -173,13 +173,13 @@ const StatusTooltip = ({ active, payload, forklifts, issues, total }) => {
 const DonutChart = ({ data, centerValue, centerLabel, customTooltip, ccw }) => {
     const total = data.reduce((s, d) => s + d.value, 0);
     return (
-    <div className="relative" style={{ height: 190 }}>
+    <div className="relative" style={{ height: 220 }}>
         {/* 중앙 텍스트 — z-index 낮게 설정해서 툴팁 위로 올라오지 않도록 */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
             <span className="text-3xl font-black text-gray-800 leading-none">{centerValue}</span>
             <span className="text-xs text-gray-400 mt-1">{centerLabel}</span>
         </div>
-        <ResponsiveContainer width="100%" height={190}>
+        <ResponsiveContainer width="100%" height={220}>
             <PieChart>
                 <Pie
                     data={data.filter(d => d.value > 0)}
@@ -766,8 +766,8 @@ export const ForkliftDashboard = ({ userProfile }) => {
     }, [data, todayStr, todayChecks]);
 
     return (
-        <div className="h-full overflow-auto custom-scrollbar bg-letusBg">
-            <div className="p-4 space-y-4">
+        <div className="h-full overflow-auto custom-scrollbar bg-slate-100">
+            <div className="p-6 flex flex-col gap-5">
 
                 {/* ── 1행: 요약 카드 */}
                 <div className="grid grid-cols-6 gap-3">
@@ -825,7 +825,7 @@ export const ForkliftDashboard = ({ userProfile }) => {
                     </SectionCard>
 
                     {/* 전체 가동률 추이 꺾은선 */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
+                    <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-slate-200 p-4 flex flex-col">
                         <div className="flex items-center justify-between mb-3">
                             <div>
                                 <span className="font-black text-gray-800 text-sm">전체 가동률 추이</span>
@@ -845,8 +845,8 @@ export const ForkliftDashboard = ({ userProfile }) => {
                         <ResponsiveContainer width="100%" height={270}>
                             <LineChart
                                 data={lineView === '월간' ? monthlyOpRate : dailyOpRate}
-                                margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
                                 <XAxis
                                     dataKey={lineView === '월간' ? 'month' : 'day'}
                                     tick={{ fontSize: 10, fill: '#94a3b8' }}
@@ -857,7 +857,7 @@ export const ForkliftDashboard = ({ userProfile }) => {
                                     tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                                 <Tooltip
                                     formatter={(value) => [`${value}%`, '가동률']}
-                                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: 12 }}
                                     labelStyle={{ fontWeight: 900, color: '#1e293b', marginBottom: 4 }}
                                 />
                                 <Line type="monotone" dataKey="가동률"
