@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient.js';
 import { usePermissions } from '../hooks/usePermissions.js';
+import { DateRangeInput } from '../SharedUI.jsx';
 
 const CENTER_ORDER = ['양지1','양지2','양지3','안성','평택','음성','대전','대구','부산','광주','전북','전남','울산','창원','기장','제주','이케아'];
 const sortCenters = arr => [...arr].sort((a, b) => { const ia = CENTER_ORDER.indexOf(a); const ib = CENTER_ORDER.indexOf(b); if (ia === -1 && ib === -1) return a.localeCompare(b); if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; });
@@ -516,7 +517,9 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     const [filterCenter,   setFilterCenter]   = useState([]);
     const [filterStatus,   setFilterStatus]   = useState('전체');
     const [filterFaultOnly, setFilterFaultOnly] = useState(false);
+    const [searchField,    setSearchField]    = useState('관리번호');
     const [searchQ,        setSearchQ]        = useState('');
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [checks,         setChecks]         = useState([]); // Supabase rows 배열
     const [forklifts,      setForklifts]      = useState([]); // Supabase forklifts 배열
     const [detailRecord,   setDetailRecord]   = useState(null);
@@ -740,10 +743,11 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         if (filterCenter.length > 0)   r = r.filter(row => filterCenter.includes(row.forklift.center));
         if (searchQ) {
             const q = searchQ.toLowerCase();
-            r = r.filter(row => row.forklift.no?.toLowerCase().includes(q) || row.forklift.driver_day?.toLowerCase().includes(q));
+            if (searchField === '관리번호') r = r.filter(row => row.forklift.no?.toLowerCase().includes(q));
+            else                           r = r.filter(row => row.forklift.driver_day?.toLowerCase().includes(q));
         }
         return r;
-    }, [rows, filterOrg, filterCenter, searchQ]);
+    }, [rows, filterOrg, filterCenter, searchQ, searchField]);
 
     // 필터 + 정렬 적용
     const filtered = useMemo(() => {
@@ -980,9 +984,11 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     {/* 조회일자 */}
                     <div className="flex items-center gap-2">
                         <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회일자</span>
-                        <input type="date" value={selectedDate}
-                            onChange={e => setSelectedDate(e.target.value)}
-                            className="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-[3px] px-2.5 h-[30px] bg-white focus:outline-none focus:border-letusBlue cursor-pointer" />
+                        <DateRangeInput
+                            startDate={selectedDate}
+                            endDate=""
+                            onChange={(s) => { if (s) setSelectedDate(s); }}
+                        />
                     </div>
                     <LabeledSelect label="관리주체" options={ORGS} value={filterOrg} onChange={v => { setFilterOrg(v); setFilterCenter([]); }} />
                     <CheckboxDropdown label="센터" options={filteredCenters} selected={filterCenter} onChange={setFilterCenter} />
@@ -997,33 +1003,22 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                             <option value="unchecked">미점검</option>
                         </select>
                     </div>
-                    {/* 검색 + 버튼 */}
-                    <div className="flex items-center gap-2 ml-auto">
-                        <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                            placeholder="관리번호·탑승자 검색"
-                            className="text-[11px] border border-gray-200 rounded-[3px] px-2.5 h-[30px] w-36 focus:outline-none focus:border-letusBlue" />
-                        <button onClick={() => setPrintModal(true)}
-                            className="flex items-center gap-1.5 text-[11px] font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-[3px] px-3 h-[30px] transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                            </svg>
-                            출력
-                        </button>
-                        {selectedIds.length > 0 && can('forklift_check', 'approve') && (
-                            <button onClick={openApprovalModal}
-                                className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-green-500 hover:bg-green-600 rounded-[3px] px-3 h-[30px] transition-colors">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                관리자 승인 ({selectedIds.length}건)
-                            </button>
-                        )}
+                    {/* 검색 */}
+                    <div className="flex items-center gap-0 h-[30px] ml-auto">
+                        <select value={searchField} onChange={e => setSearchField(e.target.value)}
+                            className="border border-gray-200 border-r-0 rounded-l-[3px] text-[11px] px-2 text-gray-700 bg-gray-50 focus:outline-none cursor-pointer h-full font-bold">
+                            <option>관리번호</option>
+                            <option>탑승자</option>
+                        </select>
+                        <input type="text" placeholder="검색어 입력"
+                            value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                            className="border border-gray-200 rounded-r-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
                     </div>
                 </div>
             </div>
 
-            {/* ━━━ 칼럼 초기화 (헤더~테이블 사이) ━━━ */}
-            <div className="flex justify-end items-center shrink-0 -mt-2 z-30 relative">
+            {/* ━━━ 칼럼 초기화 + 선택실행 ━━━ */}
+            <div className="flex justify-end items-center gap-2 shrink-0 -mt-2 z-30 relative">
                 <button onClick={resetColSettings}
                     className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
                     title="칼럼 너비·순서를 기본값으로 초기화">
@@ -1032,6 +1027,44 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     </svg>
                     칼럼 초기화
                 </button>
+                <div className="relative">
+                    <button
+                        onClick={() => setIsActionMenuOpen(v => !v)}
+                        className="flex items-center justify-between gap-2 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 transition-colors min-w-[110px]">
+                        선택실행{selectedIds.length > 0 && ` (${selectedIds.length})`}
+                        <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    {isActionMenuOpen && (
+                        <>
+                            <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)} />
+                            <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                <button
+                                    onClick={() => { setPrintModal(true); setIsActionMenuOpen(false); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors">
+                                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                    </svg>
+                                    출력
+                                </button>
+                                <button
+                                    onClick={() => { if (selectedIds.length > 0 && can('forklift_check', 'approve')) { openApprovalModal(); setIsActionMenuOpen(false); } }}
+                                    disabled={selectedIds.length === 0 || !can('forklift_check', 'approve')}
+                                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
+                                        selectedIds.length > 0 && can('forklift_check', 'approve')
+                                            ? 'text-green-700 hover:bg-green-50'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                    }`}>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    관리자 승인{selectedIds.length > 0 && ` (${selectedIds.length}건)`}
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* ━━━ 테이블 ━━━ */}
