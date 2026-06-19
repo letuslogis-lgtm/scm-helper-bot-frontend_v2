@@ -318,29 +318,33 @@ const StatusBadge = ({ status }) => {
     );
 };
 
-// ── 요약 카드
-const SumCard = ({ label, value, sub, color, bg }) => {
+const useCountUp = (target) => {
     const [display, setDisplay] = useState(0);
     useEffect(() => {
-        if (value === 0) { setDisplay(0); return; }
-        let start = 0;
-        const duration = 600;
-        const step = Math.ceil(value / (duration / 16));
+        if (target === 0) { setDisplay(0); return; }
+        const steps = 40;
+        const interval = 500 / steps;
+        let step = 0;
         const timer = setInterval(() => {
-            start += step;
-            if (start >= value) { setDisplay(value); clearInterval(timer); }
-            else setDisplay(start);
-        }, 16);
+            step++;
+            setDisplay(Math.round(target * (step / steps)));
+            if (step >= steps) clearInterval(timer);
+        }, interval);
         return () => clearInterval(timer);
-    }, [value]);
+    }, [target]);
+    return display;
+};
+
+const SummaryCard = ({ label, value, sub, labelClass, valueClass, borderClass, onClick, active }) => {
+    const display = useCountUp(value);
     return (
-        <div className={`flex flex-col gap-0.5 px-4 py-3 rounded-xl border ${bg}`}>
-            <span className="text-xs font-bold text-gray-400">{label}</span>
-            <div className="flex items-end gap-1">
-                <span className={`text-2xl font-black ${color}`}>{display}</span>
-                <span className="text-xs text-gray-400 mb-0.5">건</span>
-            </div>
-            {sub && <span className="text-[10px] text-gray-400">{sub}</span>}
+        <div onClick={onClick}
+            className={`bg-white rounded-xl border p-4 flex flex-col justify-center transition-all border-b-4 ${borderClass} ${onClick ? 'cursor-pointer' : ''} ${active ? 'shadow-lg -translate-y-0.5 border-slate-300' : 'shadow-sm border-slate-200 hover:shadow-md'}`}>
+            <span className={`text-xs font-bold mb-1 ${labelClass}`}>{label}</span>
+            <span className={`text-2xl font-black ${valueClass}`}>
+                {display} <span className="text-sm font-bold opacity-30 ml-0.5">건</span>
+            </span>
+            {sub && <span className="text-[10px] text-gray-400 mt-0.5">{sub}</span>}
         </div>
     );
 };
@@ -511,6 +515,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     const [filterOrg,      setFilterOrg]      = useState('전체');
     const [filterCenter,   setFilterCenter]   = useState([]);
     const [filterStatus,   setFilterStatus]   = useState('전체');
+    const [filterFaultOnly, setFilterFaultOnly] = useState(false);
     const [searchQ,        setSearchQ]        = useState('');
     const [checks,         setChecks]         = useState([]); // Supabase rows 배열
     const [forklifts,      setForklifts]      = useState([]); // Supabase forklifts 배열
@@ -728,19 +733,23 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     };
     const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
 
+    // 카드 필터 제외한 기준 집합 (요약 카드 수치에 반영)
+    const statsBase = useMemo(() => {
+        let r = rows;
+        if (filterOrg !== '전체')      r = r.filter(row => row.forklift.manager_org === filterOrg);
+        if (filterCenter.length > 0)   r = r.filter(row => filterCenter.includes(row.forklift.center));
+        if (searchQ) {
+            const q = searchQ.toLowerCase();
+            r = r.filter(row => row.forklift.no?.toLowerCase().includes(q) || row.forklift.driver_day?.toLowerCase().includes(q));
+        }
+        return r;
+    }, [rows, filterOrg, filterCenter, searchQ]);
+
     // 필터 + 정렬 적용
     const filtered = useMemo(() => {
-        let r = rows.filter(row => {
-            if (filterOrg    !== '전체' && row.forklift.manager_org !== filterOrg)    return false;
-            if (filterCenter.length > 0 && !filterCenter.includes(row.forklift.center)) return false;
-            if (filterStatus !== '전체' && row.status               !== filterStatus) return false;
-            if (searchQ) {
-                const q = searchQ.toLowerCase();
-                if (!row.forklift.no?.toLowerCase().includes(q) &&
-                    !row.forklift.driver_day?.toLowerCase().includes(q)) return false;
-            }
-            return true;
-        });
+        let r = statsBase;
+        if (filterStatus !== '전체') r = r.filter(row => row.status === filterStatus);
+        if (filterFaultOnly)         r = r.filter(row => row.fault);
 
         const { key, dir } = sortConfig;
         if (key) {
@@ -774,19 +783,16 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             });
         }
         return r;
-    }, [rows, filterOrg, filterCenter, filterStatus, searchQ, sortConfig]);
+    }, [statsBase, filterStatus, filterFaultOnly, sortConfig]);
 
-    // 요약 통계
-    const stats = useMemo(() => {
-        const base = filterOrg === '전체' && filterCenter.length === 0 ? rows : filtered;
-        return {
-            total:      base.length,
-            done:       base.filter(r => r.status === 'done').length,
-            inProgress: base.filter(r => r.status === 'inProgress').length,
-            unchecked:  base.filter(r => r.status === 'unchecked').length,
-            faults:     base.filter(r => r.fault).length,
-        };
-    }, [rows, filtered, filterOrg, filterCenter]);
+    // 요약 통계 (카드 필터 미적용 statsBase 기준)
+    const stats = useMemo(() => ({
+        total:      statsBase.length,
+        done:       statsBase.filter(r => r.status === 'done').length,
+        inProgress: statsBase.filter(r => r.status === 'inProgress').length,
+        unchecked:  statsBase.filter(r => r.status === 'unchecked').length,
+        faults:     statsBase.filter(r => r.fault).length,
+    }), [statsBase]);
 
     // 점검율 계산
     const checkRate = stats.total > 0 ? Math.round((stats.done + stats.inProgress) / stats.total * 100) : 0;
@@ -911,30 +917,66 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ━━━ 요약 카드 + 필터 카드 ━━━ */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
-                {/* 요약 카드 */}
-                <div className="flex items-center gap-3 flex-wrap mb-2.5">
-                    <SumCard label="전체 장비"  value={stats.total}      color="text-gray-800"    bg="bg-gray-50 border-gray-200" />
-                    <SumCard label="점검 완료"  value={stats.done}       color="text-green-600"   bg="bg-green-50 border-green-200"
-                        sub={`점검율 ${checkRate}%`} />
-                    <SumCard label="운행 중"    value={stats.inProgress} color="text-letusBlue"   bg="bg-blue-50 border-blue-200" />
-                    <SumCard label="미점검"     value={stats.unchecked}  color="text-gray-500"    bg="bg-gray-50 border-gray-200" />
-                    <SumCard label="불량 발생"  value={stats.faults}     color="text-red-600"     bg="bg-red-50 border-red-200" />
-                    {/* 점검율 프로그레스 바 */}
-                    <div className="flex-1 min-w-[160px]">
-                        <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                            <span>점검율</span><span className="font-bold text-gray-600">{checkRate}%</span>
+            {/* ━━━ 요약 카드 ━━━ */}
+            <div className="grid grid-cols-5 gap-4 shrink-0">
+                <SummaryCard label="전체 장비" value={stats.total}
+                    labelClass="text-gray-500" valueClass="text-gray-700" borderClass="border-b-gray-400"
+                    active={filterStatus === '전체' && !filterFaultOnly}
+                    onClick={() => { setFilterStatus('전체'); setFilterFaultOnly(false); }} />
+                <SummaryCard label="점검 완료" value={stats.done}
+                    labelClass="text-green-500" valueClass="text-green-600" borderClass="border-b-green-400"
+                    sub={`점검율 ${checkRate}%`}
+                    active={filterStatus === 'done' && !filterFaultOnly}
+                    onClick={() => { setFilterStatus('done'); setFilterFaultOnly(false); }} />
+                <SummaryCard label="운행 중" value={stats.inProgress}
+                    labelClass="text-blue-500" valueClass="text-letusBlue" borderClass="border-b-blue-400"
+                    active={filterStatus === 'inProgress' && !filterFaultOnly}
+                    onClick={() => { setFilterStatus('inProgress'); setFilterFaultOnly(false); }} />
+                <SummaryCard label="미점검" value={stats.unchecked}
+                    labelClass="text-gray-400" valueClass="text-gray-500" borderClass="border-b-gray-300"
+                    active={filterStatus === 'unchecked' && !filterFaultOnly}
+                    onClick={() => { setFilterStatus('unchecked'); setFilterFaultOnly(false); }} />
+                <SummaryCard label="불량 발생" value={stats.faults}
+                    labelClass="text-red-500" valueClass="text-red-600" borderClass="border-b-red-400"
+                    active={filterFaultOnly}
+                    onClick={() => { setFilterFaultOnly(v => !v); setFilterStatus('전체'); }} />
+            </div>
+
+            {/* ━━━ 점검율 세그먼트 바 ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-5 py-3 shrink-0">
+                <div className="flex h-2 rounded overflow-hidden gap-0.5 mb-2">
+                    {stats.total > 0 && <>
+                        <div className="bg-green-500 rounded-sm transition-all duration-700"
+                            style={{ width: `${stats.done / stats.total * 100}%` }} />
+                        <div className="bg-blue-500 rounded-sm transition-all duration-700"
+                            style={{ width: `${stats.inProgress / stats.total * 100}%` }} />
+                        <div className="bg-slate-200 rounded-sm transition-all duration-700"
+                            style={{ width: `${stats.unchecked / stats.total * 100}%` }} />
+                    </>}
+                </div>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                            <div className="w-2 h-2 rounded-sm bg-green-500" />
+                            점검 완료 {stats.done}건
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-letusBlue rounded-full transition-all duration-[1400ms]"
-                                style={{ width: `${checkRate}%` }} />
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                            <div className="w-2 h-2 rounded-sm bg-blue-500" />
+                            운행 중 {stats.inProgress}건
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                            <div className="w-2 h-2 rounded-sm bg-slate-300" />
+                            미점검 {stats.unchecked}건
                         </div>
                     </div>
+                    <span className="text-[11px] font-bold text-green-600">점검율 {checkRate}%</span>
                 </div>
+            </div>
 
+            {/* ━━━ 필터 카드 ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
                 {/* 필터 */}
-                <div className="border-t border-gray-100 pt-2.5 flex items-center gap-5 flex-wrap">
+                <div className="flex items-center gap-5 flex-wrap">
                     {/* 조회일자 */}
                     <div className="flex items-center gap-2">
                         <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회일자</span>
@@ -947,7 +989,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     {/* 점검상태 */}
                     <div className="flex items-center gap-2">
                         <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">점검상태</span>
-                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setFilterFaultOnly(false); }}
                             className="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-[3px] px-2.5 h-[30px] bg-white focus:outline-none focus:border-letusBlue cursor-pointer">
                             <option value="전체">전체</option>
                             <option value="done">완료</option>
