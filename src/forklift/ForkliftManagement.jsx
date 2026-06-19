@@ -949,7 +949,7 @@ export const ForkliftManagement = ({ userProfile }) => {
                 .map(k => ({ label: FIELD_LABELS[k], before: old[k] || '', after: form[k] || '' }));
 
             // forklifts 테이블 업데이트
-            const { data: updated } = await supabase.from('forklifts').update({
+            const { data: updated, error: updateError } = await supabase.from('forklifts').update({
                 no:             form.no,
                 center:         form.center,
                 manager_org:    form.manager_org,
@@ -971,6 +971,11 @@ export const ForkliftManagement = ({ userProfile }) => {
                 updated_at:     new Date().toISOString(),
             }).eq('id', form.id).select().single();
 
+            if (updateError) {
+                console.error('[수정 오류]', updateError);
+                alert(`저장 실패: ${updateError.message}`);
+                return;
+            }
             if (updated) {
                 setData(prev => prev.map(x => x.id === form.id ? updated : x));
             }
