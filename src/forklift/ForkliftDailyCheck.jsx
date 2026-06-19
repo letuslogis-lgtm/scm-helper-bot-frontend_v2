@@ -908,15 +908,12 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {record?.approved_at ? (
-                            <div className="flex flex-col items-center gap-0.5">
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    {record.approved_by}
-                                </span>
-                                <span className="text-[10px] text-gray-400">{fmtTime(record.approved_at)}</span>
-                            </div>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                {record.approved_by}
+                            </span>
                         ) : <span className="text-gray-300">-</span>}
                     </td>
                 );
@@ -1140,8 +1137,8 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                         className={`hover:bg-blue-50/30 transition-colors
                                             ${fault ? 'bg-red-50/40' : ''}
                                             ${isSelected ? 'bg-blue-50/60' : ''}`}>
-                                        <td className="px-3 py-2">
-                                            <label className="flex items-center justify-center cursor-pointer px-1">
+                                        <td className="p-4 text-center">
+                                            <label className="flex items-center justify-center cursor-pointer">
                                                 <input type="checkbox" checked={isSelected}
                                                     onChange={e => setSelectedIds(prev =>
                                                         e.target.checked ? [...prev, f.id] : prev.filter(x => x !== f.id)
