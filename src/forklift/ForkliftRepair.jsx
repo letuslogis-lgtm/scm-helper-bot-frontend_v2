@@ -1051,9 +1051,9 @@ const Tab2 = ({ repairs, forklifts, forkliftMap, selYear, selMonth }) => {
                                                 <td className="px-2 py-2 text-gray-600">
                                                     <span className="block truncate" title={r.repair_desc || ''}>{r.repair_desc || '-'}</span>
                                                 </td>
-                                                <td className="px-2 py-2 text-left text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}</td>
-                                                <td className="px-2 py-2 text-left text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}</td>
-                                                <td className="px-2 py-2 text-left font-bold text-gray-700">{r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPendingM ? '-' : total.toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-right text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}</td>
+                                                <td className="px-2 py-2 text-right text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}</td>
+                                                <td className="px-2 py-2 text-right font-bold text-gray-700">{r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPendingM ? '-' : total.toLocaleString()}</td>
                                             </tr>
                                         );
                                     })}
