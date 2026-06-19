@@ -79,7 +79,7 @@ const ForkliftPicker = ({ forklifts, value, onChange }) => {
             ) : (
                 <input value={query} onChange={e => { setQuery(e.target.value); setOpen(true); }}
                     onFocus={() => setOpen(true)}
-                    placeholder="장비번호 · 센터 · 관리주체로 검색"
+                    placeholder="관리번호 · 센터 · 관리주체로 검색"
                     className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
             )}
             {open && !selected && (
@@ -563,7 +563,7 @@ const ManualAddModal = ({ forklifts, onSave, onClose }) => {
 // ── 탭1: 이력 목록
 const DEFAULT_COLUMNS_REPAIR = [
     { label: '출처',     key: null,             w: 70  },
-    { label: '장비번호', key: 'no',             w: 110 },
+    { label: '관리번호', key: 'no',             w: 110 },
     { label: '센터',     key: 'center',         w: 80  },
     { label: '관리주체', key: 'manager_org',    w: 90  },
     { label: '소유',     key: 'own_type',       w: 60  },
@@ -1294,7 +1294,7 @@ export const ForkliftRepair = ({ userProfile }) => {
                     <LabeledSelect label="관리주체" options={['전체', ...ORGS.filter(o => o !== '전체')]} value={filterOrg} onChange={setFilterOrg} />
                     <CheckboxDropdown label="센터" options={CENTERS.filter(c => c !== '전체')} selected={filterCenter === '전체' ? [] : [filterCenter]} onChange={v => setFilterCenter(v.length === 0 ? '전체' : v[v.length - 1])} />
                     <div className="flex items-center gap-0 h-[30px]">
-                        <input type="text" placeholder="장비번호 검색" value={filterNo} onChange={e => setFilterNo(e.target.value)}
+                        <input type="text" placeholder="관리번호 검색" value={filterNo} onChange={e => setFilterNo(e.target.value)}
                             className="border border-gray-200 rounded-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
                     </div>
                 </div>
