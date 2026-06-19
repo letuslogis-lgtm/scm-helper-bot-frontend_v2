@@ -234,9 +234,9 @@ const koreanToMonth = (v) => {
 };
 
 // 공통 input 스타일
-const INP = "w-full text-sm border border-gray-300 rounded px-2 h-[34px] focus:outline-none focus:border-letusBlue bg-white";
-const SEL = "w-full text-sm border border-gray-300 rounded px-2 h-[34px] focus:outline-none focus:border-letusBlue bg-white";
-const LBL = "block text-xs font-bold text-gray-500 mb-1";
+const INP = "w-full border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white";
+const SEL = "w-full border border-gray-300 rounded-[4px] px-3.5 py-2 text-[11px] focus:outline-none focus:border-letusBlue transition-all bg-white text-gray-800 font-medium cursor-pointer";
+const LBL = "block text-xs font-bold text-gray-700 mb-1";
 
 // 최대 6개 표시 + 스크롤 커스텀 드롭다운 (센터용)
 const ScrollSelect = ({ value, onChange, options }) => {
@@ -291,15 +291,16 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-                <div className="px-6 py-4 border-b flex items-center justify-between shrink-0">
-                    <h2 className="font-bold text-gray-800 text-base">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col slide-up">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                    <h2 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-letusOrange rounded-full mr-2 inline-block"></span>
                         {mode === 'add' ? '지게차 신규 등록' : `지게차 정보 수정 — ${data?.no}`}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors leading-none text-base">✕</button>
                 </div>
-                <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                <div className="p-6 bg-slate-50 overflow-y-auto flex-1 custom-scrollbar max-h-[70vh]">
                     <div className="grid grid-cols-2 gap-4">
 
                         {/* 관리번호 */}
@@ -442,13 +443,13 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
 
                     </div>
                 </div>
-                <div className="px-6 py-4 border-t flex justify-end gap-2 shrink-0">
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
                     <button onClick={onClose}
-                        className="text-sm font-bold text-gray-500 border border-gray-300 bg-white rounded px-4 h-[36px] hover:bg-gray-50">
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
                         취소
                     </button>
                     <button onClick={handleSaveClick}
-                        className="text-sm font-bold text-white bg-letusBlue rounded px-5 h-[36px] hover:bg-blue-500 transition-colors">
+                        className="px-5 py-[9px] bg-letusBlue text-white text-[11px] font-bold rounded-[3px] hover:bg-blue-600 transition-colors">
                         {mode === 'add' ? '등록하기' : '저장하기'}
                     </button>
                 </div>
@@ -496,30 +497,31 @@ const ForkliftDetailModal = ({ forklift, onClose, onAddRepair, repairHistory, ch
     );
 
     return (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col slide-up">
                 {/* 헤더 */}
-                <div className="px-6 py-4 border-b flex items-center justify-between shrink-0">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
                     <div className="flex items-center gap-3">
+                        <span className="w-1.5 h-3.5 bg-letusOrange rounded-full inline-block shrink-0"></span>
                         <div>
-                            <span className="font-black text-gray-800 text-base">{forklift.no}</span>
-                            <span className="ml-2 text-sm text-gray-400">{forklift.center} · {forklift.shape} · {forklift.model}</span>
+                            <span className="text-sm font-bold text-gray-800">{forklift.no}</span>
+                            <span className="ml-2 text-xs text-gray-400">{forklift.center} · {forklift.shape} · {forklift.model}</span>
                         </div>
                         <span className="text-[10px] font-mono text-gray-300 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
                             ID: {forklift.id}
                         </span>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors leading-none text-base">✕</button>
                 </div>
 
                 {/* 탭 */}
-                <div className="px-6 flex gap-1 border-b shrink-0">
+                <div className="px-5 flex gap-1 border-b border-gray-100 bg-white shrink-0">
                     <TAB id="info"    label="기본 정보"      count={0} />
                     <TAB id="repair"  label="수리·정비 이력" count={repairHistory.length} />
                     <TAB id="changes" label="정보 변경 이력" count={changeLogs.length} />
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                <div className="p-6 bg-slate-50 overflow-y-auto flex-1 custom-scrollbar max-h-[70vh]">
 
                     {/* ── 탭1: 기본 정보 */}
                     {tab === 'info' && (
@@ -565,35 +567,35 @@ const ForkliftDetailModal = ({ forklift, onClose, onAddRepair, repairHistory, ch
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                                     <div className="grid grid-cols-2 gap-3 mb-3">
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 block mb-1">구분</label>
+                                            <label className="text-xs font-bold text-gray-700 block mb-1">구분</label>
                                             <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
-                                                className="w-full text-sm border border-gray-300 rounded px-2 h-[32px] focus:outline-none focus:border-letusBlue bg-white">
+                                                className="w-full border border-gray-300 rounded-[4px] px-3 py-1.5 text-[11px] focus:outline-none focus:border-letusBlue transition-all bg-white text-gray-800 font-medium cursor-pointer">
                                                 {HISTORY_TYPES.map(t => <option key={t}>{t}</option>)}
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 block mb-1">날짜</label>
+                                            <label className="text-xs font-bold text-gray-700 block mb-1">날짜</label>
                                             <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                                                className="w-full text-sm border border-gray-300 rounded px-2 h-[32px] focus:outline-none focus:border-letusBlue bg-white" />
+                                                className="w-full border border-gray-300 rounded-[4px] px-3 py-1.5 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white" />
                                         </div>
                                         <div className="col-span-2">
-                                            <label className="text-xs font-bold text-gray-500 block mb-1">내용</label>
+                                            <label className="text-xs font-bold text-gray-700 block mb-1">내용</label>
                                             <input value={form.detail} onChange={e => setForm(p => ({ ...p, detail: e.target.value }))}
                                                 placeholder="수리/정비 내용을 입력하세요"
-                                                className="w-full text-sm border border-gray-300 rounded px-2 h-[32px] focus:outline-none focus:border-letusBlue bg-white" />
+                                                className="w-full border border-gray-300 rounded-[4px] px-3 py-1.5 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white" />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 block mb-1">비용 (원)</label>
+                                            <label className="text-xs font-bold text-gray-700 block mb-1">비용 (원)</label>
                                             <input value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))}
                                                 placeholder="예: 150000"
-                                                className="w-full text-sm border border-gray-300 rounded px-2 h-[32px] focus:outline-none focus:border-letusBlue bg-white" />
+                                                className="w-full border border-gray-300 rounded-[4px] px-3 py-1.5 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white" />
                                         </div>
                                     </div>
                                     <div className="flex gap-2 justify-end">
                                         <button onClick={() => setShowForm(false)}
-                                            className="text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded px-3 h-[28px]">취소</button>
+                                            className="px-4 py-[7px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">취소</button>
                                         <button onClick={handleAdd} disabled={isSaving}
-                                            className="text-xs font-bold text-white bg-letusBlue rounded px-3 h-[28px] hover:bg-blue-500 disabled:opacity-50">
+                                            className="px-4 py-[7px] bg-letusBlue text-white text-[11px] font-bold rounded-[3px] hover:bg-blue-600 transition-colors disabled:opacity-50">
                                             {isSaving ? '저장 중...' : '저장'}
                                         </button>
                                     </div>
@@ -655,9 +657,9 @@ const ForkliftDetailModal = ({ forklift, onClose, onAddRepair, repairHistory, ch
                     )}
                 </div>
 
-                <div className="px-6 py-3 border-t flex justify-end shrink-0">
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end shrink-0">
                     <button onClick={onClose}
-                        className="text-sm font-bold text-gray-500 border border-gray-300 bg-white rounded px-4 h-[34px] hover:bg-gray-50">닫기</button>
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">닫기</button>
                 </div>
             </div>
         </div>
@@ -1342,68 +1344,80 @@ export const ForkliftManagement = ({ userProfile }) => {
 
             {/* ── 반납·매각 모달 */}
             {retireModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white rounded-2xl shadow-2xl w-[400px] p-6">
-                        <h2 className="text-base font-black text-gray-800 mb-4">반납 / 매각 처리</h2>
-                        <p className="text-xs text-gray-500 mb-4">
-                            선택한 <span className="font-bold text-gray-700">{selectedIds.length}대</span>의 장비를 처리합니다.
-                        </p>
-
-                        {/* 반납 / 매각 선택 */}
-                        <div className="flex gap-3 mb-4">
-                            {['반납', '매각'].map(t => (
-                                <button key={t}
-                                    onClick={() => setRetireModal(prev => ({ ...prev, type: t }))}
-                                    className={`flex-1 py-2.5 rounded-xl text-sm font-black border-2 transition-colors
-                                        ${retireModal.type === t
-                                            ? t === '반납'
-                                                ? 'border-amber-400 bg-amber-50 text-amber-700'
-                                                : 'border-red-400 bg-red-50 text-red-700'
-                                            : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50'}`}>
-                                    {t}
-                                </button>
-                            ))}
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-[440px] overflow-hidden flex flex-col slide-up">
+                        {/* 헤더 */}
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                            <h2 className="text-sm font-bold text-gray-800 flex items-center">
+                                <span className="w-1.5 h-3.5 bg-letusOrange rounded-full mr-2 inline-block"></span>
+                                반납 / 매각 처리
+                            </h2>
+                            <button onClick={() => setRetireModal(null)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors leading-none text-base">✕</button>
                         </div>
 
-                        {/* 날짜 선택 */}
-                        <div className="mb-4">
-                            <label className="text-xs font-bold text-gray-500 mb-1.5 block">날짜</label>
-                            <input
-                                type="date"
-                                value={retireModal.date
-                                    ? `20${retireModal.date.replace(/\./g, '-')}`
-                                    : ''}
-                                onChange={e => {
-                                    const v = e.target.value; // "2026-06-05"
-                                    if (!v) { setRetireModal(prev => ({ ...prev, date: '' })); return; }
-                                    const [y, m, d] = v.split('-');
-                                    setRetireModal(prev => ({ ...prev, date: `${String(y).slice(2)}.${m}.${d}` }));
-                                }}
-                                className="text-sm border border-gray-300 rounded-lg px-3 h-[34px] focus:outline-none focus:border-letusBlue"
-                            />
+                        {/* 본문 */}
+                        <div className="p-6 bg-slate-50 flex flex-col gap-4">
+                            <p className="text-xs text-gray-500">
+                                선택한 <span className="font-bold text-gray-700">{selectedIds.length}대</span>의 장비를 처리합니다.
+                            </p>
+
+                            {/* 반납 / 매각 선택 */}
+                            <div className="flex gap-2">
+                                {['반납', '매각'].map(t => (
+                                    <button key={t}
+                                        onClick={() => setRetireModal(prev => ({ ...prev, type: t }))}
+                                        className={`flex-1 py-2.5 rounded-[4px] text-xs font-bold border-2 transition-colors
+                                            ${retireModal.type === t
+                                                ? t === '반납'
+                                                    ? 'border-amber-400 bg-amber-50 text-amber-700'
+                                                    : 'border-red-400 bg-red-50 text-red-700'
+                                                : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50'}`}>
+                                        {t}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* 날짜 선택 */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">날짜</label>
+                                <input
+                                    type="date"
+                                    value={retireModal.date
+                                        ? `20${retireModal.date.replace(/\./g, '-')}`
+                                        : ''}
+                                    onChange={e => {
+                                        const v = e.target.value;
+                                        if (!v) { setRetireModal(prev => ({ ...prev, date: '' })); return; }
+                                        const [y, m, d] = v.split('-');
+                                        setRetireModal(prev => ({ ...prev, date: `${String(y).slice(2)}.${m}.${d}` }));
+                                    }}
+                                    className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white"
+                                />
+                            </div>
+
+                            {/* 사유 입력 */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">
+                                    사유 <span className="text-gray-400 font-normal">(비고란에 자동 기록됩니다)</span>
+                                </label>
+                                <textarea
+                                    value={retireModal.reason}
+                                    onChange={e => setRetireModal(prev => ({ ...prev, reason: e.target.value }))}
+                                    placeholder={`${retireModal.type} 사유를 입력하세요`}
+                                    rows={3}
+                                    className="w-full border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs resize-none focus:outline-none focus:border-letusBlue transition-all bg-white"
+                                />
+                            </div>
                         </div>
 
-                        {/* 사유 입력 */}
-                        <div className="mb-5">
-                            <label className="text-xs font-bold text-gray-500 mb-1.5 block">
-                                사유 <span className="text-gray-400 font-normal">(비고란에 자동 기록됩니다)</span>
-                            </label>
-                            <textarea
-                                value={retireModal.reason}
-                                onChange={e => setRetireModal(prev => ({ ...prev, reason: e.target.value }))}
-                                placeholder={`${retireModal.type} 사유를 입력하세요`}
-                                rows={3}
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-letusBlue"
-                            />
-                        </div>
-
-                        <div className="flex justify-end gap-2">
+                        {/* 푸터 */}
+                        <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
                             <button onClick={() => setRetireModal(null)}
-                                className="px-4 py-2 text-sm font-bold text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
                                 취소
                             </button>
                             <button onClick={handleRetire}
-                                className={`px-4 py-2 text-sm font-bold text-white rounded-lg transition-colors
+                                className={`px-5 py-[9px] text-white text-[11px] font-bold rounded-[3px] transition-colors
                                     ${retireModal.type === '반납' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'}`}>
                                 {retireModal.type} 처리
                             </button>
@@ -1414,46 +1428,57 @@ export const ForkliftManagement = ({ userProfile }) => {
 
             {/* ── 삭제 확인 모달 */}
             {deleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white rounded-2xl shadow-2xl w-[400px] p-6">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                                <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                </svg>
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-[440px] overflow-hidden flex flex-col slide-up">
+                        {/* 헤더 */}
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                            <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                    <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                    </svg>
+                                </div>
+                                장비 삭제
+                            </h2>
+                            <button onClick={() => { setDeleteModal(false); setDeleteConfirmText(''); }} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors leading-none text-base">✕</button>
+                        </div>
+
+                        {/* 본문 */}
+                        <div className="p-6 bg-slate-50 flex flex-col gap-4">
+                            <div>
+                                <p className="text-xs text-gray-600 mb-1">
+                                    선택한 <span className="font-bold text-red-600">{selectedIds.length}대</span>의 장비를 영구 삭제합니다.
+                                </p>
+                                <p className="text-xs text-gray-400">삭제된 데이터는 복구할 수 없습니다.</p>
                             </div>
-                            <h2 className="text-base font-black text-gray-800">장비 삭제</h2>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-1">
-                            선택한 <span className="font-bold text-red-600">{selectedIds.length}대</span>의 장비를 영구 삭제합니다.
-                        </p>
-                        <p className="text-xs text-gray-400 mb-4">삭제된 데이터는 복구할 수 없습니다.</p>
 
-                        <div className="bg-gray-50 rounded-lg px-3 py-2.5 mb-4">
-                            <p className="text-xs text-gray-500 mb-2">
-                                삭제를 원하시면 아래에 <span className="font-black text-red-600">삭제</span> 를 입력하세요.
-                            </p>
-                            <input
-                                type="text"
-                                value={deleteConfirmText}
-                                onChange={e => setDeleteConfirmText(e.target.value)}
-                                placeholder="삭제"
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-red-400"
-                                autoFocus
-                            />
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">
+                                    삭제를 원하시면 아래에 <span className="font-black text-red-600">삭제</span> 를 입력하세요.
+                                </label>
+                                <input
+                                    type="text"
+                                    value={deleteConfirmText}
+                                    onChange={e => setDeleteConfirmText(e.target.value)}
+                                    placeholder="삭제"
+                                    className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-red-400 transition-all bg-white"
+                                    autoFocus
+                                />
+                            </div>
                         </div>
 
-                        <div className="flex justify-end gap-2">
+                        {/* 푸터 */}
+                        <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
                             <button onClick={() => { setDeleteModal(false); setDeleteConfirmText(''); }}
-                                className="px-4 py-2 text-sm font-bold text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
                                 취소
                             </button>
                             <button
                                 onClick={handleDelete}
                                 disabled={deleteConfirmText !== '삭제'}
-                                className={`px-4 py-2 text-sm font-bold text-white rounded-lg transition-colors
+                                className={`px-5 py-[9px] text-[11px] font-bold rounded-[3px] transition-colors
                                     ${deleteConfirmText === '삭제'
-                                        ? 'bg-red-500 hover:bg-red-600 cursor-pointer'
+                                        ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
                                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
                                 확인
                             </button>
@@ -1464,27 +1489,37 @@ export const ForkliftManagement = ({ userProfile }) => {
 
             {/* ── 원복 확인 모달 */}
             {restoreModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white rounded-2xl shadow-2xl w-[360px] p-6">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                                <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                </svg>
-                            </div>
-                            <h2 className="text-base font-black text-gray-800">운행상태 원복</h2>
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-[420px] overflow-hidden flex flex-col slide-up">
+                        {/* 헤더 */}
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                            <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                    </svg>
+                                </div>
+                                운행상태 원복
+                            </h2>
+                            <button onClick={() => setRestoreModal(false)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors leading-none text-base">✕</button>
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">
-                            선택한 <span className="font-bold text-emerald-600">{selectedIds.length}대</span>의 장비를 <span className="font-bold">정상</span> 상태로 원복하시겠습니까?
-                        </p>
-                        <p className="text-xs text-gray-400 mb-5">운행상태가 '정상'으로 변경되며 관리대장에 다시 표시됩니다.</p>
-                        <div className="flex justify-end gap-2">
+
+                        {/* 본문 */}
+                        <div className="p-6 bg-slate-50">
+                            <p className="text-xs text-gray-600 mb-1">
+                                선택한 <span className="font-bold text-emerald-600">{selectedIds.length}대</span>의 장비를 <span className="font-bold">정상</span> 상태로 원복하시겠습니까?
+                            </p>
+                            <p className="text-xs text-gray-400">운행상태가 '정상'으로 변경되며 관리대장에 다시 표시됩니다.</p>
+                        </div>
+
+                        {/* 푸터 */}
+                        <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
                             <button onClick={() => setRestoreModal(false)}
-                                className="px-4 py-2 text-sm font-bold text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
                                 취소
                             </button>
                             <button onClick={handleRestore}
-                                className="px-4 py-2 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors">
+                                className="px-5 py-[9px] bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold rounded-[3px] transition-colors">
                                 원복
                             </button>
                         </div>
