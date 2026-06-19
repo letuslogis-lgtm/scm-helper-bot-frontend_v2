@@ -954,7 +954,6 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     onClick={() => { setFilterStatus('전체'); setFilterFaultOnly(false); }} />
                 <SummaryCard label="점검 완료" value={stats.done}
                     labelClass="text-green-500" valueClass="text-green-600" borderClass="border-b-green-400"
-                    sub={`점검율 ${checkRate}%`}
                     active={filterStatus === 'done' && !filterFaultOnly}
                     onClick={() => { setFilterStatus('done'); setFilterFaultOnly(false); }} />
                 <SummaryCard label="운행 중" value={stats.inProgress}
