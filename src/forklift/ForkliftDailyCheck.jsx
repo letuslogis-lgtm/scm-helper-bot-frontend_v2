@@ -1094,7 +1094,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     <table className="w-full text-left whitespace-nowrap table-fixed">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="p-4 w-8 shrink-0">
+                                <th className="p-4 w-8 shrink-0 text-center">
                                     <input type="checkbox"
                                         checked={filtered.length > 0 && filtered.every(r => selectedIds.includes(r.forklift.id))}
                                         onChange={e => setSelectedIds(e.target.checked ? filtered.map(r => r.forklift.id) : [])}
@@ -1138,7 +1138,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                             ${fault ? 'bg-red-50/40' : ''}
                                             ${isSelected ? 'bg-blue-50/60' : ''}`}>
                                         <td className="p-4 text-center">
-                                            <label className="flex items-center justify-center cursor-pointer">
+                                            <label className="cursor-pointer">
                                                 <input type="checkbox" checked={isSelected}
                                                     onChange={e => setSelectedIds(prev =>
                                                         e.target.checked ? [...prev, f.id] : prev.filter(x => x !== f.id)
