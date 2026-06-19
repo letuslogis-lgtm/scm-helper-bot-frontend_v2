@@ -829,13 +829,13 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
 
         switch (origIdx) {
             case 0: // 관리번호
-                return <td key={origIdx} className="p-4 font-bold text-letusBlue">{f.no}</td>;
+                return <td key={origIdx} className="p-4 text-center font-bold text-letusBlue">{f.no}</td>;
             case 1: // 센터
-                return <td key={origIdx} className="p-4 text-gray-600">{f.center}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600">{f.center}</td>;
             case 2: // 관리주체
-                return <td key={origIdx} className="p-4 text-gray-600">{f.manager_org}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600">{f.manager_org}</td>;
             case 3: // 탑승자
-                return <td key={origIdx} className="p-4 text-gray-700">{f.driver_day || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-700">{f.driver_day || '-'}</td>;
             case 4: // 점검일자
                 return (
                     <td key={origIdx} className="p-4 text-center text-gray-600 text-[12px]">
@@ -843,7 +843,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     </td>
                 );
             case 5: // 점검상태
-                return <td key={origIdx} className="px-3 py-2"><StatusBadge status={status} /></td>;
+                return <td key={origIdx} className="p-4 text-center"><StatusBadge status={status} /></td>;
             case 6: // 외관점검
                 return (
                     <td key={origIdx} className="p-4 text-center">
@@ -1156,7 +1156,6 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         </tbody>
                     </table>
                 </div>
-                <p className="text-xs text-gray-400 mt-2">총 {filtered.length}건 표시</p>
             </div>
 
             {/* 상세 모달 */}
