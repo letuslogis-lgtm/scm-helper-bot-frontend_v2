@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient.js';
 import * as XLSX from 'xlsx';
 
@@ -265,27 +266,92 @@ const ScrollSelect = ({ value, onChange, options }) => {
     );
 };
 
-const YearMonthSelect = ({ value, onChange }) => {
-    const m = value ? value.match(/(\d{4})년\s*(\d{1,2})월/) : null;
-    const selYear  = m ? String(m[1]) : '';
-    const selMonth = m ? String(parseInt(m[2])) : '';
-    const currentYear = new Date().getFullYear();
-    const years  = Array.from({ length: 21 }, (_, i) => currentYear - 15 + i);
-    const months = Array.from({ length: 12 }, (_, i) => i + 1);
-    const update = (y, mo) => {
-        if (y && mo) onChange(`${y}년 ${String(mo).padStart(2, '0')}월`);
-        else onChange('');
+const MonthPickerInput = ({ value, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+    const popupRef = useRef(null);
+    const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+
+    const parsed = value ? value.match(/(\d{4})년\s*(\d{1,2})월/) : null;
+    const [viewYear, setViewYear] = useState(() => parsed ? parseInt(parsed[1]) : new Date().getFullYear());
+    const selYear  = parsed ? parseInt(parsed[1]) : null;
+    const selMonth = parsed ? parseInt(parsed[2]) : null;
+
+    const handleOpen = () => {
+        if (!isOpen && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setPopupPos({ top: rect.bottom + 4, left: rect.left });
+            if (parsed) setViewYear(parseInt(parsed[1]));
+        }
+        setIsOpen(o => !o);
     };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const onDown = (e) => {
+            if (containerRef.current?.contains(e.target)) return;
+            if (popupRef.current?.contains(e.target)) return;
+            setIsOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [isOpen]);
+
+    const handleMonthClick = (mo) => {
+        onChange(`${viewYear}년 ${String(mo).padStart(2, '0')}월`);
+        setIsOpen(false);
+    };
+
+    const MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
     return (
-        <div className="flex gap-2">
-            <select value={selYear} onChange={e => update(e.target.value, selMonth)} className={SEL}>
-                <option value="">년도</option>
-                {years.map(y => <option key={y} value={String(y)}>{y}년</option>)}
-            </select>
-            <select value={selMonth} onChange={e => update(selYear, e.target.value)} className={SEL}>
-                <option value="">월</option>
-                {months.map(mo => <option key={mo} value={String(mo)}>{String(mo).padStart(2, '0')}월</option>)}
-            </select>
+        <div ref={containerRef} className="w-full">
+            <div onClick={handleOpen}
+                className={`w-full border rounded-[4px] px-3.5 py-2 flex items-center gap-2 cursor-pointer bg-white transition-all ${isOpen ? 'border-letusBlue' : 'border-gray-300 hover:border-gray-400'}`}>
+                <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className={`text-xs ${value ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+                    {value || '년월 선택'}
+                </span>
+            </div>
+
+            {isOpen && createPortal(
+                <div ref={popupRef}
+                    style={{ position: 'fixed', top: popupPos.top, left: popupPos.left }}
+                    className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl w-[200px] select-none overflow-hidden">
+                    {/* 헤더 */}
+                    <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
+                        <button onClick={() => setViewYear(y => y - 1)} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">‹</button>
+                        <span className="text-white text-xs font-bold">{viewYear}년</span>
+                        <button onClick={() => setViewYear(y => y + 1)} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">›</button>
+                    </div>
+                    {/* 월 그리드 */}
+                    <div className="grid grid-cols-3 gap-1 p-2">
+                        {MONTH_LABELS.map((label, i) => {
+                            const mo = i + 1;
+                            const isSelected = selYear === viewYear && selMonth === mo;
+                            return (
+                                <button key={mo} onClick={() => handleMonthClick(mo)}
+                                    className={`py-2 rounded-lg text-xs font-bold transition-colors
+                                        ${isSelected ? 'bg-letusOrange text-white' : 'text-gray-700 hover:bg-orange-50'}`}>
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {/* 선택 해제 */}
+                    {value && (
+                        <div className="px-2 pb-2">
+                            <button onClick={() => { onChange(''); setIsOpen(false); }}
+                                className="w-full text-[10px] text-gray-400 hover:text-gray-600 text-center py-1 border-t border-gray-100">
+                                선택 해제
+                            </button>
+                        </div>
+                    )}
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
@@ -447,13 +513,13 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
                         {/* 제조연식 — month picker */}
                         <div>
                             <label className={LBL}>제조연식</label>
-                            <YearMonthSelect value={form.made_year} onChange={v => set('made_year', v)} />
+                            <MonthPickerInput value={form.made_year} onChange={v => set('made_year', v)} />
                         </div>
 
                         {/* 배터리연식 */}
                         <div>
                             <label className={LBL}>배터리연식</label>
-                            <YearMonthSelect value={form.battery_year} onChange={v => set('battery_year', v)} />
+                            <MonthPickerInput value={form.battery_year} onChange={v => set('battery_year', v)} />
                         </div>
 
                         {/* 비고 */}
