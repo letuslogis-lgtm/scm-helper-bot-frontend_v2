@@ -414,15 +414,8 @@ const DEFAULT_COLUMNS_REPAIR = [
     { label: '액션',     key: null,             w: 120 },
 ];
 
-const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual, userProfile, activeCard, externalFilterNoCost }) => {
-    const [filterCenter, setFilterCenter] = useState('전체');
-    const [filterOrg,    setFilterOrg]    = useState('전체');
-    const [filterNoCost, setFilterNoCost] = useState(false);
-    const [filterNo,     setFilterNo]     = useState('');
+const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual, userProfile, activeCard, selYear, selMonth, filterOrg, filterCenter, filterNo, filterNoCost }) => {
     const [costTarget,   setCostTarget]   = useState(null);
-    const today = new Date();
-    const [selYear,  setSelYear]  = useState(today.getFullYear());
-    const [selMonth, setSelMonth] = useState(today.getMonth());
 
     const [sortConfig,   setSortConfig]   = useState({ key: 'completed_at', dir: 'desc' });
     const [colOrder,     setColOrder]     = useState(DEFAULT_COLUMNS_REPAIR.map((_, i) => i));
@@ -431,19 +424,6 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
     const resizingRef   = useRef(null);
     const dragSrcRef    = useRef(null);
     const wasDraggedRef = useRef(false);
-
-    // 카드 클릭으로 외부에서 비용미입력 필터 강제 적용
-    useEffect(() => {
-        if (externalFilterNoCost) setFilterNoCost(true);
-        else setFilterNoCost(false);
-    }, [externalFilterNoCost]);
-
-    const prevMonth = () => { if (selMonth === 0) { setSelYear(y => y-1); setSelMonth(11); } else setSelMonth(m => m-1); };
-    const nextMonth = () => { if (selMonth === 11) { setSelYear(y => y+1); setSelMonth(0); } else setSelMonth(m => m+1); };
-    const isCurrentMonth = selYear === today.getFullYear() && selMonth === today.getMonth();
-
-    const CENTERS = useMemo(() => ['전체', ...sortCenters([...new Set(forklifts.map(f => f.center).filter(Boolean))])], [forklifts]);
-    const ORGS    = useMemo(() => ['전체', ...([...new Set(forklifts.map(f => f.manager_org).filter(Boolean))].sort())], [forklifts]);
 
     const filtered = useMemo(() => {
         const noQ = filterNo.trim().toLowerCase();
@@ -635,37 +615,6 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
 
     return (
         <div className="flex flex-col gap-4 flex-1 overflow-hidden">
-            {/* ━━━ 필터 카드 ━━━ */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 shrink-0 z-30">
-                <div className="flex items-center gap-5 flex-wrap">
-                    {/* 조회월 */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회월</span>
-                        <div className="flex items-center gap-1 h-[30px]">
-                            <button onClick={prevMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                            </button>
-                            <span className="text-[11px] font-bold text-gray-700 w-[80px] text-center">{selYear}년 {selMonth + 1}월</span>
-                            <button onClick={nextMonth} disabled={isCurrentMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <LabeledSelect label="관리주체" options={['전체', ...ORGS.filter(o => o !== '전체')]} value={filterOrg} onChange={setFilterOrg} />
-                    <CheckboxDropdown label="센터" options={CENTERS.filter(c => c !== '전체')} selected={filterCenter === '전체' ? [] : [filterCenter]} onChange={v => setFilterCenter(v.length === 0 ? '전체' : v[v.length - 1])} />
-                    {/* 장비번호 검색 */}
-                    <div className="flex items-center gap-0 h-[30px] ml-auto">
-                        <input type="text" placeholder="장비번호 검색" value={filterNo} onChange={e => setFilterNo(e.target.value)}
-                            className="border border-gray-200 rounded-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
-                    </div>
-                    {/* 비용미입력만 */}
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={filterNoCost} onChange={e => setFilterNoCost(e.target.checked)}
-                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
-                        <span className="text-[11px] font-bold text-gray-600">비용미입력만</span>
-                    </label>
-                </div>
-            </div>
             {/* ━━━ 칼럼 초기화 + 직접등록 ━━━ */}
             <div className="flex justify-end items-center gap-2 shrink-0 -mt-2 z-30 relative">
                 <button onClick={resetColSettings}
@@ -789,19 +738,8 @@ const SubtotalTable = ({ title, rows, colLabel }) => (
 );
 
 // ── 탭2: 월별 비용 정리
-const Tab2 = ({ repairs, forklifts, forkliftMap }) => {
+const Tab2 = ({ repairs, forklifts, forkliftMap, selYear, selMonth }) => {
     const today = new Date();
-    const [selYear,  setSelYear]  = useState(today.getFullYear());
-    const [selMonth, setSelMonth] = useState(today.getMonth()); // 0-indexed
-
-    const prevMonth = () => {
-        if (selMonth === 0) { setSelYear(y => y - 1); setSelMonth(11); }
-        else setSelMonth(m => m - 1);
-    };
-    const nextMonth = () => {
-        if (selMonth === 11) { setSelYear(y => y + 1); setSelMonth(0); }
-        else setSelMonth(m => m + 1);
-    };
 
     const monthRepairs = useMemo(() =>
         repairs.filter(r => isSameMonth(r.completed_at, selYear, selMonth)),
@@ -861,25 +799,6 @@ const Tab2 = ({ repairs, forklifts, forkliftMap }) => {
 
     return (
         <div className="flex-1 overflow-auto px-6 py-4">
-            {/* 월 선택 */}
-            <div className="flex items-center gap-3 mb-4">
-                <button onClick={prevMonth}
-                    className="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <span className="text-base font-black text-gray-800 min-w-[110px] text-center">
-                    {selYear}년 {selMonth + 1}월
-                </span>
-                <button onClick={nextMonth}
-                    className="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                </button>
-            </div>
-
             {/* 첫 번째 행: 연간 수리비용 그래프 */}
             <div className="flex gap-4 mb-5 items-stretch">
                 {/* 최근 1년 수리비용 그래프 */}
@@ -986,8 +905,27 @@ export const ForkliftRepair = ({ userProfile }) => {
     const [issues,    setIssues]    = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showAdd,   setShowAdd]   = useState(false);
-    const [activeCard,          setActiveCard]          = useState('all');
-    const [externalFilterNoCost, setExternalFilterNoCost] = useState(false);
+    const [activeCard, setActiveCard] = useState('all');
+
+    // 공통 필터 state
+    const now = new Date();
+    const [selYear,      setSelYear]      = useState(now.getFullYear());
+    const [selMonth,     setSelMonth]     = useState(now.getMonth());
+    const [filterOrg,    setFilterOrg]    = useState('전체');
+    const [filterCenter, setFilterCenter] = useState('전체');
+    const [filterNo,     setFilterNo]     = useState('');
+    const [filterNoCost, setFilterNoCost] = useState(false);
+
+    const prevMonth = () => {
+        if (selMonth === 0) { setSelYear(y => y - 1); setSelMonth(11); }
+        else setSelMonth(m => m - 1);
+    };
+    const nextMonth = () => {
+        if (selYear === now.getFullYear() && selMonth === now.getMonth()) return;
+        if (selMonth === 11) { setSelYear(y => y + 1); setSelMonth(0); }
+        else setSelMonth(m => m + 1);
+    };
+    const isCurrentMonth = selYear === now.getFullYear() && selMonth === now.getMonth();
 
     // 마운트 시 데이터 로드
     useEffect(() => {
@@ -1049,9 +987,11 @@ export const ForkliftRepair = ({ userProfile }) => {
         Object.fromEntries(forklifts.map(f => [f.id, f])),
     [forklifts]);
 
-    const now2 = new Date();
-    const thisYear = now2.getFullYear();
-    const thisMonth = now2.getMonth();
+    const CENTERS = useMemo(() => ['전체', ...sortCenters([...new Set(forklifts.map(f => f.center).filter(Boolean))])], [forklifts]);
+    const ORGS    = useMemo(() => ['전체', ...([...new Set(forklifts.map(f => f.manager_org).filter(Boolean))].sort())], [forklifts]);
+
+    const thisYear = now.getFullYear();
+    const thisMonth = now.getMonth();
     const thisMonthAll   = repairs.filter(r => isSameMonth(r.completed_at, thisYear, thisMonth));
     const totalRepairCnt = repairs.length;
     const noCostCount    = repairs.filter(r => r.parts_cost == null && r.labor_cost == null && !r.cost_free).length;
@@ -1135,13 +1075,13 @@ export const ForkliftRepair = ({ userProfile }) => {
                     label="전체 건수" value={totalRepairCnt} unit="건"
                     labelClass="text-gray-500" valueClass="text-gray-800" borderClass="border-b-gray-300"
                     active={activeCard === 'all'}
-                    onClick={() => { setActiveCard('all'); setTab('list'); setExternalFilterNoCost(false); }}
+                    onClick={() => { setActiveCard('all'); setTab('list'); setFilterNoCost(false); }}
                 />
                 <SummaryCard
                     label="이번달 건수" value={thisMonthCnt} unit="건"
                     labelClass="text-blue-500" valueClass="text-letusBlue" borderClass="border-b-letusBlue"
                     active={activeCard === 'thisMonth'}
-                    onClick={() => { setActiveCard('thisMonth'); setTab('list'); setExternalFilterNoCost(false); }}
+                    onClick={() => { setActiveCard('thisMonth'); setTab('list'); setFilterNoCost(false); }}
                 />
                 <SummaryCard
                     label="이번달 부품비" value={thisMonthParts} unit="원"
@@ -1161,31 +1101,59 @@ export const ForkliftRepair = ({ userProfile }) => {
                     valueClass={noCostCount > 0 ? 'text-orange-500' : 'text-gray-400'}
                     borderClass={noCostCount > 0 ? 'border-b-orange-400' : 'border-b-gray-300'}
                     active={activeCard === 'noCost'}
-                    onClick={() => { setActiveCard('noCost'); setTab('list'); setExternalFilterNoCost(true); }}
+                    onClick={() => { setActiveCard('noCost'); setTab('list'); setFilterNoCost(true); }}
                 />
             </div>
 
-            {/* ━━━ 탭 헤더 (제목 없음) ━━━ */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-0 shrink-0">
-                <div className="flex gap-6">
-                    {[
-                        { key: 'list',    label: '이력 목록' },
-                        { key: 'monthly', label: '월별 비용 정리' },
-                    ].map(({ key, label }) => (
-                        <button key={key} onClick={() => setTab(key)}
-                            className={`py-3 text-sm font-bold border-b-2 transition-colors ${
-                                tab === key
-                                    ? 'text-letusBlue border-letusBlue'
-                                    : 'text-gray-400 border-transparent hover:text-gray-600'
-                            }`}>
-                            {label}
-                        </button>
-                    ))}
+            {/* ━━━ 공통 필터 카드 ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 shrink-0 z-30">
+                <div className="flex items-center gap-5 flex-wrap">
+                    {/* 조회월 */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회월</span>
+                        <div className="flex items-center gap-1 h-[30px]">
+                            <button onClick={prevMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <span className="text-[11px] font-bold text-gray-700 w-[80px] text-center">{selYear}년 {selMonth + 1}월</span>
+                            <button onClick={nextMonth} disabled={isCurrentMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <LabeledSelect label="관리주체" options={['전체', ...ORGS.filter(o => o !== '전체')]} value={filterOrg} onChange={setFilterOrg} />
+                    <CheckboxDropdown label="센터" options={CENTERS.filter(c => c !== '전체')} selected={filterCenter === '전체' ? [] : [filterCenter]} onChange={v => setFilterCenter(v.length === 0 ? '전체' : v[v.length - 1])} />
+                    <div className="flex items-center gap-0 h-[30px] ml-auto">
+                        <input type="text" placeholder="장비번호 검색" value={filterNo} onChange={e => setFilterNo(e.target.value)}
+                            className="border border-gray-200 rounded-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" checked={filterNoCost} onChange={e => setFilterNoCost(e.target.checked)}
+                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                        <span className="text-[11px] font-bold text-gray-600">비용미입력만</span>
+                    </label>
                 </div>
             </div>
 
+            {/* ━━━ 탭 버튼 — 슬림 ━━━ */}
+            <div className="flex items-end gap-0 shrink-0 -mt-2 px-1">
+                {[
+                    { key: 'list',    label: '이력 목록' },
+                    { key: 'monthly', label: '월별 비용 정리' },
+                ].map(({ key, label }) => (
+                    <button key={key} onClick={() => setTab(key)}
+                        className={`py-1.5 px-5 text-[13px] font-bold border-b-2 transition-colors ${
+                            tab === key
+                                ? 'text-letusBlue border-letusBlue'
+                                : 'text-gray-400 border-transparent hover:text-gray-600'
+                        }`}>
+                        {label}
+                    </button>
+                ))}
+            </div>
+
             {/* ━━━ 탭 콘텐츠 ━━━ */}
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0 -mt-2">
                 {tab === 'list' ? (
                     <Tab1
                         repairs={repairs}
@@ -1196,13 +1164,20 @@ export const ForkliftRepair = ({ userProfile }) => {
                         onAddManual={() => setShowAdd(true)}
                         userProfile={userProfile}
                         activeCard={activeCard}
-                        externalFilterNoCost={externalFilterNoCost}
+                        selYear={selYear}
+                        selMonth={selMonth}
+                        filterOrg={filterOrg}
+                        filterCenter={filterCenter}
+                        filterNo={filterNo}
+                        filterNoCost={filterNoCost}
                     />
                 ) : (
                     <Tab2
                         repairs={repairs}
                         forklifts={forklifts}
                         forkliftMap={forkliftMap}
+                        selYear={selYear}
+                        selMonth={selMonth}
                     />
                 )}
             </div>
