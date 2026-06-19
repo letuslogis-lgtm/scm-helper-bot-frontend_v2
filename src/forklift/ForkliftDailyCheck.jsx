@@ -1132,7 +1132,8 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                             {filtered.length === 0 && (
                                 <tr><td colSpan={colOrder.length + 1} className="text-center py-12 text-gray-400">데이터가 없습니다</td></tr>
                             )}
-                            {filtered.map(({ forklift: f, record, status, fault, faultCnt }) => {
+                            {filtered.map(row => {
+                                const { forklift: f, fault } = row;
                                 const isSelected = selectedIds.includes(f.id);
                                 return (
                                     <tr key={f.id}
@@ -1148,7 +1149,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                                     className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                                             </label>
                                         </td>
-                                        {colOrder.map(origIdx => renderCell(origIdx, { forklift: f, record, status, fault, faultCnt }))}
+                                        {colOrder.map(origIdx => renderCell(origIdx, row))}
                                     </tr>
                                 );
                             })}
