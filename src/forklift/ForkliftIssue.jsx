@@ -525,6 +525,7 @@ export const ForkliftIssue = ({ userProfile }) => {
     const [filterCenters,   setFilterCenters]   = useState([]);
     const [filterStatus,    setFilterStatus]    = useState('전체');
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
     const [excludeApproved, setExcludeApproved] = useState(true);  // 검수완료 제외 (기본 체크)
     const [showForm,      setShowForm]      = useState(false);
     const [editIssue,     setEditIssue]     = useState(null);
@@ -645,6 +646,21 @@ export const ForkliftIssue = ({ userProfile }) => {
         setIssues(prev => prev.map(i => i.id !== approveIssue.id ? i : { ...i, ...updates }));
         setApproveIssue(null);
     }, [issues, approveIssue, userProfile]);
+
+    // 체크박스
+    const handleSelectAll = (e) => {
+        setSelectedIds(e.target.checked ? filtered.map(i => i.id) : []);
+    };
+    const handleSelectOne = (e, id) => {
+        setSelectedIds(prev => e.target.checked ? [...prev, id] : prev.filter(x => x !== id));
+    };
+    const handleDeleteSelected = async () => {
+        if (selectedIds.length === 0) { alert('삭제할 항목을 선택하세요.'); return; }
+        if (!window.confirm(`선택한 ${selectedIds.length}건을 삭제하시겠습니까?`)) return;
+        await supabase.from('forklift_issues').delete().in('id', selectedIds);
+        setIssues(prev => prev.filter(i => !selectedIds.includes(i.id)));
+        setSelectedIds([]);
+    };
 
     // 정렬
     const requestSort = useCallback((key) => {
@@ -918,6 +934,12 @@ export const ForkliftIssue = ({ userProfile }) => {
                                     이슈 등록
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                                 </button>
+                                <div className="border-t border-gray-100 my-1" />
+                                <button onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors flex items-center justify-between">
+                                    삭제
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
                             </div>
                         </>
                     )}
@@ -930,6 +952,12 @@ export const ForkliftIssue = ({ userProfile }) => {
                     <table className="w-full text-left whitespace-nowrap table-fixed text-[13px]">
                         <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                             <tr>
+                                <th className="p-4 w-10 text-center shrink-0">
+                                    <input type="checkbox"
+                                        checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                                        onChange={handleSelectAll}
+                                        className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                                </th>
                                 {colOrder.map((origIdx, visualIdx) => {
                                     const col = DEFAULT_COLUMNS_FORKLIFT_ISSUE[origIdx];
                                     return (
@@ -957,19 +985,26 @@ export const ForkliftIssue = ({ userProfile }) => {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {isLoading && (
-                                <tr><td colSpan={colOrder.length} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
+                                <tr><td colSpan={colOrder.length + 1} className="text-center py-12 text-gray-400">불러오는 중...</td></tr>
                             )}
                             {!isLoading && filtered.length === 0 && (
-                                <tr><td colSpan={colOrder.length} className="text-center py-12 text-gray-400">
+                                <tr><td colSpan={colOrder.length + 1} className="text-center py-12 text-gray-400">
                                     {activeIssues.length === 0 ? '등록된 이슈가 없습니다.' : '조건에 맞는 이슈가 없습니다.'}
                                 </td></tr>
                             )}
                             {filtered.map(issue => (
                                 <tr key={issue.id}
                                     className={`hover:bg-blue-50/30 transition-colors ${
+                                        selectedIds.includes(issue.id) ? 'bg-blue-50' :
                                         issue.status === 'reported' ? 'bg-red-50/30' :
                                         issue.status === 'accepted' ? 'bg-orange-50/20' : ''
                                     }`}>
+                                    <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
+                                        <input type="checkbox"
+                                            checked={selectedIds.includes(issue.id)}
+                                            onChange={e => handleSelectOne(e, issue.id)}
+                                            className="w-4 h-4 accent-letusBlue cursor-pointer" />
+                                    </td>
                                     {colOrder.map(origIdx => renderCell(origIdx, issue))}
                                 </tr>
                             ))}
