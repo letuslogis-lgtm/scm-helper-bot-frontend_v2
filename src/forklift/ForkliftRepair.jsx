@@ -414,7 +414,7 @@ const DEFAULT_COLUMNS_REPAIR = [
     { label: '액션',     key: null,             w: 120 },
 ];
 
-const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual, userProfile, activeCard, selYear, selMonth, filterOrg, filterCenter, filterNo, filterNoCost }) => {
+const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual, userProfile, activeCard, selYear, selMonth, filterOrg, filterCenter, filterNo, filterNoCost, resetColsRef }) => {
     const [costTarget,   setCostTarget]   = useState(null);
 
     const [sortConfig,   setSortConfig]   = useState({ key: 'completed_at', dir: 'desc' });
@@ -486,6 +486,7 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
         setColWidths(DEFAULT_COLUMNS_REPAIR.map(c => c.w));
         if (userProfile?.id) localStorage.removeItem(`letus_repair_col_${userProfile.id}`);
     };
+    useEffect(() => { if (resetColsRef) resetColsRef.current = resetColSettings; });
 
     const requestSort = (key) => {
         setSortConfig(prev => prev.key === key && prev.dir === 'asc' ? { key, dir: 'desc' } : { key, dir: 'asc' });
@@ -615,25 +616,6 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
 
     return (
         <div className="flex flex-col gap-4 flex-1 overflow-hidden">
-            {/* ━━━ 칼럼 초기화 + 직접등록 ━━━ */}
-            <div className="flex justify-end items-center gap-2 shrink-0 -mt-2 z-30 relative">
-                <button onClick={resetColSettings}
-                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
-                    title="칼럼 너비·순서를 기본값으로 초기화">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    칼럼 초기화
-                </button>
-                <button onClick={onAddManual}
-                    className="flex items-center gap-1.5 text-xs font-bold text-white bg-letusBlue hover:opacity-90 rounded shadow-sm px-3 h-[32px] transition-opacity">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    직접 등록
-                </button>
-            </div>
-
             {/* 테이블 */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden z-20 min-h-0">
                 <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
@@ -906,6 +888,7 @@ export const ForkliftRepair = ({ userProfile }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [showAdd,   setShowAdd]   = useState(false);
     const [activeCard, setActiveCard] = useState('all');
+    const resetColsRef = useRef(null);
 
     // 공통 필터 state
     const now = new Date();
@@ -1135,21 +1118,42 @@ export const ForkliftRepair = ({ userProfile }) => {
                 </div>
             </div>
 
-            {/* ━━━ 탭 버튼 — 슬림 ━━━ */}
-            <div className="flex items-end gap-0 shrink-0 -mt-2 px-1">
-                {[
-                    { key: 'list',    label: '이력 목록' },
-                    { key: 'monthly', label: '월별 비용 정리' },
-                ].map(({ key, label }) => (
-                    <button key={key} onClick={() => setTab(key)}
-                        className={`py-1.5 px-5 text-[13px] font-bold border-b-2 transition-colors ${
-                            tab === key
-                                ? 'text-letusBlue border-letusBlue'
-                                : 'text-gray-400 border-transparent hover:text-gray-600'
-                        }`}>
-                        {label}
-                    </button>
-                ))}
+            {/* ━━━ 탭 버튼 + 액션 버튼 — 같은 행 ━━━ */}
+            <div className="flex items-center justify-between shrink-0 -mt-2 px-1">
+                <div className="flex items-end gap-0">
+                    {[
+                        { key: 'list',    label: '이력 목록' },
+                        { key: 'monthly', label: '월별 비용 정리' },
+                    ].map(({ key, label }) => (
+                        <button key={key} onClick={() => setTab(key)}
+                            className={`py-1.5 px-5 text-[13px] font-bold border-b-2 transition-colors ${
+                                tab === key
+                                    ? 'text-letusBlue border-letusBlue'
+                                    : 'text-gray-400 border-transparent hover:text-gray-600'
+                            }`}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                {tab === 'list' && (
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => resetColsRef.current?.()}
+                            className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[30px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                            title="칼럼 너비·순서를 기본값으로 초기화">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            칼럼 초기화
+                        </button>
+                        <button onClick={() => setShowAdd(true)}
+                            className="flex items-center gap-1.5 text-xs font-bold text-white bg-letusBlue hover:opacity-90 rounded shadow-sm px-3 h-[30px] transition-opacity">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            직접 등록
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* ━━━ 탭 콘텐츠 ━━━ */}
@@ -1170,6 +1174,7 @@ export const ForkliftRepair = ({ userProfile }) => {
                         filterCenter={filterCenter}
                         filterNo={filterNo}
                         filterNoCost={filterNoCost}
+                        resetColsRef={resetColsRef}
                     />
                 ) : (
                     <Tab2
