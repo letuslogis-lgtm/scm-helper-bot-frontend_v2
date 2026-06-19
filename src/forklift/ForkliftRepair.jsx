@@ -344,37 +344,33 @@ const ManualAddModal = ({ forklifts, onSave, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-                <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100">
-                    <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <svg className="w-4 h-4 text-letusBlue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
-                        </span>
-                        <span className="font-black text-gray-800">정비이력 직접 등록</span>
-                    </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] overflow-hidden flex flex-col slide-up">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-letusOrange rounded-full mr-2"></span>
+                        정비이력 직접 등록
+                    </h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">장비 선택 *</label>
+                <div className="p-6 bg-slate-50 flex-1 overflow-y-auto max-h-[70vh] custom-scrollbar space-y-4">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">장비 선택 <span className="text-red-500">*</span></label>
                         <ForkliftPicker forklifts={forklifts} value={forkliftId} onChange={setForkliftId} />
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">고장유형</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">고장유형</label>
                         <div className="flex flex-wrap gap-2">
                             {FAULT_TYPES.map(t => (
                                 <button key={t} onClick={() => setFaultType(t === faultType ? '' : t)}
                                     className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                                         faultType === t
                                             ? 'border-letusBlue bg-blue-50 text-letusBlue font-bold'
-                                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                            : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
                                     }`}>
                                     {t}
                                 </button>
@@ -382,66 +378,66 @@ const ManualAddModal = ({ forklifts, onSave, onClose }) => {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">고장내용</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">고장내용</label>
                         <textarea value={faultDesc} onChange={e => setFaultDesc(e.target.value)}
                             rows={2} placeholder="고장 증상 입력"
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-letusBlue resize-none" />
+                            className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white resize-none" />
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">정비업체</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">정비업체</label>
                         <input value={repairVendor} onChange={e => setRepairVendor(e.target.value)}
                             placeholder="업체명 입력"
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                            className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white" />
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">정비내용</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">정비내용</label>
                         <textarea value={repairDesc} onChange={e => setRepairDesc(e.target.value)}
                             rows={2} placeholder="수행한 정비 내용 입력"
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-letusBlue resize-none" />
+                            className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white resize-none" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5">신고일 <span className="font-normal text-gray-400">(선택)</span></label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">신고일 <span className="text-[11px] font-normal text-gray-400">(선택)</span></label>
                             <input type="datetime-local" value={reportedAt} onChange={e => setReportedAt(e.target.value)}
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                                className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white" />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5">완료일 *</label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">완료일 <span className="text-red-500">*</span></label>
                             <input type="date" value={completedAt} onChange={e => setCompletedAt(e.target.value)}
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                                className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white" />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5">부품비 <span className="font-normal text-gray-400">(원, 선택)</span></label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">부품비 <span className="text-[11px] font-normal text-gray-400">(원, 선택)</span></label>
                             <input type="number" value={partsCost} onChange={e => setPartsCost(e.target.value)}
                                 placeholder="0"
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                                className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white" />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5">공임 <span className="font-normal text-gray-400">(원, 선택)</span></label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">공임 <span className="text-[11px] font-normal text-gray-400">(원, 선택)</span></label>
                             <input type="number" value={laborCost} onChange={e => setLaborCost(e.target.value)}
                                 placeholder="0"
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                                className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white" />
                         </div>
                     </div>
                 </div>
 
-                <div className="flex gap-2 px-6 pb-5 pt-2">
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 items-center shrink-0">
                     <button onClick={onClose}
-                        className="flex-1 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50">
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
                         취소
                     </button>
                     <button onClick={handleSave} disabled={!canSave}
-                        className={`flex-1 py-2.5 text-sm font-bold text-white rounded-xl transition-colors ${
-                            canSave ? 'bg-letusBlue hover:opacity-90' : 'bg-gray-300 cursor-not-allowed'
+                        className={`px-5 py-[9px] text-white text-[11px] font-bold rounded-[3px] transition-colors ${
+                            canSave ? 'bg-letusBlue hover:bg-blue-600' : 'bg-gray-300 cursor-not-allowed'
                         }`}>
-                        등록
+                        등록하기
                     </button>
                 </div>
             </div>
