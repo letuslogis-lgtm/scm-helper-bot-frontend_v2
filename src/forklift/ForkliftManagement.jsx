@@ -755,6 +755,195 @@ const ForkliftDetailModal = ({ forklift, onClose, onAddRepair, repairHistory, ch
 };
 
 // ─────────────────────────────────────────────────────────
+// 지게차 일괄 등록 모달
+// ─────────────────────────────────────────────────────────
+const ForkliftBulkUploadModal = ({ onClose, onReload }) => {
+    const [file, setFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadStats, setUploadStats] = useState(null);
+
+    const handleDownloadTemplate = () => {
+        const templateData = [{
+            '관리번호(필수)': '양지1-001', '센터': '양지1', '관리주체': '바로서비스',
+            '업무': '피킹(E/F)', '제조사': '클락', '형태': '리치', '모델명': 'CRX25',
+            '톤수': '1.5t', '소유구분': '렌탈', '렌탈업체': '한국공항',
+            '탑승자(주간)': '홍길동', '탑승자(야간)': '김영희',
+            '제조연식': '2021년 03월', '배터리연식': '2023년 01월',
+            '자산코드': 'FA-00001', '차대번호': 'ABC123', '장비상태': '정상', '비고': '',
+        }];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        ws['!cols'] = [
+            {wch:14},{wch:10},{wch:12},{wch:14},{wch:10},{wch:10},{wch:12},
+            {wch:8},{wch:10},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},
+            {wch:12},{wch:12},{wch:10},{wch:20},
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '지게차업로드양식');
+        XLSX.writeFile(wb, '지게차_일괄등록_양식.xlsx');
+    };
+
+    const handleFileChange = (e) => {
+        const f = e.target.files[0];
+        if (f && f.name.match(/\.xlsx?$/i)) setFile(f);
+        else { alert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.'); e.target.value = null; }
+    };
+
+    const handleUpload = async () => {
+        if (!file) return alert('업로드할 엑셀 파일을 선택해 주세요.');
+        setIsUploading(true);
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            try {
+                const wb = XLSX.read(ev.target.result, { type: 'binary' });
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                if (rows.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
+
+                // 기존 장비 no → id 매핑
+                const { data: existingList } = await supabase.from('forklifts').select('id, no');
+                const existingMap = {};
+                (existingList || []).forEach(f => { if (f.no) existingMap[f.no] = f.id; });
+
+                const stats = { insert: 0, update: 0, fail: 0, logs: [] };
+
+                for (let i = 0; i < rows.length; i++) {
+                    const raw = rows[i];
+                    // 공백 제거
+                    const r = {};
+                    for (const k in raw) r[k.trim()] = typeof raw[k] === 'string' ? raw[k].trim() : raw[k];
+
+                    const no = String(r['관리번호(필수)'] || '').trim();
+                    if (!no) {
+                        stats.fail++;
+                        stats.logs.push(`${i + 2}행: 관리번호 누락`);
+                        continue;
+                    }
+
+                    const payload = {
+                        no,
+                        center:         r['센터']        || null,
+                        manager_org:    r['관리주체']     || null,
+                        work_type:      r['업무']         || null,
+                        maker:          r['제조사']        || null,
+                        shape:          r['형태']         || null,
+                        model:          r['모델명']        || null,
+                        ton:            r['톤수']         || null,
+                        own_type:       r['소유구분']      || null,
+                        rental_company: r['렌탈업체']      || null,
+                        driver_day:     r['탑승자(주간)']  || null,
+                        driver_night:   r['탑승자(야간)']  || null,
+                        made_year:      r['제조연식']      || null,
+                        battery_year:   r['배터리연식']    || null,
+                        asset_code:     r['자산코드']      || null,
+                        vin:            r['차대번호']      || null,
+                        status:         r['장비상태']      || '정상',
+                        note:           r['비고']         || null,
+                    };
+
+                    try {
+                        if (existingMap[no]) {
+                            const { error } = await supabase.from('forklifts').update(payload).eq('id', existingMap[no]);
+                            if (error) throw error;
+                            stats.update++;
+                        } else {
+                            const { error } = await supabase.from('forklifts').insert(payload);
+                            if (error) throw error;
+                            stats.insert++;
+                        }
+                    } catch (rowErr) {
+                        stats.fail++;
+                        stats.logs.push(`[${no}] ${rowErr.message}`);
+                    }
+                }
+
+                setUploadStats(stats);
+                if (stats.insert > 0 || stats.update > 0) onReload();
+            } catch (err) {
+                alert('업로드 중 오류 발생: ' + err.message);
+            } finally {
+                setIsUploading(false);
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[500px] overflow-hidden flex flex-col slide-up">
+                {/* 헤더 */}
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-green-500 rounded-full mr-2 inline-block"></span>
+                        지게차 일괄 등록 (Excel)
+                    </h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors leading-none text-base">✕</button>
+                </div>
+
+                {/* 본문 */}
+                <div className="p-6 bg-slate-50 flex-1 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                    {!uploadStats ? (
+                        <div className="space-y-4">
+                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs text-gray-600 space-y-1.5">
+                                <p className="font-bold text-letusBlue mb-2">💡 엑셀 일괄 처리 가이드</p>
+                                <p>- <span className="font-bold text-green-600">신규 관리번호:</span> 새로운 장비로 등록됩니다.</p>
+                                <p>- <span className="font-bold text-orange-500">기존 관리번호:</span> 엑셀 데이터로 기존 정보가 <span className="font-bold">업데이트(덮어쓰기)</span> 됩니다.</p>
+                                <p>- <span className="font-bold text-red-500">관리번호</span>는 필수 입력 항목입니다.</p>
+                            </div>
+                            <button onClick={handleDownloadTemplate}
+                                className="w-full flex justify-center items-center gap-2 py-2.5 border border-green-500 text-green-600 text-xs font-bold rounded-lg hover:bg-green-50 transition-colors shadow-sm">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                양식 다운로드
+                            </button>
+                            <input type="file" accept=".xlsx,.xls" onChange={handleFileChange}
+                                className="block w-full text-xs text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded file:border-0 file:font-bold file:bg-blue-50 file:text-letusBlue hover:file:bg-blue-100 border border-gray-300 rounded-lg bg-white cursor-pointer" />
+                            {file && (
+                                <p className="text-[11px] text-gray-500 flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {file.name}
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-lg border bg-white border-gray-200">
+                                <h4 className="font-bold text-gray-800 mb-3 text-center text-sm">업로드 처리 결과</h4>
+                                <div className="flex justify-center gap-6 font-bold">
+                                    <span className="text-green-600 text-sm">✨ 신규 {uploadStats.insert}건</span>
+                                    <span className="text-blue-600 text-sm">🔄 수정 {uploadStats.update}건</span>
+                                    <span className="text-red-500 text-sm">❌ 실패 {uploadStats.fail}건</span>
+                                </div>
+                            </div>
+                            {uploadStats.logs.length > 0 && (
+                                <div className="bg-red-50 border border-red-100 rounded-lg p-3 max-h-40 overflow-auto text-[11px] text-red-500 space-y-0.5">
+                                    {uploadStats.logs.map((l, i) => <p key={i}>- {l}</p>)}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* 푸터 */}
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+                    <button onClick={onClose}
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
+                        {uploadStats ? '닫기' : '취소'}
+                    </button>
+                    {!uploadStats && (
+                        <button onClick={handleUpload} disabled={isUploading || !file}
+                            className="px-5 py-[9px] bg-letusBlue text-white text-[11px] font-bold rounded-[3px] hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                            {isUploading ? '처리 중...' : '데이터 분석 및 적용'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────
 export const ForkliftManagement = ({ userProfile }) => {
@@ -789,7 +978,8 @@ export const ForkliftManagement = ({ userProfile }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'no', direction: 'asc' });
 
     // 모달
-    const [editModal,   setEditModal]   = useState(null);   // { mode, data? }
+    const [editModal,       setEditModal]       = useState(null);   // { mode, data? }
+    const [bulkUploadModal, setBulkUploadModal] = useState(false);
     const [detailModal, setDetailModal] = useState(null);   // forklift 객체
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
@@ -809,17 +999,16 @@ export const ForkliftManagement = ({ userProfile }) => {
     }, [colOrder, colWidths, userProfile?.id]);
 
     // ── Supabase 데이터 로딩
-    useEffect(() => {
-        const loadData = async () => {
-            setIsLoading(true);
-            const { data: fData } = await supabase.from('forklifts').select('*').order('no');
-            const { data: iData } = await supabase.from('forklift_issues').select('id, forklift_id, status');
-            setData(fData || []);
-            setIssues(iData || []);
-            setIsLoading(false);
-        };
-        loadData();
+    const loadData = useCallback(async () => {
+        setIsLoading(true);
+        const { data: fData } = await supabase.from('forklifts').select('*').order('no');
+        const { data: iData } = await supabase.from('forklift_issues').select('id, forklift_id, status');
+        setData(fData || []);
+        setIssues(iData || []);
+        setIsLoading(false);
     }, []);
+
+    useEffect(() => { loadData(); }, [loadData]);
 
     // 활성 이슈 맵 (forklift_id → issue)
     const issueMap = useMemo(() => {
@@ -1256,7 +1445,7 @@ export const ForkliftManagement = ({ userProfile }) => {
                                 </button>
 
                                 {isAdmin && (
-                                    <button onClick={() => { setIsActionMenuOpen(false); alert('준비 중입니다.'); }}
+                                    <button onClick={() => { setIsActionMenuOpen(false); setBulkUploadModal(true); }}
                                         className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
                                         일괄 등록 (Excel)
                                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
@@ -1433,6 +1622,13 @@ export const ForkliftManagement = ({ userProfile }) => {
             )}
 
             {/* ── 반납·매각 모달 */}
+            {bulkUploadModal && (
+                <ForkliftBulkUploadModal
+                    onClose={() => setBulkUploadModal(false)}
+                    onReload={loadData}
+                />
+            )}
+
             {retireModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-[440px] overflow-hidden flex flex-col slide-up">
