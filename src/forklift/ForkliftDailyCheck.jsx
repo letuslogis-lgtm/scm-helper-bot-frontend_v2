@@ -447,6 +447,7 @@ const DEFAULT_COLUMNS_DAILYCHECK = [
     { label: '관리자 승인', key: 'approved',    w: 110 },
     { label: '점검내용',    key: null,          w: 150 },
     { label: '상세',        key: null,          w: 60  },
+    { label: '점검일자',    key: 'checkDate',   w: 100 },
 ];
 
 const LabeledSelect = ({ label, options, value, onChange }) => (
@@ -512,7 +513,8 @@ const CheckboxDropdown = ({ label, options, selected, onChange, labelFn }) => {
 
 export const ForkliftDailyCheck = ({ userProfile }) => {
     const { can } = usePermissions(userProfile);
-    const [selectedDate,   setSelectedDate]   = useState(toDateStr(new Date()));
+    const [startDate,      setStartDate]      = useState(toDateStr(new Date()));
+    const [endDate,        setEndDate]        = useState(toDateStr(new Date()));
     const [filterOrg,      setFilterOrg]      = useState('전체');
     const [filterCenter,   setFilterCenter]   = useState([]);
     const [filterStatus,   setFilterStatus]   = useState('전체');
@@ -556,20 +558,26 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         loadForklifts();
     }, []);
 
+    const isRange = !!endDate && startDate !== endDate;
+
     // ── 일일점검 기록 로딩 (날짜 변경 시)
     useEffect(() => {
-        const loadChecks = async (date) => {
+        const loadChecks = async () => {
             const { data } = await supabase
                 .from('forklift_daily_checks')
                 .select('*')
-                .eq('check_date', date);
+                .gte('check_date', startDate)
+                .lte('check_date', endDate || startDate);
             setChecks(data || []);
         };
-        loadChecks(selectedDate);
-    }, [selectedDate]);
+        loadChecks();
+    }, [startDate, endDate]);
+
+    // 단일/범위 모드 전환 시 카드 필터 초기화
+    useEffect(() => { setFilterStatus('전체'); setFilterFaultOnly(false); }, [isRange]);
 
     // 날짜/필터 바뀌면 체크박스 초기화
-    useEffect(() => { setSelectedIds([]); }, [selectedDate, filterOrg, filterCenter]);
+    useEffect(() => { setSelectedIds([]); }, [startDate, endDate, filterOrg, filterCenter]);
 
     useEffect(() => {
         if (!userProfile?.id) return;
@@ -596,13 +604,21 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     const filteredCenters      = useMemo(() => filterOrg === '전체' ? CENTERS : sortCenters([...new Set(forklifts.filter(f => f.manager_org === filterOrg).map(f => f.center).filter(Boolean))]), [forklifts, filterOrg, CENTERS]);
     const printFilteredCenters = useMemo(() => printOrg  === '전체' ? ['전체', ...CENTERS] : ['전체', ...sortCenters([...new Set(forklifts.filter(f => f.manager_org === printOrg).map(f => f.center).filter(Boolean))])],  [forklifts, printOrg,  CENTERS]);
 
-    // 날짜별 점검 레코드 조인
+    // 날짜별 점검 레코드 조인 (단일: 장비 기준, 범위: 점검 기록 기준)
     const rows = useMemo(() => {
-        return forklifts.map(f => {
-            const record   = checks.find(c => c.forklift_id === f.id) || null;
-            return { forklift: f, record, status: getCheckStatus(record), fault: hasFault(record), faultCnt: faultCount(record) };
-        });
-    }, [forklifts, checks, selectedDate]);
+        if (!isRange) {
+            return forklifts.map(f => {
+                const record = checks.find(c => c.forklift_id === f.id) || null;
+                return { forklift: f, record, status: getCheckStatus(record), fault: hasFault(record), faultCnt: faultCount(record), checkDate: startDate };
+            });
+        } else {
+            return checks.map(c => {
+                const forklift = forklifts.find(f => f.id === c.forklift_id);
+                if (!forklift) return null;
+                return { forklift, record: c, status: getCheckStatus(c), fault: hasFault(c), faultCnt: faultCount(c), checkDate: c.check_date };
+            }).filter(Boolean);
+        }
+    }, [forklifts, checks, isRange, startDate]);
 
     // 승인 처리
     const handleApprove = useCallback(async () => {
@@ -628,7 +644,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         setSelectedIds([]);
         setApprovalNotes({});
         setApprovalModal(false);
-    }, [rows, selectedIds, selectedDate, userProfile, approvalNotes]);
+    }, [rows, selectedIds, startDate, userProfile, approvalNotes]);
 
     // 승인 취소
     const handleRevokeApproval = useCallback(async (checkId) => {
@@ -662,8 +678,8 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     return record !== null;
                 });
 
-            const dateLabel = selectedDate.replace(/-/g, '.');
-            html = targets.map(({ f, record }) => buildDailySheet(f, record, null, selectedDate, dateLabel)).join('');
+            const dateLabel = startDate.replace(/-/g, '.');
+            html = targets.map(({ f, record }) => buildDailySheet(f, record, null, startDate, dateLabel)).join('');
             if (!html) { alert('출력할 데이터가 없습니다.'); return; }
 
         } else {
@@ -691,7 +707,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         win.document.close();
         setTimeout(() => { win.focus(); win.print(); }, 400);
         setPrintModal(false);
-    }, [forklifts, checks, printMode, printOrg, printCenter, printFaultOnly, selectedDate, printMonth]);
+    }, [forklifts, checks, printMode, printOrg, printCenter, printFaultOnly, startDate, printMonth]);
 
     // 승인 버튼 클릭 → 조치사항 초기화 후 모달 열기
     const openApprovalModal = useCallback(() => {
@@ -778,6 +794,9 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 } else if (key === 'endTime') {
                     av = a.record?.updated_at ?? '';
                     bv = b.record?.updated_at ?? '';
+                } else if (key === 'checkDate') {
+                    av = a.checkDate ?? '';
+                    bv = b.checkDate ?? '';
                 } else {
                     av = ''; bv = '';
                 }
@@ -914,6 +933,12 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         ) : <span className="text-gray-300">-</span>}
                     </td>
                 );
+            case 15: // 점검일자
+                return (
+                    <td key={origIdx} className="p-4 text-center text-gray-600 text-[12px]">
+                        {row.checkDate || '-'}
+                    </td>
+                );
             default: return null;
         }
     };
@@ -950,11 +975,11 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-5 py-3 shrink-0">
                 <div className="flex h-2 rounded overflow-hidden gap-0.5 mb-2">
                     {stats.total > 0 && <>
-                        <div className="bg-green-500 rounded-sm transition-all duration-700"
+                        <div className="bg-green-500 rounded-sm transition-all duration-[875ms]"
                             style={{ width: `${stats.done / stats.total * 100}%` }} />
-                        <div className="bg-blue-500 rounded-sm transition-all duration-700"
+                        <div className="bg-blue-500 rounded-sm transition-all duration-[875ms]"
                             style={{ width: `${stats.inProgress / stats.total * 100}%` }} />
-                        <div className="bg-slate-200 rounded-sm transition-all duration-700"
+                        <div className="bg-slate-200 rounded-sm transition-all duration-[875ms]"
                             style={{ width: `${stats.unchecked / stats.total * 100}%` }} />
                     </>}
                 </div>
@@ -985,9 +1010,9 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     <div className="flex items-center gap-2">
                         <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회일자</span>
                         <DateRangeInput
-                            startDate={selectedDate}
-                            endDate=""
-                            onChange={(s) => { if (s) setSelectedDate(s); }}
+                            startDate={startDate}
+                            endDate={endDate}
+                            onChange={(s, e) => { if (s) setStartDate(s); setEndDate(e || s); }}
                         />
                     </div>
                     <LabeledSelect label="관리주체" options={ORGS} value={filterOrg} onChange={v => { setFilterOrg(v); setFilterCenter([]); }} />
@@ -1000,11 +1025,11 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                             <option value="전체">전체</option>
                             <option value="done">완료</option>
                             <option value="inProgress">운행중</option>
-                            <option value="unchecked">미점검</option>
+                            {!isRange && <option value="unchecked">미점검</option>}
                         </select>
                     </div>
                     {/* 검색 */}
-                    <div className="flex items-center gap-0 h-[30px] ml-auto">
+                    <div className="flex items-center gap-0 h-[30px]">
                         <select value={searchField} onChange={e => setSearchField(e.target.value)}
                             className="border border-gray-200 border-r-0 rounded-l-[3px] text-[11px] px-2 text-gray-700 bg-gray-50 focus:outline-none cursor-pointer h-full font-bold">
                             <option>관리번호</option>
@@ -1186,8 +1211,8 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                 <div className="space-y-3">
                                     <div>
                                         <p className="text-xs font-bold text-gray-500 mb-1.5">출력 날짜</p>
-                                        <input type="date" value={selectedDate}
-                                            onChange={e => setSelectedDate(e.target.value)}
+                                        <input type="date" value={startDate}
+                                            onChange={e => { setStartDate(e.target.value); setEndDate(e.target.value); }}
                                             className="text-xs font-bold border border-gray-300 rounded-lg px-3 h-[32px] w-full focus:outline-none focus:border-letusBlue" />
                                         <p className="text-[10px] text-gray-400 mt-1">현재 선택된 날짜와 동기화됩니다</p>
                                     </div>
@@ -1280,7 +1305,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                 <div>
                                     <span className="font-black text-gray-800 text-base">관리자 승인</span>
                                     <span className="text-xs text-gray-400 ml-2">
-                                        {userProfile?.name || userProfile?.email || '관리자'} · {selectedDate}
+                                        {userProfile?.name || userProfile?.email || '관리자'} · {isRange ? `${startDate} ~ ${endDate}` : startDate}
                                     </span>
                                 </div>
                             </div>
