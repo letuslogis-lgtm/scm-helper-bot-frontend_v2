@@ -52,9 +52,9 @@ const DEFAULT_COLUMNS = [
 
 const DEFAULT_COLUMNS_DETAIL = [
     { label: '창고명', key: 'warehouse_name', w: 140 },
-    { label: '품목코드', key: 'item_code', w: 130 },
-    { label: '화주명', key: 'brand', w: 140 },
-    { label: 'LOCATION', key: 'location', w: 120 },
+    { label: '품목ID', key: 'item_id', w: 150 },
+    { label: '화주명', key: 'owner', w: 140 },
+    { label: 'LOCATION', key: 'location_id', w: 130 },
     { label: '재고수량', key: 'stock_qty', w: 110 },
     { label: '공장도가', key: 'factory_price', w: 120 },
     { label: '재고금액', key: 'stock_amount', w: 130 },
@@ -211,11 +211,12 @@ export function WmsStockDashboard({ userProfile }) {
         setIsDetailLoading(true);
         let query = supabase
             .from('wms_stock_snapshots')
-            .select('warehouse_name, item_code, brand, location, stock_qty, factory_price, stock_amount')
+            .select('warehouse_name, item_id, item_name, owner, location_id, stock_qty, factory_price, stock_amount')
             .eq('snapshot_date', selectedDate)
-            .order('warehouse_name');
+            .order('warehouse_name')
+            .limit(10000);
         if (selectedWarehouses.length > 0) query = query.in('warehouse_name', selectedWarehouses);
-        if (selectedCompanies.length > 0)  query = query.in('brand', selectedCompanies);
+        if (selectedCompanies.length > 0)  query = query.in('owner', selectedCompanies);
         query.then(({ data, error: err }) => {
             setDetailData(err ? [] : (data || []));
             setIsDetailLoading(false);
@@ -384,9 +385,9 @@ export function WmsStockDashboard({ userProfile }) {
         const cls = 'border-b border-gray-100 text-center whitespace-nowrap';
         switch (col.key) {
             case 'warehouse_name': return <td key={origIdx} className={`${cls} p-4 font-semibold text-letusBlue`}>{row.warehouse_name}</td>;
-            case 'item_code':      return <td key={origIdx} className={`${cls} p-4 font-mono text-xs`}>{row.item_code}</td>;
-            case 'brand':          return <td key={origIdx} className={`${cls} p-4 font-medium`}>{row.brand || '-'}</td>;
-            case 'location':       return <td key={origIdx} className={`${cls} p-4 text-gray-500`}>{row.location || '-'}</td>;
+            case 'item_id':        return <td key={origIdx} className={`${cls} p-4 font-mono text-xs`}>{row.item_id}</td>;
+            case 'owner':          return <td key={origIdx} className={`${cls} p-4 font-medium`}>{row.owner || '-'}</td>;
+            case 'location_id':    return <td key={origIdx} className={`${cls} p-4 text-gray-500`}>{row.location_id || '-'}</td>;
             case 'stock_qty':      return <td key={origIdx} className={`${cls} p-4`}>{fmt(row.stock_qty)}</td>;
             case 'factory_price':  return <td key={origIdx} className={`${cls} p-4`}>{row.factory_price ? fmt(row.factory_price) + '원' : <span className="text-gray-300">미등록</span>}</td>;
             case 'stock_amount':   return <td key={origIdx} className={`${cls} p-4 font-bold text-letusBlue`}>{fmt(row.stock_amount)}원</td>;
