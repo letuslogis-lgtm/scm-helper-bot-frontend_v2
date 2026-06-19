@@ -733,7 +733,9 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onDeleteM
             case 4: // 소유
                 return (
                     <td key={origIdx} className="p-4 text-center whitespace-nowrap">
-                        {f?.own_type ? <span className={`text-xs font-bold ${f.own_type === '자가' ? 'text-orange-500' : 'text-blue-400'}`}>{f.own_type}</span> : '-'}
+                        {f?.own_type
+                            ? <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold ${f.own_type === '자가' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>{f.own_type}</span>
+                            : '-'}
                     </td>
                 );
             case 5: // 고장유형
@@ -875,11 +877,11 @@ const SubtotalTable = ({ title, rows, colLabel }) => (
                 </colgroup>
                 <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs font-bold uppercase">
                     <tr>
-                        <th className="px-3 py-2.5 text-center">{colLabel}</th>
-                        <th className="px-3 py-2.5 text-center">건수</th>
-                        <th className="px-3 py-2.5 text-center">부품비</th>
-                        <th className="px-3 py-2.5 text-center">공임</th>
-                        <th className="px-3 py-2.5 text-center">합계</th>
+                        <th className="px-3 py-2.5 text-left">{colLabel}</th>
+                        <th className="px-3 py-2.5 text-right">건수</th>
+                        <th className="px-3 py-2.5 text-right">부품비</th>
+                        <th className="px-3 py-2.5 text-right">공임</th>
+                        <th className="px-3 py-2.5 text-right">합계</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -887,11 +889,11 @@ const SubtotalTable = ({ title, rows, colLabel }) => (
                         const isTotal = row.isTotal;
                         return (
                             <tr key={i} className={isTotal ? 'bg-gray-50 font-bold' : 'hover:bg-blue-50/20'}>
-                                <td className={`px-3 py-2 text-center ${isTotal ? 'text-gray-800 font-black' : 'text-gray-700'}`}>{row.label}</td>
-                                <td className="p-4 text-center text-gray-700">{row.count}</td>
-                                <td className="p-4 text-center text-gray-700">{row.parts > 0 ? row.parts.toLocaleString() : '-'}</td>
-                                <td className="p-4 text-center text-gray-700">{row.labor > 0 ? row.labor.toLocaleString() : '-'}</td>
-                                <td className={`px-3 py-2 text-center ${isTotal ? 'text-letusBlue font-black' : 'text-gray-700'}`}>
+                                <td className={`px-3 py-2 text-left ${isTotal ? 'text-gray-800 font-black' : 'text-gray-700'}`}>{row.label}</td>
+                                <td className="p-4 text-right text-gray-700">{row.count}</td>
+                                <td className="p-4 text-right text-gray-700">{row.parts > 0 ? row.parts.toLocaleString() : '-'}</td>
+                                <td className="p-4 text-right text-gray-700">{row.labor > 0 ? row.labor.toLocaleString() : '-'}</td>
+                                <td className={`px-3 py-2 text-right ${isTotal ? 'text-letusBlue font-black' : 'text-gray-700'}`}>
                                     {(row.parts + row.labor) > 0 ? (row.parts + row.labor).toLocaleString() : '-'}
                                 </td>
                             </tr>
@@ -1039,7 +1041,9 @@ const Tab2 = ({ repairs, forklifts, forkliftMap, selYear, selMonth }) => {
                                                 <td className="p-4 text-center font-bold text-letusBlue whitespace-nowrap overflow-hidden text-ellipsis">{f?.no || '-'}</td>
                                                 <td className="px-2 py-2 text-center text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap">{f?.work_type || '-'}</td>
                                                 <td className="px-2 py-2 text-center whitespace-nowrap">
-                                                    {f?.own_type ? <span className={`text-xs font-bold ${f.own_type === '자가' ? 'text-orange-500' : 'text-blue-400'}`}>{f.own_type}</span> : '-'}
+                                                    {f?.own_type
+                                                        ? <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold ${f.own_type === '자가' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>{f.own_type}</span>
+                                                        : '-'}
                                                 </td>
                                                 <td className="px-2 py-2 text-center text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap">{r.fault_type || '-'}</td>
                                                 <td className="px-2 py-2 text-center text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap">{r.repair_vendor || '-'}</td>
@@ -1047,9 +1051,9 @@ const Tab2 = ({ repairs, forklifts, forkliftMap, selYear, selMonth }) => {
                                                 <td className="px-2 py-2 text-gray-600">
                                                     <span className="block truncate" title={r.repair_desc || ''}>{r.repair_desc || '-'}</span>
                                                 </td>
-                                                <td className="px-2 py-2 text-center text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}</td>
-                                                <td className="px-2 py-2 text-center text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}</td>
-                                                <td className="px-2 py-2 text-center font-bold text-gray-700">{r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPendingM ? '-' : total.toLocaleString()}</td>
+                                                <td className="px-2 py-2 text-left text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}</td>
+                                                <td className="px-2 py-2 text-left text-gray-600">{r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}</td>
+                                                <td className="px-2 py-2 text-left font-bold text-gray-700">{r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPendingM ? '-' : total.toLocaleString()}</td>
                                             </tr>
                                         );
                                     })}
