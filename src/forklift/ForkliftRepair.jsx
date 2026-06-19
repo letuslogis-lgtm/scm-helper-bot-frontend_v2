@@ -701,7 +701,7 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
         switch (origIdx) {
             case 0: // 출처 배지
                 return (
-                    <td key={origIdx} className="px-3 py-2">
+                    <td key={origIdx} className="p-4 text-center">
                         {r.source === 'issue'
                             ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">이슈</span>
                             : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600">직접</span>
@@ -709,42 +709,42 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
                     </td>
                 );
             case 1: // 장비번호
-                return <td key={origIdx} className="p-4 font-bold text-letusBlue whitespace-nowrap">{f?.no || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center font-bold text-letusBlue whitespace-nowrap">{f?.no || '-'}</td>;
             case 2: // 센터
-                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{f?.center || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600 whitespace-nowrap">{f?.center || '-'}</td>;
             case 3: // 관리주체
-                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{f?.manager_org || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600 whitespace-nowrap">{f?.manager_org || '-'}</td>;
             case 4: // 소유
                 return (
-                    <td key={origIdx} className="p-4 whitespace-nowrap">
+                    <td key={origIdx} className="p-4 text-center whitespace-nowrap">
                         {f?.own_type ? <span className={`text-xs font-bold ${f.own_type === '자가' ? 'text-orange-500' : 'text-blue-400'}`}>{f.own_type}</span> : '-'}
                     </td>
                 );
             case 5: // 고장유형
-                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{r.fault_type || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600 whitespace-nowrap">{r.fault_type || '-'}</td>;
             case 6: // 정비업체
-                return <td key={origIdx} className="p-4 text-gray-600 whitespace-nowrap">{r.repair_vendor || '-'}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-600 whitespace-nowrap">{r.repair_vendor || '-'}</td>;
             case 7: // 신고일
-                return <td key={origIdx} className="p-4 text-gray-500 whitespace-nowrap">{fmtDate(r.reported_at)}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-500 whitespace-nowrap">{fmtDate(r.reported_at)}</td>;
             case 8: // 완료일
-                return <td key={origIdx} className="p-4 text-gray-500 whitespace-nowrap">{fmtDate(r.completed_at)}</td>;
+                return <td key={origIdx} className="p-4 text-center text-gray-500 whitespace-nowrap">{fmtDate(r.completed_at)}</td>;
             case 9: // 소요일수
                 return <td key={origIdx} className="p-4 text-center text-gray-500">{days != null ? `${days}일` : '-'}</td>;
             case 10: // 부품비
                 return (
-                    <td key={origIdx} className="p-4 text-right text-gray-600">
+                    <td key={origIdx} className="p-4 text-center text-gray-600">
                         {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.parts_cost != null ? r.parts_cost.toLocaleString() : '-'}
                     </td>
                 );
             case 11: // 공임
                 return (
-                    <td key={origIdx} className="p-4 text-right text-gray-600">
+                    <td key={origIdx} className="p-4 text-center text-gray-600">
                         {r.cost_free ? <span className="text-green-600 font-bold text-xs">무상</span> : r.labor_cost != null ? r.labor_cost.toLocaleString() : '-'}
                     </td>
                 );
             case 12: // 합계
                 return (
-                    <td key={origIdx} className="p-4 text-right font-bold text-gray-700">
+                    <td key={origIdx} className="p-4 text-center font-bold text-gray-700">
                         {r.cost_free ? <span className="text-green-600 text-xs">비용없음</span> : isPending ? '-' : total.toLocaleString()}
                     </td>
                 );
@@ -1271,11 +1271,6 @@ export const ForkliftRepair = ({ userProfile }) => {
                         <input type="text" placeholder="장비번호 검색" value={filterNo} onChange={e => setFilterNo(e.target.value)}
                             className="border border-gray-200 rounded-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
                     </div>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={filterNoCost} onChange={e => setFilterNoCost(e.target.checked)}
-                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
-                        <span className="text-[11px] font-bold text-gray-600">비용미입력만</span>
-                    </label>
                 </div>
             </div>
 
