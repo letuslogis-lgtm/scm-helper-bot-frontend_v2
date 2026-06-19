@@ -274,7 +274,11 @@ const ScrollSelect = ({ value, onChange, options }) => {
 };
 
 const ForkliftModal = ({ mode, data, onClose, onSave }) => {
-    const [form, setForm] = useState(mode === 'edit' ? { ...EMPTY_FORM, ...data } : { ...EMPTY_FORM });
+    const [form, setForm] = useState(() => {
+        if (mode !== 'edit' || !data) return { ...EMPTY_FORM };
+        const nonNull = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+        return { ...EMPTY_FORM, ...nonNull };
+    });
     const set = useCallback((k, v) => setForm(prev => ({ ...prev, [k]: v })), []);
 
     const handleSaveClick = () => {
@@ -935,8 +939,6 @@ export const ForkliftManagement = ({ userProfile }) => {
                 vin:            form.vin,
                 status:         form.status,
                 note:           form.note,
-                created_at:     new Date().toISOString(),
-                updated_at:     new Date().toISOString(),
             }).select().single();
             if (!error && inserted) {
                 setData(prev => [inserted, ...prev]);
@@ -968,7 +970,6 @@ export const ForkliftManagement = ({ userProfile }) => {
                 vin:            form.vin,
                 status:         form.status,
                 note:           form.note,
-                updated_at:     new Date().toISOString(),
             }).eq('id', form.id).select().single();
 
             if (updateError) {
