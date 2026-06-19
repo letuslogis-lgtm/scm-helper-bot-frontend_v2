@@ -839,10 +839,10 @@ export const ForkliftIssue = ({ userProfile }) => {
             </div>
 
             {/* ━━━ ② 관리주체별 현황 슬림 스트립 ━━━ */}
-            <div className="flex gap-2 overflow-x-auto shrink-0 -mt-2 pb-0.5">
+            <div className="flex gap-2 shrink-0 -mt-2">
                 {orgStats.map(s => (
                     <div key={s.org}
-                        className={`flex-shrink-0 rounded-lg border px-3 py-1.5 flex items-center gap-3 bg-white ${
+                        className={`flex-1 rounded-lg border px-3 py-1.5 flex items-center gap-3 bg-white ${
                             s.broken > 0 ? 'border-red-200' : s.inRepair > 0 ? 'border-orange-200' : 'border-gray-200'
                         }`}>
                         <span className="text-[12px] font-black text-gray-700 whitespace-nowrap">{s.org}</span>
