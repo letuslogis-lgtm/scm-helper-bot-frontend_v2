@@ -609,7 +609,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         if (!isRange) {
             return forklifts.map(f => {
                 const record = checks.find(c => c.forklift_id === f.id) || null;
-                return { forklift: f, record, status: getCheckStatus(record), fault: hasFault(record), faultCnt: faultCount(record), checkDate: record?.check_date || null };
+                return { forklift: f, record, status: getCheckStatus(record), fault: hasFault(record), faultCnt: faultCount(record), checkDate: record ? (record.check_date || startDate) : null };
             });
         } else {
             return checks.map(c => {
