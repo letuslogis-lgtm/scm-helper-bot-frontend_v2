@@ -336,7 +336,7 @@ const ManualAddModal = ({ forklifts, onSave, onClose }) => {
             fault_desc:    faultDesc,
             repair_desc:   repairDesc,
             repair_vendor: repairVendor,
-            reported_at:   reportedAt ? new Date(reportedAt).toISOString() : null,
+            reported_at:   reportedAt || null,
             completed_at:  completedAt,
             parts_cost:    partsCost !== '' ? Number(partsCost) : null,
             labor_cost:    laborCost !== '' ? Number(laborCost) : null,
@@ -402,7 +402,7 @@ const ManualAddModal = ({ forklifts, onSave, onClose }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold text-gray-700">신고일 <span className="text-[11px] font-normal text-gray-400">(선택)</span></label>
-                            <input type="datetime-local" value={reportedAt} onChange={e => setReportedAt(e.target.value)}
+                            <input type="date" value={reportedAt} onChange={e => setReportedAt(e.target.value)}
                                 className="w-full text-xs border border-gray-300 rounded-[4px] px-3.5 py-2 focus:outline-none focus:border-letusBlue transition-all bg-white" />
                         </div>
                         <div className="flex flex-col gap-1.5">
