@@ -184,6 +184,57 @@ const CheckboxDropdown = ({ label, options, selected, onChange }) => {
     );
 };
 
+const MonthPicker = ({ year, month, onChange, maxYear, maxMonth }) => {
+    const [open, setOpen] = React.useState(false);
+    const [pickerYear, setPickerYear] = React.useState(year);
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+        const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+    React.useEffect(() => { if (!open) setPickerYear(year); }, [open, year]);
+    const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    return (
+        <div ref={ref} className="relative">
+            <button onClick={() => setOpen(v => !v)}
+                className={`flex items-center gap-2 h-[30px] px-3 border rounded-[3px] text-[11px] font-bold transition-colors bg-white hover:border-letusBlue min-w-[110px] ${open ? 'border-letusBlue text-letusBlue' : 'border-gray-200 text-gray-700'}`}>
+                <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {year}년 {month + 1}월
+            </button>
+            {open && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-3 w-[190px]">
+                    <div className="flex items-center justify-between mb-2.5">
+                        <button onClick={() => setPickerYear(y => y - 1)}
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                        </button>
+                        <span className="text-[13px] font-bold text-gray-800">{pickerYear}년</span>
+                        <button onClick={() => setPickerYear(y => y + 1)} disabled={pickerYear >= maxYear}
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                        {MONTHS.map((label, idx) => {
+                            const disabled = pickerYear === maxYear && idx > maxMonth;
+                            const selected = pickerYear === year && idx === month;
+                            return (
+                                <button key={idx} onClick={() => { if (disabled) return; onChange(pickerYear, idx); setOpen(false); }} disabled={disabled}
+                                    className={`py-1.5 rounded-[3px] text-[11px] font-bold transition-colors ${selected ? 'bg-letusBlue text-white' : disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-blue-50 hover:text-letusBlue'}`}>
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ── 비용 입력/수정 모달
 const CostModal = ({ repair, forklift, onSave, onClose }) => {
     const [costFree,  setCostFree]  = useState(repair.cost_free === true);
@@ -889,6 +940,7 @@ export const ForkliftRepair = ({ userProfile }) => {
     const [showAdd,   setShowAdd]   = useState(false);
     const [activeCard, setActiveCard] = useState('all');
     const resetColsRef = useRef(null);
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
     // 공통 필터 state
     const now = new Date();
@@ -1094,19 +1146,15 @@ export const ForkliftRepair = ({ userProfile }) => {
                     {/* 조회월 */}
                     <div className="flex items-center gap-2">
                         <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회월</span>
-                        <div className="flex items-center gap-1 h-[30px]">
-                            <button onClick={prevMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                            </button>
-                            <span className="text-[11px] font-bold text-gray-700 w-[80px] text-center">{selYear}년 {selMonth + 1}월</span>
-                            <button onClick={nextMonth} disabled={isCurrentMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                            </button>
-                        </div>
+                        <MonthPicker
+                            year={selYear} month={selMonth}
+                            onChange={(y, m) => { setSelYear(y); setSelMonth(m); }}
+                            maxYear={now.getFullYear()} maxMonth={now.getMonth()}
+                        />
                     </div>
                     <LabeledSelect label="관리주체" options={['전체', ...ORGS.filter(o => o !== '전체')]} value={filterOrg} onChange={setFilterOrg} />
                     <CheckboxDropdown label="센터" options={CENTERS.filter(c => c !== '전체')} selected={filterCenter === '전체' ? [] : [filterCenter]} onChange={v => setFilterCenter(v.length === 0 ? '전체' : v[v.length - 1])} />
-                    <div className="flex items-center gap-0 h-[30px] ml-auto">
+                    <div className="flex items-center gap-0 h-[30px]">
                         <input type="text" placeholder="장비번호 검색" value={filterNo} onChange={e => setFilterNo(e.target.value)}
                             className="border border-gray-200 rounded-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
                     </div>
@@ -1145,13 +1193,27 @@ export const ForkliftRepair = ({ userProfile }) => {
                             </svg>
                             칼럼 초기화
                         </button>
-                        <button onClick={() => setShowAdd(true)}
-                            className="flex items-center gap-1.5 text-xs font-bold text-white bg-letusBlue hover:opacity-90 rounded shadow-sm px-3 h-[30px] transition-opacity">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
-                            직접 등록
-                        </button>
+                        <div className="relative">
+                            <button onClick={() => setIsActionMenuOpen(v => !v)}
+                                className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 hover:bg-gray-50 transition-all min-w-[100px] h-[30px]">
+                                선택실행
+                                <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            {isActionMenuOpen && (
+                                <>
+                                    <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)} />
+                                    <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                        <button onClick={() => { setIsActionMenuOpen(false); setShowAdd(true); }}
+                                            className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
+                                            등록
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
