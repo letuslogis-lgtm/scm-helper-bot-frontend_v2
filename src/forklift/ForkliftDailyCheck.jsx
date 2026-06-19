@@ -444,11 +444,72 @@ const DEFAULT_COLUMNS_DAILYCHECK = [
     { label: '상세',        key: null,          w: 60  },
 ];
 
+const LabeledSelect = ({ label, options, value, onChange }) => (
+    <div className="flex items-center gap-2">
+        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">{label}</span>
+        <select value={value} onChange={e => onChange(e.target.value)}
+            className="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-[3px] px-2.5 h-[30px] bg-white focus:outline-none focus:border-letusBlue min-w-[80px] cursor-pointer">
+            <option value="전체">전체</option>
+            {options.map(o => <option key={o}>{o}</option>)}
+        </select>
+    </div>
+);
+
+const CheckboxDropdown = ({ label, options, selected, onChange, labelFn }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    const allSelected = selected.length === 0;
+    const getLabel = labelFn || (opt => opt);
+
+    useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const toggle = (opt) => {
+        if (selected.includes(opt)) onChange(selected.filter(x => x !== opt));
+        else onChange([...selected, opt]);
+    };
+
+    const displayLabel = allSelected ? '전체' : selected.length === 1 ? getLabel(selected[0]) : `${selected.length}개 선택`;
+
+    return (
+        <div className="relative flex items-center gap-2" ref={ref}>
+            <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">{label}</span>
+            <button onClick={() => setOpen(v => !v)}
+                className={`flex items-center gap-1 text-[11px] font-bold border rounded-[3px] px-2.5 h-[30px] min-w-[80px] bg-white hover:border-letusBlue transition-colors ${open ? 'border-letusBlue text-letusBlue' : 'border-gray-200 text-gray-700'}`}>
+                <span className="flex-1 text-left">{displayLabel}</span>
+                <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            {open && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-[3px] shadow-lg z-50 min-w-[130px] py-1">
+                    <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" checked={allSelected} onChange={() => onChange([])}
+                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                        <span className="text-xs font-bold text-gray-700">전체</span>
+                    </label>
+                    <div className="border-t border-gray-100 my-0.5" />
+                    {options.map(opt => (
+                        <label key={opt} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                            <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)}
+                                className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                            <span className="text-xs text-gray-700">{getLabel(opt)}</span>
+                        </label>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const ForkliftDailyCheck = ({ userProfile }) => {
     const { can } = usePermissions(userProfile);
     const [selectedDate,   setSelectedDate]   = useState(toDateStr(new Date()));
     const [filterOrg,      setFilterOrg]      = useState('전체');
-    const [filterCenter,   setFilterCenter]   = useState('전체');
+    const [filterCenter,   setFilterCenter]   = useState([]);
     const [filterStatus,   setFilterStatus]   = useState('전체');
     const [searchQ,        setSearchQ]        = useState('');
     const [checks,         setChecks]         = useState([]); // Supabase rows 배열
@@ -522,10 +583,10 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         if (userProfile?.id) localStorage.removeItem(`letus_dailycheck_col_${userProfile.id}`);
     };
 
-    const ORGS    = useMemo(() => ['전체', ...new Set(forklifts.map(f => f.manager_org).filter(Boolean))], [forklifts]);
-    const CENTERS = useMemo(() => ['전체', ...sortCenters([...new Set(forklifts.map(f => f.center).filter(Boolean))])], [forklifts]);
-    const filteredCenters      = useMemo(() => filterOrg === '전체' ? CENTERS : ['전체', ...sortCenters([...new Set(forklifts.filter(f => f.manager_org === filterOrg).map(f => f.center).filter(Boolean))])], [forklifts, filterOrg, CENTERS]);
-    const printFilteredCenters = useMemo(() => printOrg  === '전체' ? CENTERS : ['전체', ...sortCenters([...new Set(forklifts.filter(f => f.manager_org === printOrg).map(f => f.center).filter(Boolean))])],  [forklifts, printOrg,  CENTERS]);
+    const ORGS    = useMemo(() => [...new Set(forklifts.map(f => f.manager_org).filter(Boolean))], [forklifts]);
+    const CENTERS = useMemo(() => sortCenters([...new Set(forklifts.map(f => f.center).filter(Boolean))]), [forklifts]);
+    const filteredCenters      = useMemo(() => filterOrg === '전체' ? CENTERS : sortCenters([...new Set(forklifts.filter(f => f.manager_org === filterOrg).map(f => f.center).filter(Boolean))]), [forklifts, filterOrg, CENTERS]);
+    const printFilteredCenters = useMemo(() => printOrg  === '전체' ? ['전체', ...CENTERS] : ['전체', ...sortCenters([...new Set(forklifts.filter(f => f.manager_org === printOrg).map(f => f.center).filter(Boolean))])],  [forklifts, printOrg,  CENTERS]);
 
     // 날짜별 점검 레코드 조인
     const rows = useMemo(() => {
@@ -671,7 +732,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     const filtered = useMemo(() => {
         let r = rows.filter(row => {
             if (filterOrg    !== '전체' && row.forklift.manager_org !== filterOrg)    return false;
-            if (filterCenter !== '전체' && row.forklift.center      !== filterCenter) return false;
+            if (filterCenter.length > 0 && !filterCenter.includes(row.forklift.center)) return false;
             if (filterStatus !== '전체' && row.status               !== filterStatus) return false;
             if (searchQ) {
                 const q = searchQ.toLowerCase();
@@ -717,7 +778,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
 
     // 요약 통계
     const stats = useMemo(() => {
-        const base = filterOrg === '전체' && filterCenter === '전체' ? rows : filtered;
+        const base = filterOrg === '전체' && filterCenter.length === 0 ? rows : filtered;
         return {
             total:      base.length,
             done:       base.filter(r => r.status === 'done').length,
@@ -726,13 +787,6 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             faults:     base.filter(r => r.fault).length,
         };
     }, [rows, filtered, filterOrg, filterCenter]);
-
-    // 날짜 ±1일 이동
-    const moveDate = (delta) => {
-        const d = new Date(selectedDate);
-        d.setDate(d.getDate() + delta);
-        setSelectedDate(toDateStr(d));
-    };
 
     // 점검율 계산
     const checkRate = stats.total > 0 ? Math.round((stats.done + stats.inProgress) / stats.total * 100) : 0;
@@ -857,46 +911,16 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ━━━ 헤더 + 필터 카드 ━━━ */}
+            {/* ━━━ 요약 카드 + 필터 카드 ━━━ */}
             <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
-                <div className="flex items-center justify-between mb-3">
-                    <div>
-                        <span className="text-base font-black text-gray-800">일일점검 현황</span>
-                        <span className="text-xs text-gray-400 ml-2">지게차 운행 전·후 점검 집계</span>
-                    </div>
-                    {/* 날짜 이동 */}
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => moveDate(-1)}
-                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                            </svg>
-                        </button>
-                        <input type="date" value={selectedDate}
-                            onChange={e => setSelectedDate(e.target.value)}
-                            className="text-sm font-bold text-gray-700 border border-gray-200 rounded-lg px-3 h-[32px] focus:outline-none focus:border-letusBlue" />
-                        <button onClick={() => moveDate(1)}
-                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                        <button onClick={() => setSelectedDate(toDateStr(new Date()))}
-                            className="text-xs font-bold text-letusBlue border border-letusBlue/30 bg-blue-50 rounded-lg px-3 h-[32px] hover:bg-blue-100 transition-colors">
-                            오늘
-                        </button>
-                    </div>
-                </div>
-
                 {/* 요약 카드 */}
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap mb-2.5">
                     <SumCard label="전체 장비"  value={stats.total}      color="text-gray-800"    bg="bg-gray-50 border-gray-200" />
                     <SumCard label="점검 완료"  value={stats.done}       color="text-green-600"   bg="bg-green-50 border-green-200"
                         sub={`점검율 ${checkRate}%`} />
                     <SumCard label="운행 중"    value={stats.inProgress} color="text-letusBlue"   bg="bg-blue-50 border-blue-200" />
                     <SumCard label="미점검"     value={stats.unchecked}  color="text-gray-500"    bg="bg-gray-50 border-gray-200" />
                     <SumCard label="불량 발생"  value={stats.faults}     color="text-red-600"     bg="bg-red-50 border-red-200" />
-
                     {/* 점검율 프로그레스 바 */}
                     <div className="flex-1 min-w-[160px]">
                         <div className="flex justify-between text-[10px] text-gray-400 mb-1">
@@ -910,50 +934,34 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 </div>
 
                 {/* 필터 */}
-                <div className="border-t border-gray-100 pt-2.5 mt-2.5 flex items-center gap-3 flex-wrap">
-                    {/* 관리주체 */}
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-gray-500 whitespace-nowrap">관리주체</span>
-                        <select value={filterOrg} onChange={e => { setFilterOrg(e.target.value); setFilterCenter('전체'); }}
-                            className="text-xs font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[28px] bg-white focus:outline-none">
-                            {ORGS.map(o => <option key={o}>{o}</option>)}
-                        </select>
+                <div className="border-t border-gray-100 pt-2.5 flex items-center gap-5 flex-wrap">
+                    {/* 조회일자 */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회일자</span>
+                        <input type="date" value={selectedDate}
+                            onChange={e => setSelectedDate(e.target.value)}
+                            className="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-[3px] px-2.5 h-[30px] bg-white focus:outline-none focus:border-letusBlue cursor-pointer" />
                     </div>
-                    {/* 센터 */}
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-gray-500 whitespace-nowrap">센터</span>
-                        <select value={filterCenter} onChange={e => setFilterCenter(e.target.value)}
-                            className="text-xs font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[28px] bg-white focus:outline-none">
-                            {filteredCenters.map(c => <option key={c}>{c}</option>)}
-                        </select>
-                    </div>
+                    <LabeledSelect label="관리주체" options={ORGS} value={filterOrg} onChange={v => { setFilterOrg(v); setFilterCenter([]); }} />
+                    <CheckboxDropdown label="센터" options={filteredCenters} selected={filterCenter} onChange={setFilterCenter} />
                     {/* 점검상태 */}
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-gray-500 whitespace-nowrap">점검상태</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">점검상태</span>
                         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                            className="text-xs font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[28px] bg-white focus:outline-none">
-                            {['전체','done','inProgress','unchecked'].map(s => (
-                                <option key={s} value={s}>
-                                    {s === '전체' ? '전체' : STATUS_META[s].label}
-                                </option>
-                            ))}
+                            className="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-[3px] px-2.5 h-[30px] bg-white focus:outline-none focus:border-letusBlue cursor-pointer">
+                            <option value="전체">전체</option>
+                            <option value="done">완료</option>
+                            <option value="inProgress">운행중</option>
+                            <option value="unchecked">미점검</option>
                         </select>
                     </div>
                     {/* 검색 + 버튼 */}
                     <div className="flex items-center gap-2 ml-auto">
                         <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
                             placeholder="관리번호·탑승자 검색"
-                            className="text-xs border border-gray-300 rounded px-2.5 h-[28px] w-40 focus:outline-none focus:border-letusBlue" />
-                        <button onClick={resetColSettings}
-                            className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[28px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
-                            title="컬럼 너비·순서를 기본값으로 초기화">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            칼럼 초기화
-                        </button>
+                            className="text-[11px] border border-gray-200 rounded-[3px] px-2.5 h-[30px] w-36 focus:outline-none focus:border-letusBlue" />
                         <button onClick={() => setPrintModal(true)}
-                            className="flex items-center gap-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg px-3 h-[28px] transition-colors">
+                            className="flex items-center gap-1.5 text-[11px] font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-[3px] px-3 h-[30px] transition-colors">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                             </svg>
@@ -961,7 +969,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         </button>
                         {selectedIds.length > 0 && can('forklift_check', 'approve') && (
                             <button onClick={openApprovalModal}
-                                className="flex items-center gap-1.5 text-xs font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg px-3 h-[28px] transition-colors">
+                                className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-green-500 hover:bg-green-600 rounded-[3px] px-3 h-[30px] transition-colors">
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
@@ -970,6 +978,18 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* ━━━ 칼럼 초기화 (헤더~테이블 사이) ━━━ */}
+            <div className="flex justify-end items-center shrink-0 -mt-2 z-30 relative">
+                <button onClick={resetColSettings}
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="칼럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                </button>
             </div>
 
             {/* ━━━ 테이블 ━━━ */}
