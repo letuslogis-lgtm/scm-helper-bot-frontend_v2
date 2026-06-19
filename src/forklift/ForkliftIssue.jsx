@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient.js';
+import { usePermissions } from '../hooks/usePermissions.js';
 
 const CENTER_ORDER = ['양지1','양지2','양지3','안성','평택','음성','대전','대구','부산','광주','전북','전남','울산','창원','기장','제주','이케아'];
 const sortCenters = arr => [...arr].sort((a, b) => { const ia = CENTER_ORDER.indexOf(a); const ib = CENTER_ORDER.indexOf(b); if (ia === -1 && ib === -1) return a.localeCompare(b); if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; });
@@ -347,7 +348,7 @@ const CompleteModal = ({ issue, forklift, onSave, onClose }) => {
 };
 
 // ── 상세 모달
-const DetailModal = ({ issue, forklift, userProfile, onAccept, onClose }) => {
+const DetailModal = ({ issue, forklift, userProfile, onAccept, onClose, can }) => {
     const [acceptNote, setAcceptNote] = useState('');
     const [showAcceptForm, setShowAcceptForm] = useState(false);
     return (
@@ -390,13 +391,13 @@ const DetailModal = ({ issue, forklift, userProfile, onAccept, onClose }) => {
                         <p className="text-xs text-gray-700">{issue.repair_desc}</p>
                     </div>
                 )}
-                {issue.status === 'reported' && !showAcceptForm && (
+                {issue.status === 'reported' && !showAcceptForm && can('forklift_issue', 'accept') && (
                     <button onClick={() => setShowAcceptForm(true)}
                         className="w-full py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition-colors">
                         접수 (정비중으로 변경)
                     </button>
                 )}
-                {issue.status === 'reported' && showAcceptForm && (
+                {issue.status === 'reported' && showAcceptForm && can('forklift_issue', 'accept') && (
                     <div className="space-y-2">
                         <p className="text-xs font-bold text-orange-600">접수 메모 <span className="text-gray-400 font-normal">(선택)</span></p>
                         <textarea
@@ -471,6 +472,7 @@ const DEFAULT_COLUMNS_FORKLIFT_ISSUE = [
 ];
 
 export const ForkliftIssue = ({ userProfile }) => {
+    const { can } = usePermissions(userProfile);
     const [forklifts,     setForklifts]     = useState([]);
     const [issues,        setIssues]        = useState([]);
     const [isLoading,     setIsLoading]     = useState(false);
@@ -739,13 +741,13 @@ export const ForkliftIssue = ({ userProfile }) => {
                             className="text-xs font-bold text-amber-600 border border-amber-200 bg-amber-50 rounded px-2 py-0.5 hover:bg-amber-100">
                             수정
                         </button>
-                        {issue.status === 'accepted' && (
+                        {issue.status === 'accepted' && can('forklift_issue', 'complete') && (
                             <button onClick={() => setCompleteIssue(issue)}
                                 className="text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 rounded px-2 py-0.5 hover:bg-blue-100">
                                 완료입력
                             </button>
                         )}
-                        {issue.status === 'completed' && (
+                        {issue.status === 'completed' && can('forklift_issue', 'approve') && (
                             <button onClick={() => setApproveIssue(issue)}
                                 className="text-xs font-bold text-green-600 border border-green-200 bg-green-50 rounded px-2 py-0.5 hover:bg-green-100">
                                 검수승인
@@ -937,7 +939,7 @@ export const ForkliftIssue = ({ userProfile }) => {
 
             {/* 상세 모달 */}
             {detailIssue && !completeIssue && (
-                <DetailModal issue={detailIssue} forklift={forkliftMap[detailIssue.forklift_id]} userProfile={userProfile} onAccept={handleAccept} onClose={() => setDetailIssue(null)} />
+                <DetailModal issue={detailIssue} forklift={forkliftMap[detailIssue.forklift_id]} userProfile={userProfile} onAccept={handleAccept} onClose={() => setDetailIssue(null)} can={can} />
             )}
 
             {/* 정비완료 모달 */}

@@ -48,6 +48,7 @@ import { ForkliftManagement } from './forklift/ForkliftManagement.jsx';
 import { ForkliftDailyCheck } from './forklift/ForkliftDailyCheck.jsx';
 import { ForkliftRepair } from './forklift/ForkliftRepair.jsx';
 import { ForkliftIssue } from './forklift/ForkliftIssue.jsx';
+import { MenuPermissionConfig } from './MenuPermissionConfig.jsx';
 
 import { useAuth } from './hooks/useAuth.jsx';
 import { useIssues } from './hooks/useIssues.jsx';
@@ -145,6 +146,7 @@ const AppContent = () => {
                 <Route path="/wms_stock" element={<WmsStockDashboard userProfile={logic.userProfile} />} />
                 <Route path="/wms_shortage" element={<WmsShortageList userProfile={logic.userProfile} />} />
                 <Route path="/erp_inbound_config" element={<ErpInboundConfig />} />
+                <Route path="/menu_permissions"  element={<MenuPermissionConfig userProfile={logic.userProfile} />} />
                 <Route path="/forklift_dashboard" element={<ForkliftDashboard userProfile={logic.userProfile} />} />
                 <Route path="/forklift_list"      element={<ForkliftManagement userProfile={logic.userProfile} />} />
                 <Route path="/forklift_check"     element={<ForkliftDailyCheck userProfile={logic.userProfile} />} />

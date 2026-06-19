@@ -27,7 +27,8 @@ export const ALL_MENUS = [
             { id: 'loading_map', label: '상차 맵 관리' },
             { id: 'db_map', label: '시스템 데이터 맵' },
             { id: 'product_manager', label: 'ITEM DB 수동 업데이트' },
-            { id: 'erp_inbound_config', label: '시스템 데이터 관리' }
+            { id: 'erp_inbound_config', label: '시스템 데이터 관리' },
+            { id: 'menu_permissions',  label: '메뉴별 권한 설정' }
         ]
     },
     {

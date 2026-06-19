@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient.js';
+import { usePermissions } from '../hooks/usePermissions.js';
 
 const CENTER_ORDER = ['양지1','양지2','양지3','안성','평택','음성','대전','대구','부산','광주','전북','전남','울산','창원','기장','제주','이케아'];
 const sortCenters = arr => [...arr].sort((a, b) => { const ia = CENTER_ORDER.indexOf(a); const ib = CENTER_ORDER.indexOf(b); if (ia === -1 && ib === -1) return a.localeCompare(b); if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; });
@@ -444,6 +445,7 @@ const DEFAULT_COLUMNS_DAILYCHECK = [
 ];
 
 export const ForkliftDailyCheck = ({ userProfile }) => {
+    const { can } = usePermissions(userProfile);
     const [selectedDate,   setSelectedDate]   = useState(toDateStr(new Date()));
     const [filterOrg,      setFilterOrg]      = useState('전체');
     const [filterCenter,   setFilterCenter]   = useState('전체');
@@ -957,7 +959,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                             </svg>
                             출력
                         </button>
-                        {selectedIds.length > 0 && (
+                        {selectedIds.length > 0 && can('forklift_check', 'approve') && (
                             <button onClick={openApprovalModal}
                                 className="flex items-center gap-1.5 text-xs font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg px-3 h-[28px] transition-colors">
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

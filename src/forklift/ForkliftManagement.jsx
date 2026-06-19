@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient.js';
 import * as XLSX from 'xlsx';
+import { usePermissions } from '../hooks/usePermissions.js';
 
 // ─────────────────────────────────────────────────────────
 // 뱃지 컴포넌트
@@ -1600,7 +1601,7 @@ export const ForkliftManagement = ({ userProfile }) => {
         setDeleteConfirmText('');
     };
 
-    const isAdmin = userProfile?.role?.includes('관리자');
+    const { can } = usePermissions(userProfile);
 
     // 원복 버튼: 선택 항목 중 반납/매각 상태인 것이 있을 때
     const hasRetired = selectedIds.length > 0
@@ -1694,13 +1695,15 @@ export const ForkliftManagement = ({ userProfile }) => {
                             <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
 
                                 {/* 장비 등록 */}
-                                <button onClick={() => { setIsActionMenuOpen(false); setEditModal({ mode: 'add' }); }}
-                                    className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
-                                    장비 등록
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                </button>
+                                {can('forklift', 'create') && (
+                                    <button onClick={() => { setIsActionMenuOpen(false); setEditModal({ mode: 'add' }); }}
+                                        className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
+                                        장비 등록
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                    </button>
+                                )}
 
-                                {isAdmin && (
+                                {can('forklift', 'bulk_create') && (
                                     <button onClick={() => { setIsActionMenuOpen(false); setBulkUploadModal(true); }}
                                         className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
                                         일괄 등록 (Excel)
@@ -1708,17 +1711,21 @@ export const ForkliftManagement = ({ userProfile }) => {
                                     </button>
                                 )}
 
-                                <div className="h-px bg-gray-100 my-1" />
+                                {(can('forklift', 'edit') || can('forklift', 'bulk_edit')) && (
+                                    <div className="h-px bg-gray-100 my-1" />
+                                )}
 
                                 {/* 수정 */}
-                                <button
-                                    onClick={() => { if (!selectedOne) return; setIsActionMenuOpen(false); setEditModal({ mode: 'edit', data: selectedOne }); }}
-                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedOne ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
-                                    {selectedOne ? `수정 (${selectedOne.no})` : '수정'}
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                </button>
+                                {can('forklift', 'edit') && (
+                                    <button
+                                        onClick={() => { if (!selectedOne) return; setIsActionMenuOpen(false); setEditModal({ mode: 'edit', data: selectedOne }); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedOne ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                        {selectedOne ? `수정 (${selectedOne.no})` : '수정'}
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                    </button>
+                                )}
 
-                                {isAdmin && (
+                                {can('forklift', 'bulk_edit') && (
                                     <button
                                         onClick={() => { if (selectedIds.length < 2) return; setIsActionMenuOpen(false); setBulkEditModal(true); }}
                                         className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length >= 2 ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
@@ -1727,38 +1734,46 @@ export const ForkliftManagement = ({ userProfile }) => {
                                     </button>
                                 )}
 
-                                <div className="h-px bg-gray-100 my-1" />
-
-                                {/* 엑셀 추출 */}
-                                <button onClick={handleExportExcel}
-                                    className="w-full text-left px-4 py-2 text-xs font-bold text-green-600 hover:bg-green-50 transition-colors flex items-center justify-between">
-                                    엑셀 추출 {selectedIds.length > 0 ? `(${selectedIds.length}건)` : '(전체)'}
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                </button>
-
-                                {isAdmin && (
+                                {can('forklift', 'export') && (
                                     <>
                                         <div className="h-px bg-gray-100 my-1" />
-
-                                        {/* 반납·매각 */}
-                                        <button
-                                            onClick={() => { if (!selectedIds.length || hasRetired) return; setIsActionMenuOpen(false); openRetireModal(); }}
-                                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length > 0 && !hasRetired ? 'text-amber-600 hover:bg-amber-50' : 'text-gray-300 cursor-not-allowed'}`}>
-                                            반납·매각 {selectedIds.length > 0 && !hasRetired ? `(${selectedIds.length})` : ''}
-                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                        {/* 엑셀 추출 */}
+                                        <button onClick={handleExportExcel}
+                                            className="w-full text-left px-4 py-2 text-xs font-bold text-green-600 hover:bg-green-50 transition-colors flex items-center justify-between">
+                                            엑셀 추출 {selectedIds.length > 0 ? `(${selectedIds.length}건)` : '(전체)'}
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                         </button>
+                                    </>
+                                )}
 
-                                        {/* 원복 */}
-                                        <button
-                                            onClick={() => { if (!hasRetired) return; setIsActionMenuOpen(false); setRestoreModal(true); }}
-                                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${hasRetired ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-300 cursor-not-allowed'}`}>
-                                            원복 {hasRetired ? `(${selectedIds.length})` : ''}
-                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                                        </button>
+                                {(can('forklift', 'retire') || can('forklift', 'restore') || can('forklift', 'delete')) && (
+                                    <div className="h-px bg-gray-100 my-1" />
+                                )}
 
+                                {/* 반납·매각 */}
+                                {can('forklift', 'retire') && (
+                                    <button
+                                        onClick={() => { if (!selectedIds.length || hasRetired) return; setIsActionMenuOpen(false); openRetireModal(); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length > 0 && !hasRetired ? 'text-amber-600 hover:bg-amber-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                        반납·매각 {selectedIds.length > 0 && !hasRetired ? `(${selectedIds.length})` : ''}
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                    </button>
+                                )}
+
+                                {/* 원복 */}
+                                {can('forklift', 'restore') && (
+                                    <button
+                                        onClick={() => { if (!hasRetired) return; setIsActionMenuOpen(false); setRestoreModal(true); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${hasRetired ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                        원복 {hasRetired ? `(${selectedIds.length})` : ''}
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                    </button>
+                                )}
+
+                                {/* 삭제 */}
+                                {can('forklift', 'delete') && (
+                                    <>
                                         <div className="h-px bg-gray-100 my-1" />
-
-                                        {/* 삭제 */}
                                         <button
                                             onClick={() => { if (!selectedIds.length) return; setIsActionMenuOpen(false); openDeleteModal(); }}
                                             className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}>
