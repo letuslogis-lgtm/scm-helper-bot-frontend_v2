@@ -100,49 +100,86 @@ const ForkliftPicker = ({ forklifts, value, onChange }) => {
     );
 };
 
-// ── 요약 카드 (대시보드 StatCard 스타일)
-const REPAIR_STAT_META = {
-    '전체 건수':    { border: 'border-b-gray-300',   icon: 'text-gray-200',   path: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-    '비용 미입력':  { border: 'border-b-orange-400', icon: 'text-orange-200', path: 'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z' },
-    '이번달 건수':  { border: 'border-b-letusBlue',  icon: 'text-blue-200',   path: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
-    '이번달 총비용':{ border: 'border-b-green-500',  icon: 'text-green-200',  path: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-    '건수':        { border: 'border-b-gray-300',   icon: 'text-gray-200',   path: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-    '부품비 합계':  { border: 'border-b-letusBlue',  icon: 'text-blue-200',   path: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M12 7h.01M9 17h6' },
-    '공임 합계':    { border: 'border-b-orange-400', icon: 'text-orange-200', path: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
-    '총비용':       { border: 'border-b-green-500',  icon: 'text-green-200',  path: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-};
-
-const SummaryCard = ({ label, value, unit, sub, color }) => {
-    const m = REPAIR_STAT_META[label] ?? { border: 'border-b-gray-200', icon: 'text-gray-200', path: null };
-    const isNum = typeof value === 'number';
-    const [display, setDisplay] = useState(0);
-    useEffect(() => {
-        if (!isNum) return;
-        if (value === 0) { setDisplay(0); return; }
+// ── 요약 카드
+const useCountUp = (target) => {
+    const [display, setDisplay] = React.useState(0);
+    React.useEffect(() => {
+        if (target === 0) { setDisplay(0); return; }
         const steps = 40;
         const interval = 500 / steps;
         let step = 0;
         const timer = setInterval(() => {
             step++;
-            setDisplay(Math.round(value * (step / steps)));
+            setDisplay(Math.round(target * (step / steps)));
             if (step >= steps) clearInterval(timer);
         }, interval);
         return () => clearInterval(timer);
-    }, [value, isNum]);
-    const formatted = !isNum ? value : unit === '원' ? display.toLocaleString() : display;
+    }, [target]);
+    return display;
+};
+
+const SummaryCard = ({ label, value, unit = '건', labelClass = 'text-gray-500', valueClass = 'text-gray-800', borderClass = 'border-b-gray-300', onClick, active }) => {
+    const display = useCountUp(typeof value === 'number' ? value : 0);
+    const formatted = unit === '원' ? display.toLocaleString() : display;
     return (
-        <div className={`relative flex flex-col bg-white rounded-xl border border-gray-200 border-b-4 ${m.border} px-4 pt-3 pb-3 overflow-hidden w-[170px] shrink-0`}>
-            {m.path && (
-                <svg className={`absolute top-3 right-3 w-7 h-7 ${m.icon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={m.path} />
-                </svg>
+        <div onClick={onClick}
+            className={`bg-white rounded-xl border p-4 flex flex-col justify-center transition-all border-b-4 ${borderClass} ${onClick ? 'cursor-pointer' : ''} ${active ? 'shadow-lg -translate-y-0.5' : 'shadow-sm border-slate-200 hover:shadow-md'}`}>
+            <span className={`text-xs font-bold mb-1 ${labelClass}`}>{label}</span>
+            <span className={`text-2xl font-black ${valueClass}`}>
+                {formatted}
+                <span className="text-sm font-bold opacity-30 ml-0.5">{unit}</span>
+            </span>
+        </div>
+    );
+};
+
+const LabeledSelect = ({ label, options, value, onChange }) => (
+    <div className="flex items-center gap-2">
+        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">{label}</span>
+        <select value={value} onChange={e => onChange(e.target.value)}
+            className="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-[3px] px-2.5 h-[30px] bg-white focus:outline-none focus:border-letusBlue min-w-[80px] cursor-pointer">
+            {options.map(o => <option key={o}>{o}</option>)}
+        </select>
+    </div>
+);
+
+const CheckboxDropdown = ({ label, options, selected, onChange }) => {
+    const [open, setOpen] = React.useState(false);
+    const ref = React.useRef(null);
+    const allSelected = selected.length === 0;
+    React.useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+    const toggle = (opt) => {
+        if (selected.includes(opt)) onChange(selected.filter(x => x !== opt));
+        else onChange([...selected, opt]);
+    };
+    const displayLabel = allSelected ? '전체' : selected.length === 1 ? selected[0] : `${selected.length}개 선택`;
+    return (
+        <div className="relative flex items-center gap-2" ref={ref}>
+            <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">{label}</span>
+            <button onClick={() => setOpen(v => !v)}
+                className={`flex items-center gap-1 text-[11px] font-bold border rounded-[3px] px-2.5 h-[30px] min-w-[80px] bg-white hover:border-letusBlue transition-colors ${open ? 'border-letusBlue text-letusBlue' : 'border-gray-200 text-gray-700'}`}>
+                <span className="flex-1 text-left">{displayLabel}</span>
+                <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {open && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-[3px] shadow-lg z-50 min-w-[130px] py-1">
+                    <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" checked={allSelected} onChange={() => onChange([])} className="w-3.5 h-3.5 accent-letusBlue" />
+                        <span className="text-xs font-bold text-gray-700">전체</span>
+                    </label>
+                    <div className="border-t border-gray-100 my-0.5" />
+                    {options.map(opt => (
+                        <label key={opt} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                            <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} className="w-3.5 h-3.5 accent-letusBlue" />
+                            <span className="text-xs text-gray-700">{opt}</span>
+                        </label>
+                    ))}
+                </div>
             )}
-            <span className="text-xs font-bold text-gray-400">{label}</span>
-            <div className="flex items-end gap-1 mt-2">
-                <span className={`text-xl font-black leading-none ${color || 'text-gray-800'}`}>{formatted}</span>
-                {unit && <span className="text-sm text-gray-400 mb-0.5">{unit}</span>}
-            </div>
-            {sub && <span className="text-[10px] text-gray-400 mt-1">{sub}</span>}
         </div>
     );
 };
@@ -377,7 +414,7 @@ const DEFAULT_COLUMNS_REPAIR = [
     { label: '액션',     key: null,             w: 120 },
 ];
 
-const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual, userProfile }) => {
+const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManual, userProfile, activeCard, externalFilterNoCost }) => {
     const [filterCenter, setFilterCenter] = useState('전체');
     const [filterOrg,    setFilterOrg]    = useState('전체');
     const [filterNoCost, setFilterNoCost] = useState(false);
@@ -395,21 +432,18 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
     const dragSrcRef    = useRef(null);
     const wasDraggedRef = useRef(false);
 
+    // 카드 클릭으로 외부에서 비용미입력 필터 강제 적용
+    useEffect(() => {
+        if (externalFilterNoCost) setFilterNoCost(true);
+        else setFilterNoCost(false);
+    }, [externalFilterNoCost]);
+
     const prevMonth = () => { if (selMonth === 0) { setSelYear(y => y-1); setSelMonth(11); } else setSelMonth(m => m-1); };
     const nextMonth = () => { if (selMonth === 11) { setSelYear(y => y+1); setSelMonth(0); } else setSelMonth(m => m+1); };
     const isCurrentMonth = selYear === today.getFullYear() && selMonth === today.getMonth();
 
     const CENTERS = useMemo(() => ['전체', ...sortCenters([...new Set(forklifts.map(f => f.center).filter(Boolean))])], [forklifts]);
     const ORGS    = useMemo(() => ['전체', ...([...new Set(forklifts.map(f => f.manager_org).filter(Boolean))].sort())], [forklifts]);
-
-    const now = new Date();
-    const thisYear = now.getFullYear();
-    const thisMonth = now.getMonth();
-
-    const noCostCount  = repairs.filter(r => r.parts_cost == null && r.labor_cost == null && !r.cost_free).length;
-    const thisMonthAll = repairs.filter(r => isSameMonth(r.completed_at, thisYear, thisMonth));
-    const thisMonthCnt = thisMonthAll.length;
-    const thisMonthCost = thisMonthAll.reduce((s, r) => s + (r.parts_cost || 0) + (r.labor_cost || 0), 0);
 
     const filtered = useMemo(() => {
         const noQ = filterNo.trim().toLowerCase();
@@ -600,71 +634,51 @@ const Tab1 = ({ repairs, forklifts, forkliftMap, onCostSave, onDelete, onAddManu
     };
 
     return (
-        <div className="flex flex-col h-full">
-            {/* 요약 카드 */}
-            <div className="flex gap-3 px-6 py-4 shrink-0">
-                <SummaryCard label="전체 건수"    value={repairs.length}  unit="건"  color="text-gray-800" />
-                <SummaryCard label="비용 미입력"   value={noCostCount}     unit="건"  color={noCostCount > 0 ? 'text-orange-500' : 'text-gray-800'} />
-                <SummaryCard label="이번달 건수"   value={thisMonthCnt}    unit="건"  color="text-letusBlue" />
-                <SummaryCard label="이번달 총비용" value={thisMonthCost} unit="원" color="text-green-600" />
+        <div className="flex flex-col gap-4 flex-1 overflow-hidden">
+            {/* ━━━ 필터 카드 ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 shrink-0 z-30">
+                <div className="flex items-center gap-5 flex-wrap">
+                    {/* 조회월 */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-gray-600 whitespace-nowrap">조회월</span>
+                        <div className="flex items-center gap-1 h-[30px]">
+                            <button onClick={prevMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <span className="text-[11px] font-bold text-gray-700 w-[80px] text-center">{selYear}년 {selMonth + 1}월</span>
+                            <button onClick={nextMonth} disabled={isCurrentMonth} className="w-[30px] h-[30px] flex items-center justify-center border border-gray-200 rounded-[3px] bg-white hover:bg-gray-50 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <LabeledSelect label="관리주체" options={['전체', ...ORGS.filter(o => o !== '전체')]} value={filterOrg} onChange={setFilterOrg} />
+                    <CheckboxDropdown label="센터" options={CENTERS.filter(c => c !== '전체')} selected={filterCenter === '전체' ? [] : [filterCenter]} onChange={v => setFilterCenter(v.length === 0 ? '전체' : v[v.length - 1])} />
+                    {/* 장비번호 검색 */}
+                    <div className="flex items-center gap-0 h-[30px] ml-auto">
+                        <input type="text" placeholder="장비번호 검색" value={filterNo} onChange={e => setFilterNo(e.target.value)}
+                            className="border border-gray-200 rounded-[3px] text-[11px] px-2.5 w-36 focus:outline-none focus:border-letusBlue h-full" />
+                    </div>
+                    {/* 비용미입력만 */}
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" checked={filterNoCost} onChange={e => setFilterNoCost(e.target.checked)}
+                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                        <span className="text-[11px] font-bold text-gray-600">비용미입력만</span>
+                    </label>
+                </div>
             </div>
-
-            {/* 월 네비게이션 + 필터 + 직접등록 버튼 */}
-            <div className="px-6 pb-3 shrink-0 flex items-center gap-3 flex-wrap">
-                {/* 월 네비게이션 */}
-                <div className="flex items-center gap-1.5">
-                    <button onClick={prevMonth} className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <span className="text-[14px] font-black text-gray-700 w-[90px] text-center">{selYear}년 {selMonth + 1}월</span>
-                    <button onClick={nextMonth} disabled={isCurrentMonth} className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </div>
-                <div className="w-px h-4 bg-gray-200" />
-                {/* 장비번호 검색 */}
-                <div className="relative flex items-center">
-                    <svg className="absolute left-2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 111 11a6 6 0 0116 0z" /></svg>
-                    <input value={filterNo} onChange={e => setFilterNo(e.target.value)}
-                        placeholder="장비번호 검색"
-                        className="text-[13px] pl-7 pr-3 h-[29px] border border-gray-300 rounded bg-white focus:outline-none focus:border-letusBlue w-[130px]" />
-                    {filterNo && (
-                        <button onClick={() => setFilterNo('')} className="absolute right-2 text-gray-400 hover:text-gray-600">
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-bold text-gray-500">센터</span>
-                    <select value={filterCenter} onChange={e => setFilterCenter(e.target.value)}
-                        className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
-                        {CENTERS.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-bold text-gray-500">관리주체</span>
-                    <select value={filterOrg} onChange={e => setFilterOrg(e.target.value)}
-                        className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
-                        {ORGS.map(o => <option key={o}>{o}</option>)}
-                    </select>
-                </div>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={filterNoCost} onChange={e => setFilterNoCost(e.target.checked)}
-                        className="w-4 h-4 accent-letusBlue cursor-pointer" />
-                    <span className="text-[13px] font-bold text-gray-500">비용미입력만</span>
-                </label>
-                <span className="text-[13px] text-gray-400">총 {filtered.length}건</span>
+            {/* ━━━ 칼럼 초기화 + 직접등록 ━━━ */}
+            <div className="flex justify-end items-center gap-2 shrink-0 -mt-2 z-30 relative">
                 <button onClick={resetColSettings}
-                    className="ml-auto flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[34px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
-                    title="컬럼 너비·순서를 기본값으로 초기화">
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="칼럼 너비·순서를 기본값으로 초기화">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     칼럼 초기화
                 </button>
                 <button onClick={onAddManual}
-                    className="flex items-center gap-1.5 text-sm font-bold text-white bg-letusBlue hover:opacity-90 rounded-xl px-4 h-[34px] transition-opacity">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    className="flex items-center gap-1.5 text-xs font-bold text-white bg-letusBlue hover:opacity-90 rounded shadow-sm px-3 h-[32px] transition-opacity">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
                     직접 등록
@@ -866,15 +880,8 @@ const Tab2 = ({ repairs, forklifts, forkliftMap }) => {
                 </button>
             </div>
 
-            {/* 첫 번째 행: 요약 카드 + 연간 수리비용 그래프 */}
+            {/* 첫 번째 행: 연간 수리비용 그래프 */}
             <div className="flex gap-4 mb-5 items-stretch">
-                {/* 요약 카드 */}
-                <div className="flex gap-3 shrink-0">
-                    <SummaryCard label="건수"      value={totalCnt}    unit="건"  color="text-gray-800" />
-                    <SummaryCard label="부품비 합계" value={totalParts}  unit="원" color="text-blue-600" />
-                    <SummaryCard label="공임 합계"  value={totalLabor} unit="원" color="text-orange-500" />
-                    <SummaryCard label="총비용"     value={totalCost}  unit="원" color="text-letusBlue" />
-                </div>
                 {/* 최근 1년 수리비용 그래프 */}
                 <div className="flex-1 bg-white rounded-xl border border-gray-200 px-4 pt-3 pb-2 min-w-0">
                     <p className="text-xs font-bold text-gray-400 mb-2">최근 1년 수리비용</p>
@@ -979,6 +986,8 @@ export const ForkliftRepair = ({ userProfile }) => {
     const [issues,    setIssues]    = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showAdd,   setShowAdd]   = useState(false);
+    const [activeCard,          setActiveCard]          = useState('all');
+    const [externalFilterNoCost, setExternalFilterNoCost] = useState(false);
 
     // 마운트 시 데이터 로드
     useEffect(() => {
@@ -1039,6 +1048,17 @@ export const ForkliftRepair = ({ userProfile }) => {
     const forkliftMap = useMemo(() =>
         Object.fromEntries(forklifts.map(f => [f.id, f])),
     [forklifts]);
+
+    const now2 = new Date();
+    const thisYear = now2.getFullYear();
+    const thisMonth = now2.getMonth();
+    const thisMonthAll   = repairs.filter(r => isSameMonth(r.completed_at, thisYear, thisMonth));
+    const totalRepairCnt = repairs.length;
+    const noCostCount    = repairs.filter(r => r.parts_cost == null && r.labor_cost == null && !r.cost_free).length;
+    const thisMonthCnt   = thisMonthAll.length;
+    const thisMonthParts = thisMonthAll.reduce((s, r) => s + (r.parts_cost || 0), 0);
+    const thisMonthLabor = thisMonthAll.reduce((s, r) => s + (r.labor_cost || 0), 0);
+    const thisMonthCost  = thisMonthParts + thisMonthLabor;
 
     // 비용 저장
     const handleCostSave = useCallback(async (repairId, { cost_free, parts_cost, labor_cost }) => {
@@ -1108,22 +1128,52 @@ export const ForkliftRepair = ({ userProfile }) => {
 
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
-            {/* 헤더 카드 */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 z-30 shrink-0">
-                <div className="flex items-center justify-between mb-3">
-                    <div>
-                        <span className="text-base font-black text-gray-800">정비·수리 이력</span>
-                        <span className="text-xs text-gray-400 ml-2">검수완료 이력 및 직접 등록 관리</span>
-                    </div>
-                </div>
-                {/* 탭 */}
+
+            {/* ━━━ 요약 카드 ━━━ */}
+            <div className="grid grid-cols-6 gap-4 shrink-0">
+                <SummaryCard
+                    label="전체 건수" value={totalRepairCnt} unit="건"
+                    labelClass="text-gray-500" valueClass="text-gray-800" borderClass="border-b-gray-300"
+                    active={activeCard === 'all'}
+                    onClick={() => { setActiveCard('all'); setTab('list'); setExternalFilterNoCost(false); }}
+                />
+                <SummaryCard
+                    label="이번달 건수" value={thisMonthCnt} unit="건"
+                    labelClass="text-blue-500" valueClass="text-letusBlue" borderClass="border-b-letusBlue"
+                    active={activeCard === 'thisMonth'}
+                    onClick={() => { setActiveCard('thisMonth'); setTab('list'); setExternalFilterNoCost(false); }}
+                />
+                <SummaryCard
+                    label="이번달 부품비" value={thisMonthParts} unit="원"
+                    labelClass="text-blue-400" valueClass="text-blue-600" borderClass="border-b-blue-400"
+                />
+                <SummaryCard
+                    label="이번달 공임" value={thisMonthLabor} unit="원"
+                    labelClass="text-orange-400" valueClass="text-orange-500" borderClass="border-b-orange-400"
+                />
+                <SummaryCard
+                    label="이번달 총비용" value={thisMonthCost} unit="원"
+                    labelClass="text-green-500" valueClass="text-green-600" borderClass="border-b-green-500"
+                />
+                <SummaryCard
+                    label="비용 미입력" value={noCostCount} unit="건"
+                    labelClass={noCostCount > 0 ? 'text-orange-400' : 'text-gray-500'}
+                    valueClass={noCostCount > 0 ? 'text-orange-500' : 'text-gray-400'}
+                    borderClass={noCostCount > 0 ? 'border-b-orange-400' : 'border-b-gray-300'}
+                    active={activeCard === 'noCost'}
+                    onClick={() => { setActiveCard('noCost'); setTab('list'); setExternalFilterNoCost(true); }}
+                />
+            </div>
+
+            {/* ━━━ 탭 헤더 (제목 없음) ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-0 shrink-0">
                 <div className="flex gap-6">
                     {[
                         { key: 'list',    label: '이력 목록' },
                         { key: 'monthly', label: '월별 비용 정리' },
                     ].map(({ key, label }) => (
                         <button key={key} onClick={() => setTab(key)}
-                            className={`pb-2.5 text-sm font-bold border-b-2 transition-colors ${
+                            className={`py-3 text-sm font-bold border-b-2 transition-colors ${
                                 tab === key
                                     ? 'text-letusBlue border-letusBlue'
                                     : 'text-gray-400 border-transparent hover:text-gray-600'
@@ -1134,8 +1184,8 @@ export const ForkliftRepair = ({ userProfile }) => {
                 </div>
             </div>
 
-            {/* 탭 콘텐츠 */}
-            <div className="flex-1 overflow-hidden flex flex-col">
+            {/* ━━━ 탭 콘텐츠 ━━━ */}
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                 {tab === 'list' ? (
                     <Tab1
                         repairs={repairs}
@@ -1145,6 +1195,8 @@ export const ForkliftRepair = ({ userProfile }) => {
                         onDelete={handleDelete}
                         onAddManual={() => setShowAdd(true)}
                         userProfile={userProfile}
+                        activeCard={activeCard}
+                        externalFilterNoCost={externalFilterNoCost}
                     />
                 ) : (
                     <Tab2
