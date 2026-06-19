@@ -16,36 +16,81 @@ const ISSUE_STATUS = {
 
 const FAULT_TYPES = ['배터리 불량', '유압 이상', '조향 불량', '브레이크 불량', '포크/마스트 이상', '타이어 손상', '전기 계통', '기타'];
 
-// ── 대시보드형 StatCard (카운트업 애니메이션)
-const STAT_META = {
-    '전체':     { border: 'border-b-gray-400',   icon: 'text-gray-200',   path: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-    '고장접수': { border: 'border-b-red-500',    icon: 'text-red-200',    path: 'M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z' },
-    '정비중':   { border: 'border-b-orange-400', icon: 'text-orange-200', path: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
-    '정비완료': { border: 'border-b-blue-500',   icon: 'text-blue-200',   path: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-};
-const IssueStatCard = ({ label, value, color, active, onClick }) => {
+// ── 카운트업 훅
+const useCountUp = (target) => {
     const [display, setDisplay] = useState(0);
     useEffect(() => {
-        if (value === 0) { setDisplay(0); return; }
-        let step = 0; const steps = 30; const interval = 400 / steps;
-        const t = setInterval(() => { step++; setDisplay(Math.round(value * step / steps)); if (step >= steps) clearInterval(t); }, interval);
+        if (target === 0) { setDisplay(0); return; }
+        let step = 0; const steps = 30;
+        const t = setInterval(() => { step++; setDisplay(Math.round(target * step / steps)); if (step >= steps) clearInterval(t); }, 400 / steps);
         return () => clearInterval(t);
-    }, [value]);
-    const m = STAT_META[label] ?? { border: 'border-b-gray-300', icon: 'text-gray-200', path: '' };
+    }, [target]);
+    return display;
+};
+
+// ── 요약 카드
+const SummaryCard = ({ label, value, labelClass, valueClass, borderClass, active, onClick }) => {
+    const display = useCountUp(value);
     return (
         <button onClick={onClick}
-            className={`relative flex flex-col bg-white rounded-xl border border-gray-200 border-b-4 ${m.border} px-6 pt-5 pb-5 overflow-hidden w-[260px] shrink-0 transition-all ${active ? 'ring-2 ring-letusBlue shadow-md' : 'hover:shadow-sm'}`}>
-            {m.path && (
-                <svg className={`absolute top-4 right-4 w-10 h-10 ${m.icon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={m.path} />
-                </svg>
-            )}
-            <span className="text-sm font-bold text-gray-400">{label}</span>
-            <div className="flex items-end gap-1.5 mt-3">
-                <span className={`text-5xl font-black leading-none ${color}`}>{display}</span>
-                <span className="text-base text-gray-400 mb-1">건</span>
+            className={`bg-white rounded-xl border border-gray-200 border-b-4 ${borderClass} px-5 pt-4 pb-4 flex flex-col gap-2 w-full transition-all ${active ? 'shadow-lg -translate-y-0.5' : 'hover:shadow-sm'}`}>
+            <span className={`text-xs font-bold ${labelClass}`}>{label}</span>
+            <div className="flex items-end gap-1">
+                <span className={`text-3xl font-black leading-none ${valueClass}`}>{display}</span>
+                <span className="text-xs text-gray-400 mb-0.5">건</span>
             </div>
         </button>
+    );
+};
+
+// ── 라벨 셀렉트
+const LabeledSelect = ({ label, options, value, onChange }) => (
+    <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{label}</span>
+        <select value={value} onChange={e => onChange(e.target.value)}
+            className="border border-gray-200 rounded-[3px] text-[11px] px-2 h-[30px] text-gray-700 bg-white focus:outline-none focus:border-letusBlue cursor-pointer font-bold">
+            {options.map(o => <option key={o}>{o}</option>)}
+        </select>
+    </div>
+);
+
+// ── 체크박스 드롭다운
+const CheckboxDropdown = ({ label, options, selected, onChange }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+        const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+    }, []);
+    const display = selected.length === 0 ? '전체' : `${selected[0]}${selected.length > 1 ? ` 외 ${selected.length - 1}` : ''}`;
+    return (
+        <div ref={ref} className="flex items-center gap-1.5 shrink-0 relative">
+            <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">{label}</span>
+            <button onClick={() => setOpen(v => !v)}
+                className="border border-gray-200 rounded-[3px] text-[11px] px-2 h-[30px] text-gray-700 bg-white focus:outline-none cursor-pointer font-bold flex items-center gap-1.5 min-w-[90px] justify-between">
+                <span>{display}</span>
+                <svg className={`w-3 h-3 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {open && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1.5 min-w-[120px] max-h-60 overflow-y-auto custom-scrollbar">
+                        <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                            <input type="checkbox" readOnly checked={selected.length === 0} onChange={() => onChange([])} className="w-3.5 h-3.5 accent-letusBlue" />
+                            <span className="text-xs font-bold text-gray-600">전체</span>
+                        </label>
+                        <div className="border-t border-gray-100 my-1" />
+                        {options.map(o => (
+                            <label key={o} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" checked={selected.includes(o)} onChange={() => onChange(selected.includes(o) ? selected.filter(x => x !== o) : [...selected, o])} className="w-3.5 h-3.5 accent-letusBlue" />
+                                <span className="text-xs text-gray-700">{o}</span>
+                            </label>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
     );
 };
 
@@ -478,9 +523,8 @@ export const ForkliftIssue = ({ userProfile }) => {
     const [isLoading,     setIsLoading]     = useState(false);
     const [filterOrg,       setFilterOrg]       = useState('전체');
     const [filterCenters,   setFilterCenters]   = useState([]);
-    const [centerDropOpen,  setCenterDropOpen]  = useState(false);
     const [filterStatus,    setFilterStatus]    = useState('전체');
-    const centerDropRef = useRef(null);
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [excludeApproved, setExcludeApproved] = useState(true);  // 검수완료 제외 (기본 체크)
     const [showForm,      setShowForm]      = useState(false);
     const [editIssue,     setEditIssue]     = useState(null);
@@ -515,11 +559,6 @@ export const ForkliftIssue = ({ userProfile }) => {
         fetchIssues();
     }, []);
 
-    useEffect(() => {
-        const handler = (e) => { if (centerDropRef.current && !centerDropRef.current.contains(e.target)) setCenterDropOpen(false); };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
 
     useEffect(() => {
         if (!userProfile?.id) return;
@@ -657,13 +696,6 @@ export const ForkliftIssue = ({ userProfile }) => {
         return true;
     }), [activeIssues, forkliftMap, filterOrg, filterCenters]);
 
-    // 요약 — 1행 카드 숫자
-    const totalStats = useMemo(() => ({
-        reported:  filteredBase.filter(i => i.status === 'reported').length,
-        accepted:  filteredBase.filter(i => i.status === 'accepted').length,
-        completed: filteredBase.filter(i => i.status === 'completed').length,
-    }), [filteredBase]);
-
     // 상태 필터 + 정렬
     const filtered = useMemo(() => {
         let r = filteredBase.filter(issue =>
@@ -691,6 +723,22 @@ export const ForkliftIssue = ({ userProfile }) => {
             };
         }).filter(s => s.total > 0);
     }, [activeForklifts]);
+
+    // 전역 요약 카드 수치 (필터 무관)
+    const globalStats = useMemo(() => {
+        const now = new Date();
+        return {
+            total:     issues.filter(i => i.status !== 'approved').length,
+            reported:  issues.filter(i => i.status === 'reported').length,
+            accepted:  issues.filter(i => i.status === 'accepted').length,
+            completed: issues.filter(i => i.status === 'completed').length,
+            approved:  issues.filter(i => i.status === 'approved').length,
+            thisMonth: issues.filter(i => {
+                const d = new Date(i.created_at || i.reported_at || '');
+                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            }).length,
+        };
+    }, [issues]);
 
     const renderCell = (origIdx, issue) => {
         const f = forkliftMap[issue.forklift_id];
@@ -763,91 +811,63 @@ export const ForkliftIssue = ({ userProfile }) => {
     return (
         <div className="p-6 flex flex-col gap-4 animate-fade-in w-full h-[calc(100vh-64px)] slide-up bg-slate-100">
 
-            {/* ━━━ 헤더 + 필터 카드 ━━━ */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 flex flex-col z-30 shrink-0">
-                <div className="flex items-center justify-between mb-3">
-                    <div>
-                        <span className="text-base font-black text-gray-800">이슈 등록</span>
-                        <span className="text-xs text-gray-400 ml-2">고장 접수 및 정비 처리 현황</span>
-                    </div>
-                    <button onClick={() => { setEditIssue(null); setShowForm(true); }}
-                        className="flex items-center gap-1.5 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl px-4 h-[34px] transition-colors">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                        이슈 등록
-                    </button>
-                </div>
+            {/* ━━━ ① 요약 카드 ━━━ */}
+            <div className="grid grid-cols-6 gap-4 shrink-0">
+                <SummaryCard label="전체" value={globalStats.total}
+                    labelClass="text-gray-500" valueClass="text-gray-700" borderClass="border-b-gray-400"
+                    active={filterStatus === '전체'}
+                    onClick={() => setFilterStatus('전체')} />
+                <SummaryCard label="고장접수" value={globalStats.reported}
+                    labelClass="text-red-500" valueClass="text-red-600" borderClass="border-b-red-500"
+                    active={filterStatus === 'reported'}
+                    onClick={() => setFilterStatus(filterStatus === 'reported' ? '전체' : 'reported')} />
+                <SummaryCard label="정비중" value={globalStats.accepted}
+                    labelClass="text-orange-500" valueClass="text-orange-600" borderClass="border-b-orange-400"
+                    active={filterStatus === 'accepted'}
+                    onClick={() => setFilterStatus(filterStatus === 'accepted' ? '전체' : 'accepted')} />
+                <SummaryCard label="정비완료" value={globalStats.completed}
+                    labelClass="text-blue-500" valueClass="text-blue-600" borderClass="border-b-blue-500"
+                    active={filterStatus === 'completed'}
+                    onClick={() => setFilterStatus(filterStatus === 'completed' ? '전체' : 'completed')} />
+                <SummaryCard label="검수완료" value={globalStats.approved}
+                    labelClass="text-green-500" valueClass="text-green-600" borderClass="border-b-green-500"
+                    active={filterStatus === 'approved'}
+                    onClick={() => { setExcludeApproved(false); setFilterStatus(filterStatus === 'approved' ? '전체' : 'approved'); }} />
+                <SummaryCard label="이번달 접수" value={globalStats.thisMonth}
+                    labelClass="text-purple-500" valueClass="text-purple-600" borderClass="border-b-purple-400"
+                    active={false} onClick={() => {}} />
+            </div>
 
-                {/* 상태 카드 */}
-                <div className="flex gap-2.5">
-                    <IssueStatCard label="고장접수" value={totalStats.reported}  color="text-red-600"    active={filterStatus==='reported'}  onClick={() => setFilterStatus(filterStatus==='reported'  ? '전체' : 'reported')}  />
-                    <IssueStatCard label="정비중"   value={totalStats.accepted}  color="text-orange-600" active={filterStatus==='accepted'}  onClick={() => setFilterStatus(filterStatus==='accepted'  ? '전체' : 'accepted')}  />
-                    <IssueStatCard label="정비완료" value={totalStats.completed} color="text-blue-600"   active={filterStatus==='completed'} onClick={() => setFilterStatus(filterStatus==='completed' ? '전체' : 'completed')} />
-                    <IssueStatCard label="전체"     value={totalStats.reported + totalStats.accepted + totalStats.completed} color="text-gray-700" active={filterStatus==='전체'} onClick={() => setFilterStatus('전체')} />
-                    <div className="flex-1" />
-                </div>
+            {/* ━━━ ② 관리주체별 현황 슬림 스트립 ━━━ */}
+            <div className="flex gap-2 overflow-x-auto shrink-0 -mt-2 pb-0.5">
+                {orgStats.map(s => (
+                    <div key={s.org}
+                        className={`flex-shrink-0 rounded-lg border px-3 py-1.5 flex items-center gap-3 bg-white ${
+                            s.broken > 0 ? 'border-red-200' : s.inRepair > 0 ? 'border-orange-200' : 'border-gray-200'
+                        }`}>
+                        <span className="text-[12px] font-black text-gray-700 whitespace-nowrap">{s.org}</span>
+                        <div className="flex gap-2 text-[11px]">
+                            <span className="text-green-600 font-bold whitespace-nowrap">정상 {s.normal}</span>
+                            {s.inRepair > 0 && <span className="text-orange-500 font-bold whitespace-nowrap">정비중 {s.inRepair}</span>}
+                            {s.broken   > 0 && <span className="text-red-500 font-bold whitespace-nowrap">고장 {s.broken}</span>}
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-                {/* 관리주체별 현황 */}
-                <div className="border-t border-gray-100 pt-2.5 mt-2.5">
-                    <div className="flex gap-2.5 overflow-x-auto pb-0.5">
-                        {orgStats.map(s => (
-                            <div key={s.org} className={`flex-shrink-0 rounded-xl border px-3.5 py-2 min-w-[140px] ${s.broken > 0 ? 'border-red-200 bg-red-50/40' : s.inRepair > 0 ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200 bg-gray-50'}`}>
-                                <p className="text-[13px] font-black text-gray-700 mb-1.5">{s.org}</p>
-                                <div className="flex gap-2.5 text-[11px]">
-                                    <span className="text-green-600 font-bold">정상 {s.normal}</span>
-                                    {s.inRepair > 0 && <span className="text-orange-500 font-bold">정비중 {s.inRepair}</span>}
-                                    {s.broken   > 0 && <span className="text-red-500 font-bold">고장 {s.broken}</span>}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* 필터 */}
-                <div className="border-t border-gray-100 pt-2.5 mt-2.5 flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">관리주체</span>
-                        <select value={filterOrg} onChange={e => { setFilterOrg(e.target.value); setFilterCenters([]); }}
-                            className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
-                            {ORGS.map(o => <option key={o}>{o}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-1.5 relative" ref={centerDropRef}>
-                        <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">센터</span>
-                        <button
-                            onClick={() => setCenterDropOpen(v => !v)}
-                            className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white flex items-center gap-1.5 hover:border-gray-400"
-                        >
-                            {filterCenters.length === 0 ? '전체' : `${filterCenters.length}개 선택`}
-                            <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                        </button>
-                        {centerDropOpen && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 py-1.5 min-w-[130px] max-h-60 overflow-y-auto">
-                                <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" checked={filterCenters.length === 0}
-                                        onChange={() => setFilterCenters([])}
-                                        className="w-3.5 h-3.5 accent-letusBlue" />
-                                    <span className="text-xs font-bold text-gray-600">전체</span>
-                                </label>
-                                <div className="border-t border-gray-100 my-1" />
-                                {filteredCenters.filter(c => c !== '전체').map(c => (
-                                    <label key={c} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                                        <input type="checkbox" checked={filterCenters.includes(c)}
-                                            onChange={() => setFilterCenters(prev =>
-                                                prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
-                                            )}
-                                            className="w-3.5 h-3.5 accent-letusBlue" />
-                                        <span className="text-xs text-gray-700">{c}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-bold text-gray-500 whitespace-nowrap">상태</span>
+            {/* ━━━ ③ 필터 카드 ━━━ */}
+            <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 px-6 py-3 shrink-0 z-30">
+                <div className="flex items-center gap-5 flex-wrap">
+                    <LabeledSelect label="관리주체" options={ORGS} value={filterOrg}
+                        onChange={v => { setFilterOrg(v); setFilterCenters([]); }} />
+                    <CheckboxDropdown label="센터"
+                        options={filteredCenters.filter(c => c !== '전체')}
+                        selected={filterCenters}
+                        onChange={setFilterCenters} />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">상태</span>
                         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                            className="text-[13px] font-bold text-gray-600 border border-gray-300 rounded px-2.5 h-[29px] bg-white focus:outline-none">
+                            className="border border-gray-200 rounded-[3px] text-[11px] px-2 h-[30px] text-gray-700 bg-white focus:outline-none focus:border-letusBlue cursor-pointer font-bold">
                             <option value="전체">전체</option>
                             <option value="reported">고장접수</option>
                             <option value="accepted">정비중</option>
@@ -856,20 +876,46 @@ export const ForkliftIssue = ({ userProfile }) => {
                         </select>
                     </div>
                     <div className="w-px h-4 bg-gray-200" />
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={excludeApproved} onChange={e => { setExcludeApproved(e.target.checked); if (!e.target.checked && filterStatus === 'approved') setFilterStatus('전체'); }}
-                            className="w-4 h-4 accent-letusBlue cursor-pointer" />
-                        <span className="text-[13px] font-bold text-gray-500">검수완료 제외</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer shrink-0 bg-blue-50/50 px-3 h-[30px] rounded-[3px] border border-blue-100">
+                        <input type="checkbox" checked={excludeApproved}
+                            onChange={e => { setExcludeApproved(e.target.checked); if (!e.target.checked && filterStatus === 'approved') setFilterStatus('전체'); }}
+                            className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                        <span className="text-[11px] font-bold text-letusBlue">검수완료 제외</span>
                     </label>
-                    <button onClick={resetColSettings}
-                        className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[29px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
-                        title="컬럼 너비·순서를 기본값으로 초기화">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <span className="ml-auto text-[11px] text-gray-400">총 {filtered.length}건</span>
+                </div>
+            </div>
+
+            {/* ━━━ ④ 액션바 ━━━ */}
+            <div className="flex justify-end items-center gap-2 shrink-0 -mt-2 z-30 relative">
+                <button onClick={resetColSettings}
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 border border-gray-300 bg-white rounded shadow-sm px-3 h-[32px] hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="컬럼 너비·순서를 기본값으로 초기화">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    칼럼 초기화
+                </button>
+                <div className="relative">
+                    <button onClick={() => setIsActionMenuOpen(v => !v)}
+                        className="flex items-center justify-between text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded shadow-sm px-3 hover:bg-gray-50 transition-all min-w-[100px] h-[32px]">
+                        선택실행
+                        <svg className={`w-3.5 h-3.5 ml-2 text-gray-400 transition-transform ${isActionMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
-                        칼럼 초기화
                     </button>
-                    <span className="ml-auto text-[13px] text-gray-400">총 {filtered.length}건</span>
+                    {isActionMenuOpen && (
+                        <>
+                            <div className="fixed inset-0" onClick={() => setIsActionMenuOpen(false)} />
+                            <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded shadow-lg z-50 py-1.5 slide-down">
+                                <button onClick={() => { setIsActionMenuOpen(false); setEditIssue(null); setShowForm(true); }}
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
+                                    이슈 등록
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
