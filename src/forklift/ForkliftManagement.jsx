@@ -120,7 +120,7 @@ const SummaryCard = ({ label, value, labelClass, valueClass, borderClass, onClic
     return (
         <div
             onClick={onClick}
-            className={`bg-white rounded-xl shadow-sm border p-4 flex flex-col justify-center transition-all border-b-4 ${borderClass} ${onClick ? 'cursor-pointer hover:shadow-md' : ''} ${active ? 'ring-2 ring-offset-1 ring-current shadow-md' : 'border-slate-200'}`}
+            className={`bg-white rounded-xl border p-4 flex flex-col justify-center transition-all border-b-4 ${borderClass} ${onClick ? 'cursor-pointer' : ''} ${active ? 'shadow-lg -translate-y-0.5 border-slate-300' : 'shadow-sm border-slate-200 hover:shadow-md'}`}
         >
             <span className={`text-xs font-bold mb-1 ${labelClass}`}>{label}</span>
             <span className={`text-2xl font-black ${valueClass}`}>
@@ -140,10 +140,11 @@ const MANAGER_ORGS  = ['바로서비스', '하나물류', '에프스토리', '�
 const EXCLUDE_STATUSES = ['반납', '매각'];
 
 // 체크박스 드롭다운 필터 컴포넌트
-const CheckboxDropdown = ({ label, options, selected, onChange }) => {
+const CheckboxDropdown = ({ label, options, selected, onChange, labelFn }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
     const allSelected = selected.length === 0;
+    const getLabel = labelFn || (opt => opt);
 
     useEffect(() => {
         const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -157,7 +158,7 @@ const CheckboxDropdown = ({ label, options, selected, onChange }) => {
     };
     const toggleAll = () => onChange([]);
 
-    const displayLabel = allSelected ? '전체' : selected.length === 1 ? selected[0] : `${selected.length}개 선택`;
+    const displayLabel = allSelected ? '전체' : selected.length === 1 ? getLabel(selected[0]) : `${selected.length}개 선택`;
 
     return (
         <div className="relative flex items-center gap-2" ref={ref}>
@@ -183,7 +184,7 @@ const CheckboxDropdown = ({ label, options, selected, onChange }) => {
                         <label key={opt} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
                             <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)}
                                 className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
-                            <span className="text-xs text-gray-700">{opt}</span>
+                            <span className="text-xs text-gray-700">{getLabel(opt)}</span>
                         </label>
                     ))}
                 </div>
@@ -1104,7 +1105,7 @@ export const ForkliftManagement = ({ userProfile }) => {
                 {/* 조회 필터 */}
                 <div className="flex items-center gap-5 flex-wrap">
                     <LabeledSelect label="관리주체" options={MANAGER_ORGS} value={filterManagerOrg} onChange={v => { setFilterManagerOrg(v); setFilterCenter([]); }} />
-                    <CheckboxDropdown label="센터" options={filterManagerOrg === '전체' ? CENTERS : CENTERS.filter(c => data.some(x => x.manager_org === filterManagerOrg && x.center === c))} selected={filterCenter} onChange={setFilterCenter} />
+                    <CheckboxDropdown label="센터" options={filterManagerOrg === '전체' ? CENTERS : CENTERS.filter(c => data.some(x => x.manager_org === filterManagerOrg && x.center === c))} selected={filterCenter} onChange={setFilterCenter} labelFn={c => `${c}센터`} />
                     <CheckboxDropdown label="장비형태" options={SHAPES} selected={filterShape} onChange={setFilterShape} />
                     <LabeledSelect label="소유구분" options={OWN_TYPES} value={filterOwn} onChange={setFilterOwn} />
                     <CheckboxDropdown label="장비상태" options={STATUSES} selected={filterStatus} onChange={setFilterStatus} />
