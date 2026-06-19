@@ -944,6 +944,237 @@ const ForkliftBulkUploadModal = ({ onClose, onReload }) => {
 };
 
 // ─────────────────────────────────────────────────────────
+// 지게차 일괄 수정 모달
+// ─────────────────────────────────────────────────────────
+const BULK_EDIT_EMPTY = {
+    center: '선택', manager_org: '선택', work_type: '',
+    maker: '선택', makerCustom: '',
+    shape: '선택', model: '', ton: '',
+    own_type: '선택',
+    rental_company: '선택', rentalCustom: '',
+    driver_day: '', driver_night: '',
+    made_year: '', battery_year: '',
+    note: '',
+};
+
+const ForkliftBulkEditModal = ({ selectedCount, onClose, onSave }) => {
+    const [form, setForm] = useState({ ...BULK_EDIT_EMPTY });
+    const [isSaving, setIsSaving] = useState(false);
+    const set = useCallback((k, v) => setForm(prev => ({ ...prev, [k]: v })), []);
+
+    const handleSave = async () => {
+        // '선택' / 빈값 제외하고 페이로드 구성
+        const payload = {};
+        if (form.center     !== '선택') payload.center      = form.center;
+        if (form.manager_org !== '선택') payload.manager_org = form.manager_org;
+        if (form.work_type.trim())       payload.work_type   = form.work_type.trim();
+        if (form.shape      !== '선택') payload.shape       = form.shape;
+        if (form.model.trim())           payload.model       = form.model.trim();
+        if (form.ton.trim())             payload.ton         = form.ton.trim();
+        if (form.own_type   !== '선택') payload.own_type    = form.own_type;
+        if (form.driver_day.trim())      payload.driver_day  = form.driver_day.trim();
+        if (form.driver_night.trim())    payload.driver_night = form.driver_night.trim();
+        if (form.made_year)              payload.made_year   = form.made_year;
+        if (form.battery_year)           payload.battery_year = form.battery_year;
+        if (form.note.trim())            payload.note        = form.note.trim();
+
+        // 제조사
+        if (form.maker !== '선택') {
+            payload.maker = form.maker === '기타' ? (form.makerCustom?.trim() || '기타') : form.maker;
+        }
+        // 렌탈업체 — 소유구분이 렌탈일 때만
+        if (form.own_type === '렌탈' && form.rental_company !== '선택') {
+            payload.rental_company = form.rental_company === '기타'
+                ? (form.rentalCustom?.trim() || '기타')
+                : form.rental_company;
+        }
+
+        if (Object.keys(payload).length === 0) {
+            alert('수정할 항목을 1개 이상 입력해 주세요.');
+            return;
+        }
+
+        const msg = `선택한 ${selectedCount}대의 장비를 일괄 수정하시겠습니까?\n\n수정 항목: ${Object.keys(payload).length}개`;
+        if (!window.confirm(msg)) return;
+
+        setIsSaving(true);
+        await onSave(payload);
+        setIsSaving(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col slide-up">
+                {/* 헤더 */}
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                    <h2 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-letusOrange rounded-full mr-2 inline-block"></span>
+                        지게차 일괄 수정
+                        <span className="ml-2 text-xs font-normal text-gray-400">— 선택 {selectedCount}대</span>
+                    </h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors leading-none text-base">✕</button>
+                </div>
+
+                {/* 안내 */}
+                <div className="px-6 pt-4 bg-slate-50">
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-2.5 text-[11px] text-blue-700 font-medium">
+                        💡 <span className="font-bold">선택(기본값)</span> 또는 <span className="font-bold">빈 항목</span>은 수정하지 않습니다. 변경할 항목만 입력해 주세요.
+                    </div>
+                </div>
+
+                {/* 폼 */}
+                <div className="p-6 bg-slate-50 overflow-y-auto flex-1 custom-scrollbar max-h-[60vh]">
+                    <div className="grid grid-cols-2 gap-4">
+
+                        {/* 센터 */}
+                        <div>
+                            <label className={LBL}>센터</label>
+                            <ScrollSelect value={form.center} onChange={v => set('center', v)} options={CENTERS} />
+                        </div>
+
+                        {/* 관리주체 */}
+                        <div>
+                            <label className={LBL}>관리주체</label>
+                            <select value={form.manager_org} onChange={e => set('manager_org', e.target.value)} className={SEL}>
+                                <option value="선택">선택</option>
+                                {MANAGER_ORGS.map(o => <option key={o}>{o}</option>)}
+                            </select>
+                        </div>
+
+                        {/* 업무 */}
+                        <div>
+                            <label className={LBL}>업무</label>
+                            <input value={form.work_type} onChange={e => set('work_type', e.target.value)}
+                                placeholder="변경 시 입력 (예: 피킹(E/F), 입고)" className={INP} />
+                        </div>
+
+                        {/* 제조사 */}
+                        <div>
+                            <label className={LBL}>제조사</label>
+                            <select value={form.maker} onChange={e => set('maker', e.target.value)} className={SEL}>
+                                <option value="선택">선택</option>
+                                {['클락', '예일', '현대', '크라운', '도요타', '기타'].map(o => <option key={o}>{o}</option>)}
+                            </select>
+                            {form.maker === '기타' && (
+                                <input value={form.makerCustom ?? ''} onChange={e => set('makerCustom', e.target.value)}
+                                    placeholder="제조사 직접 입력" className={`${INP} mt-1.5`} />
+                            )}
+                        </div>
+
+                        {/* 형태 */}
+                        <div>
+                            <label className={LBL}>형태</label>
+                            <select value={form.shape} onChange={e => set('shape', e.target.value)} className={SEL}>
+                                <option value="선택">선택</option>
+                                {['리치', '카운터', '하이리치', '오더피커'].map(o => <option key={o}>{o}</option>)}
+                            </select>
+                        </div>
+
+                        {/* 모델명 */}
+                        <div>
+                            <label className={LBL}>모델명</label>
+                            <input value={form.model} onChange={e => set('model', e.target.value)}
+                                placeholder="변경 시 입력" className={INP} />
+                        </div>
+
+                        {/* 톤수 */}
+                        <div>
+                            <label className={LBL}>톤수</label>
+                            <div className="relative">
+                                <input type="number" step="0.1" min="0"
+                                    value={form.ton?.replace(/[tT]/g, '') ?? ''}
+                                    onChange={e => set('ton', e.target.value ? `${e.target.value}t` : '')}
+                                    placeholder="변경 시 입력"
+                                    className={`${INP} pr-6`} />
+                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">t</span>
+                            </div>
+                        </div>
+
+                        {/* 소유구분 */}
+                        <div>
+                            <label className={LBL}>소유구분</label>
+                            <select value={form.own_type} onChange={e => {
+                                set('own_type', e.target.value);
+                                if (e.target.value !== '렌탈') {
+                                    set('rental_company', '선택');
+                                    set('rentalCustom', '');
+                                }
+                            }} className={SEL}>
+                                <option value="선택">선택</option>
+                                {['자가', '렌탈'].map(o => <option key={o}>{o}</option>)}
+                            </select>
+                        </div>
+
+                        {/* 렌탈업체 */}
+                        <div>
+                            <label className={`${LBL} ${form.own_type !== '렌탈' ? 'opacity-40' : ''}`}>렌탈업체</label>
+                            <select
+                                disabled={form.own_type !== '렌탈'}
+                                value={form.rental_company}
+                                onChange={e => set('rental_company', e.target.value)}
+                                className={`${SEL} ${form.own_type !== '렌탈' ? 'opacity-40 cursor-not-allowed bg-gray-50' : ''}`}>
+                                <option value="선택">선택</option>
+                                {['한국공항', 'J&U', '크라운', 'DPL', '삼성건기', '기타'].map(o => <option key={o}>{o}</option>)}
+                            </select>
+                            {form.own_type === '렌탈' && form.rental_company === '기타' && (
+                                <input value={form.rentalCustom ?? ''} onChange={e => set('rentalCustom', e.target.value)}
+                                    placeholder="렌탈업체 직접 입력" className={`${INP} mt-1.5`} />
+                            )}
+                        </div>
+
+                        {/* 탑승자(주간) */}
+                        <div>
+                            <label className={LBL}>탑승자(주간)</label>
+                            <input value={form.driver_day} onChange={e => set('driver_day', e.target.value)}
+                                placeholder="변경 시 입력" className={INP} />
+                        </div>
+
+                        {/* 탑승자(야간) */}
+                        <div>
+                            <label className={LBL}>탑승자(야간)</label>
+                            <input value={form.driver_night} onChange={e => set('driver_night', e.target.value)}
+                                placeholder="변경 시 입력" className={INP} />
+                        </div>
+
+                        {/* 제조연식 */}
+                        <div>
+                            <label className={LBL}>제조연식</label>
+                            <MonthPickerInput value={form.made_year} onChange={v => set('made_year', v)} />
+                        </div>
+
+                        {/* 배터리연식 */}
+                        <div>
+                            <label className={LBL}>배터리연식</label>
+                            <MonthPickerInput value={form.battery_year} onChange={v => set('battery_year', v)} />
+                        </div>
+
+                        {/* 비고 */}
+                        <div className="col-span-2">
+                            <label className={LBL}>비고</label>
+                            <input value={form.note} onChange={e => set('note', e.target.value)}
+                                placeholder="변경 시 입력" className={INP} />
+                        </div>
+
+                    </div>
+                </div>
+
+                {/* 푸터 */}
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+                    <button onClick={onClose}
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
+                        취소
+                    </button>
+                    <button onClick={handleSave} disabled={isSaving}
+                        className="px-5 py-[9px] bg-letusBlue text-white text-[11px] font-bold rounded-[3px] hover:bg-blue-600 transition-colors disabled:opacity-50">
+                        {isSaving ? '저장 중...' : `${selectedCount}대 일괄 적용`}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────
 export const ForkliftManagement = ({ userProfile }) => {
@@ -980,6 +1211,7 @@ export const ForkliftManagement = ({ userProfile }) => {
     // 모달
     const [editModal,       setEditModal]       = useState(null);   // { mode, data? }
     const [bulkUploadModal, setBulkUploadModal] = useState(false);
+    const [bulkEditModal,   setBulkEditModal]   = useState(false);
     const [detailModal, setDetailModal] = useState(null);   // forklift 객체
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
@@ -1268,6 +1500,21 @@ export const ForkliftManagement = ({ userProfile }) => {
         setEditModal(null);
     };
 
+    // ── 일괄 수정
+    const handleBulkEdit = async (payload) => {
+        const { error } = await supabase.from('forklifts').update(payload).in('id', selectedIds);
+        if (error) {
+            alert(`일괄 수정 실패: ${error.message}`);
+            return;
+        }
+        // 로컬 상태 반영
+        setData(prev => prev.map(x =>
+            selectedIds.includes(x.id) ? { ...x, ...payload } : x
+        ));
+        setSelectedIds([]);
+        setBulkEditModal(false);
+    };
+
     // ── 반납·매각 모달
     const [retireModal, setRetireModal] = useState(null); // { type: '반납'|'매각', reason: '' }
 
@@ -1464,9 +1711,9 @@ export const ForkliftManagement = ({ userProfile }) => {
 
                                 {isAdmin && (
                                     <button
-                                        onClick={() => { if (selectedIds.length < 2) return alert('2개 이상 선택해 주세요.'); setIsActionMenuOpen(false); alert('준비 중입니다.'); }}
+                                        onClick={() => { if (selectedIds.length < 2) return; setIsActionMenuOpen(false); setBulkEditModal(true); }}
                                         className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length >= 2 ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
-                                        일괄 수정
+                                        일괄 수정 {selectedIds.length >= 2 ? `(${selectedIds.length})` : ''}
                                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                     </button>
                                 )}
@@ -1626,6 +1873,14 @@ export const ForkliftManagement = ({ userProfile }) => {
                 <ForkliftBulkUploadModal
                     onClose={() => setBulkUploadModal(false)}
                     onReload={loadData}
+                />
+            )}
+
+            {bulkEditModal && (
+                <ForkliftBulkEditModal
+                    selectedCount={selectedIds.length}
+                    onClose={() => setBulkEditModal(false)}
+                    onSave={handleBulkEdit}
                 />
             )}
 
