@@ -840,19 +840,25 @@ export const ForkliftIssue = ({ userProfile }) => {
 
             {/* ━━━ ② 관리주체별 현황 슬림 스트립 ━━━ */}
             <div className="flex gap-2 shrink-0 -mt-2">
-                {orgStats.map(s => (
-                    <div key={s.org}
-                        className={`flex-1 rounded-lg border px-3 py-1.5 flex items-center gap-3 bg-white ${
-                            s.broken > 0 ? 'border-red-200' : s.inRepair > 0 ? 'border-orange-200' : 'border-gray-200'
-                        }`}>
-                        <span className="text-[12px] font-black text-gray-700 whitespace-nowrap">{s.org}</span>
-                        <div className="flex gap-2 text-[11px]">
-                            <span className="text-green-600 font-bold whitespace-nowrap">정상 {s.normal}</span>
-                            {s.inRepair > 0 && <span className="text-orange-500 font-bold whitespace-nowrap">정비중 {s.inRepair}</span>}
-                            {s.broken   > 0 && <span className="text-red-500 font-bold whitespace-nowrap">고장 {s.broken}</span>}
-                        </div>
-                    </div>
-                ))}
+                {orgStats.map(s => {
+                    const isActive = filterOrg === s.org;
+                    return (
+                        <button key={s.org}
+                            onClick={() => { setFilterOrg(isActive ? '전체' : s.org); setFilterCenters([]); }}
+                            className={`flex-1 rounded-lg border px-3 py-1.5 flex items-center gap-3 transition-all cursor-pointer ${
+                                isActive
+                                    ? 'border-letusBlue bg-blue-50 shadow-md -translate-y-0.5'
+                                    : s.broken > 0 ? 'border-red-200 bg-white hover:shadow-sm' : s.inRepair > 0 ? 'border-orange-200 bg-white hover:shadow-sm' : 'border-gray-200 bg-white hover:shadow-sm'
+                            }`}>
+                            <span className="text-[13px] font-black text-gray-700 whitespace-nowrap">{s.org}</span>
+                            <div className="flex gap-2 text-[12px]">
+                                <span className="text-green-600 font-bold whitespace-nowrap">정상 {s.normal}</span>
+                                {s.inRepair > 0 && <span className="text-orange-500 font-bold whitespace-nowrap">정비중 {s.inRepair}</span>}
+                                {s.broken   > 0 && <span className="text-red-500 font-bold whitespace-nowrap">고장 {s.broken}</span>}
+                            </div>
+                        </button>
+                    );
+                })}
             </div>
 
             {/* ━━━ ③ 필터 카드 ━━━ */}
@@ -882,7 +888,6 @@ export const ForkliftIssue = ({ userProfile }) => {
                             className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
                         <span className="text-[11px] font-bold text-letusBlue">검수완료 제외</span>
                     </label>
-                    <span className="ml-auto text-[11px] text-gray-400">총 {filtered.length}건</span>
                 </div>
             </div>
 
