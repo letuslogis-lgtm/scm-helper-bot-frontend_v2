@@ -205,29 +205,31 @@ const MonthPicker = ({ year, month, onChange, maxYear, maxMonth }) => {
                 {year}년 {month + 1}월
             </button>
             {open && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-3 w-[190px]">
-                    <div className="flex items-center justify-between mb-2.5">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 w-[190px] overflow-hidden">
+                    <div className="flex items-center justify-between bg-orange-500 px-3 py-2.5">
                         <button onClick={() => setPickerYear(y => y - 1)}
-                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-orange-400 text-white">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
                         </button>
-                        <span className="text-[13px] font-bold text-gray-800">{pickerYear}년</span>
+                        <span className="text-[13px] font-bold text-white">{pickerYear}년</span>
                         <button onClick={() => setPickerYear(y => y + 1)} disabled={pickerYear >= maxYear}
-                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-orange-400 text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
                         </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-1">
-                        {MONTHS.map((label, idx) => {
-                            const disabled = pickerYear === maxYear && idx > maxMonth;
-                            const selected = pickerYear === year && idx === month;
-                            return (
-                                <button key={idx} onClick={() => { if (disabled) return; onChange(pickerYear, idx); setOpen(false); }} disabled={disabled}
-                                    className={`py-1.5 rounded-[3px] text-[11px] font-bold transition-colors ${selected ? 'bg-orange-500 text-white' : disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-500'}`}>
-                                    {label}
-                                </button>
-                            );
-                        })}
+                    <div className="p-3">
+                        <div className="grid grid-cols-3 gap-1">
+                            {MONTHS.map((label, idx) => {
+                                const disabled = pickerYear === maxYear && idx > maxMonth;
+                                const selected = pickerYear === year && idx === month;
+                                return (
+                                    <button key={idx} onClick={() => { if (disabled) return; onChange(pickerYear, idx); setOpen(false); }} disabled={disabled}
+                                        className={`py-1.5 rounded-[3px] text-[11px] font-bold transition-colors ${selected ? 'bg-orange-500 text-white' : disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-500'}`}>
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}
