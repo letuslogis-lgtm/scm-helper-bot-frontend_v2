@@ -203,39 +203,31 @@ const IssueFormModal = ({ forklifts, onSave, onClose, editIssue, userProfile }) 
     const canSave  = forkliftId && faultDesc.trim() && reporter.trim();
 
     return (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-                <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100">
-                    <div className="flex items-center gap-2">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${isEdit ? 'bg-amber-100' : 'bg-red-100'}`}>
-                            {isEdit ? (
-                                <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            ) : (
-                                <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            )}
-                        </span>
-                        <span className="font-black text-gray-800">{isEdit ? '이슈 수정' : '이슈 등록'}</span>
-                        {isEdit && <span className="text-xs text-gray-400">{editIssue.id}</span>}
-                    </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[500px] overflow-hidden flex flex-col slide-up">
+                {/* 헤더 */}
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className={`w-1.5 h-3.5 rounded-full mr-2 ${isEdit ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                        {isEdit ? '이슈 수정' : '이슈 등록'}
+                        {isEdit && <span className="text-xs text-gray-400 font-normal ml-2">{editIssue.id}</span>}
+                    </h3>
+                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+                {/* 본문 */}
+                <div className="p-6 bg-slate-50 flex-1 overflow-y-auto max-h-[70vh] custom-scrollbar space-y-4">
                     {/* 장비 선택 */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">장비 선택 *</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">장비 선택 <span className="text-red-500">*</span></label>
                         <ForkliftPicker forklifts={forklifts} value={forkliftId} onChange={setForkliftId} />
                     </div>
 
                     {/* 고장 유형 */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">고장 유형</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">고장 유형</label>
                         <div className="flex flex-wrap gap-2">
                             {FAULT_TYPES.map(t => (
                                 <button key={t} onClick={() => setFaultType(t === faultType ? '' : t)}
@@ -251,46 +243,47 @@ const IssueFormModal = ({ forklifts, onSave, onClose, editIssue, userProfile }) 
                     </div>
 
                     {/* 에러 코드 */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">에러 코드 <span className="font-normal text-gray-400">(선택)</span></label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">에러 코드 <span className="text-gray-400 font-normal">(선택)</span></label>
                         <input value={errorCode} onChange={e => setErrorCode(e.target.value)}
                             placeholder="예) E-01, F23, ERR_HYD 등"
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
                     </div>
 
                     {/* 고장 내용 */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1.5">고장 내용 *</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">고장 내용 <span className="text-red-500">*</span></label>
                         <textarea value={faultDesc} onChange={e => setFaultDesc(e.target.value)}
                             rows={3} placeholder="고장 증상을 자세히 입력해 주세요"
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-letusBlue resize-none" />
+                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full resize-none" />
                     </div>
 
                     {/* 신고자 / 신고 일시 */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5">신고자 *</label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">신고자 <span className="text-red-500">*</span></label>
                             <input value={reporter} onChange={e => setReporter(e.target.value)}
                                 placeholder="이름 입력"
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                                className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5">신고 일시</label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">신고 일시</label>
                             <input type="datetime-local" value={reportedAt} onChange={e => setReportedAt(e.target.value)}
-                                className="w-full text-sm border border-gray-300 rounded-lg px-3 h-[36px] focus:outline-none focus:border-letusBlue" />
+                                className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
                         </div>
                     </div>
                 </div>
 
-                <div className="flex gap-2 px-6 pb-5 pt-2">
-                    <button onClick={onClose}
-                        className="flex-1 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50">
+                {/* 하단 버튼 */}
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+                    <button type="button" onClick={onClose}
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
                         취소
                     </button>
                     <button
                         onClick={() => canSave && onSave({ forklift_id: forkliftId, fault_type: faultType, error_code: errorCode, fault_desc: faultDesc, reporter, reported_at: new Date(reportedAt).toISOString() })}
                         disabled={!canSave}
-                        className={`flex-1 py-2.5 text-sm font-bold text-white rounded-xl transition-colors ${
+                        className={`px-5 py-[9px] text-white text-[11px] font-bold rounded-[3px] transition-colors ${
                             canSave
                                 ? isEdit ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'
                                 : 'bg-gray-300 cursor-not-allowed'
@@ -397,72 +390,84 @@ const DetailModal = ({ issue, forklift, userProfile, onAccept, onClose, can }) =
     const [acceptNote, setAcceptNote] = useState('');
     const [showAcceptForm, setShowAcceptForm] = useState(false);
     return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
-            <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100">
-                <div><span className="font-black text-gray-800">이슈 상세</span><span className="text-xs text-gray-400 ml-2">{issue.id}</span></div>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-[500px] overflow-hidden flex flex-col slide-up">
+            {/* 헤더 */}
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white">
+                <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                    <span className="w-1.5 h-3.5 bg-letusBlue rounded-full mr-2"></span>
+                    이슈 상세
+                    <span className="text-xs text-gray-400 font-normal ml-2">{issue.id}</span>
+                </h3>
+                <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
-            <div className="px-6 py-4 space-y-3 text-sm">
+            {/* 본문 */}
+            <div className="p-6 bg-slate-50 flex-1 overflow-y-auto max-h-[70vh] custom-scrollbar space-y-3">
                 <StatusBadge status={issue.status} />
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-                    <div><span className="text-gray-400 font-bold">장비번호</span><br/><span className="font-bold text-letusBlue">{forklift?.no||'-'}</span></div>
-                    <div><span className="text-gray-400 font-bold">센터</span><br/><span>{forklift?.center||'-'}</span></div>
-                    <div><span className="text-gray-400 font-bold">관리주체</span><br/><span>{forklift?.manager_org||'-'}</span></div>
-                    <div><span className="text-gray-400 font-bold">소유구분</span><br/><span>{forklift?.own_type||'-'}</span></div>
-                    <div><span className="text-gray-400 font-bold">고장유형</span><br/><span>{issue.fault_type||'-'}</span></div>
-                    <div><span className="text-gray-400 font-bold">신고자</span><br/><span>{issue.reporter}</span></div>
-                    <div><span className="text-gray-400 font-bold">신고일시</span><br/><span>{fmtDt(issue.reported_at)}</span></div>
-                    {issue.accepted_at && <div><span className="text-gray-400 font-bold">접수일시</span><br/><span>{fmtDt(issue.accepted_at)}</span></div>}
-                    {issue.accepted_by && <div><span className="text-gray-400 font-bold">접수자</span><br/><span>{issue.accepted_by}</span></div>}
-                    {issue.completed_at && <div><span className="text-gray-400 font-bold">완료일</span><br/><span>{fmtDate(issue.completed_at)}</span></div>}
-                    {issue.repair_vendor && <div><span className="text-gray-400 font-bold">정비업체</span><br/><span>{issue.repair_vendor}</span></div>}
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs bg-white rounded-lg border border-gray-100 p-4">
+                    <div><span className="text-gray-400 font-bold block mb-0.5">장비번호</span><span className="font-bold text-letusBlue">{forklift?.no||'-'}</span></div>
+                    <div><span className="text-gray-400 font-bold block mb-0.5">센터</span><span>{forklift?.center||'-'}</span></div>
+                    <div><span className="text-gray-400 font-bold block mb-0.5">관리주체</span><span>{forklift?.manager_org||'-'}</span></div>
+                    <div><span className="text-gray-400 font-bold block mb-0.5">소유구분</span><span>{forklift?.own_type||'-'}</span></div>
+                    <div><span className="text-gray-400 font-bold block mb-0.5">고장유형</span><span>{issue.fault_type||'-'}</span></div>
+                    <div><span className="text-gray-400 font-bold block mb-0.5">신고자</span><span>{issue.reporter}</span></div>
+                    <div><span className="text-gray-400 font-bold block mb-0.5">신고일시</span><span>{fmtDt(issue.reported_at)}</span></div>
+                    {issue.accepted_at && <div><span className="text-gray-400 font-bold block mb-0.5">접수일시</span><span>{fmtDt(issue.accepted_at)}</span></div>}
+                    {issue.accepted_by && <div><span className="text-gray-400 font-bold block mb-0.5">접수자</span><span>{issue.accepted_by}</span></div>}
+                    {issue.completed_at && <div><span className="text-gray-400 font-bold block mb-0.5">완료일</span><span>{fmtDate(issue.completed_at)}</span></div>}
+                    {issue.repair_vendor && <div><span className="text-gray-400 font-bold block mb-0.5">정비업체</span><span>{issue.repair_vendor}</span></div>}
                 </div>
-                <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs font-bold text-gray-500 mb-1">고장 내용</p>
+                <div className="bg-white rounded-lg border border-gray-100 p-4">
+                    <p className="text-xs font-bold text-gray-500 mb-1.5">고장 내용</p>
                     <p className="text-xs text-gray-700">{issue.fault_desc}</p>
                 </div>
                 {issue.accept_note && (
-                    <div className="bg-orange-50 rounded-xl p-3">
-                        <p className="text-xs font-bold text-orange-600 mb-1">접수 메모</p>
+                    <div className="bg-orange-50 rounded-lg border border-orange-100 p-4">
+                        <p className="text-xs font-bold text-orange-600 mb-1.5">접수 메모</p>
                         <p className="text-xs text-gray-700">{issue.accept_note}</p>
                     </div>
                 )}
                 {issue.repair_desc && (
-                    <div className="bg-blue-50 rounded-xl p-3">
-                        <p className="text-xs font-bold text-blue-600 mb-1">정비 내용</p>
+                    <div className="bg-blue-50 rounded-lg border border-blue-100 p-4">
+                        <p className="text-xs font-bold text-blue-600 mb-1.5">정비 내용</p>
                         <p className="text-xs text-gray-700">{issue.repair_desc}</p>
                     </div>
                 )}
+                {issue.status === 'reported' && showAcceptForm && can('forklift_issue', 'accept') && (
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">접수 메모 <span className="text-gray-400 font-normal">(선택)</span></label>
+                        <textarea value={acceptNote} onChange={e => setAcceptNote(e.target.value)}
+                            placeholder="정비 지시사항, 주의사항 등 추가 설명을 입력하세요"
+                            rows={3}
+                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full resize-none" />
+                    </div>
+                )}
+            </div>
+            {/* 하단 버튼 */}
+            <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+                <button type="button" onClick={onClose}
+                    className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
+                    닫기
+                </button>
                 {issue.status === 'reported' && !showAcceptForm && can('forklift_issue', 'accept') && (
                     <button onClick={() => setShowAcceptForm(true)}
-                        className="w-full py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition-colors">
+                        className="px-5 py-[9px] bg-orange-500 text-white text-[11px] font-bold rounded-[3px] hover:bg-orange-600 transition-colors">
                         접수 (정비중으로 변경)
                     </button>
                 )}
                 {issue.status === 'reported' && showAcceptForm && can('forklift_issue', 'accept') && (
-                    <div className="space-y-2">
-                        <p className="text-xs font-bold text-orange-600">접수 메모 <span className="text-gray-400 font-normal">(선택)</span></p>
-                        <textarea
-                            value={acceptNote}
-                            onChange={e => setAcceptNote(e.target.value)}
-                            placeholder="정비 지시사항, 주의사항 등 추가 설명을 입력하세요"
-                            rows={3}
-                            className="w-full border border-orange-200 rounded-xl px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
-                        />
-                        <div className="flex gap-2">
-                            <button onClick={() => setShowAcceptForm(false)}
-                                className="flex-1 py-2.5 text-sm font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
-                                취소
-                            </button>
-                            <button onClick={() => onAccept(issue.id, userProfile?.name || userProfile?.email || '관리자', acceptNote)}
-                                className="flex-1 py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition-colors">
-                                접수 확정
-                            </button>
-                        </div>
-                    </div>
+                    <>
+                        <button onClick={() => setShowAcceptForm(false)}
+                            className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
+                            취소
+                        </button>
+                        <button onClick={() => onAccept(issue.id, userProfile?.name || userProfile?.email || '관리자', acceptNote)}
+                            className="px-5 py-[9px] bg-orange-500 text-white text-[11px] font-bold rounded-[3px] hover:bg-orange-600 transition-colors">
+                            접수 확정
+                        </button>
+                    </>
                 )}
             </div>
         </div>
