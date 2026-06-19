@@ -432,22 +432,22 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
 // 메인 — 일일점검 관리자 화면
 // ─────────────────────────────────────────────────────────
 const DEFAULT_COLUMNS_DAILYCHECK = [
-    { label: '관리번호',    key: 'no',          w: 100 },
-    { label: '센터',        key: 'center',      w: 80  },
-    { label: '관리주체',    key: 'manager_org', w: 90  },
-    { label: '탑승자',      key: 'driver_day',  w: 80  },
-    { label: '점검상태',    key: 'status',      w: 80  },
-    { label: '외관점검',    key: null,          w: 80  },
-    { label: '운행 전',     key: null,          w: 80  },
-    { label: '완료 후',     key: null,          w: 80  },
-    { label: '시작',        key: 'startTime',   w: 70  },
-    { label: '종료',        key: 'endTime',     w: 70  },
-    { label: '작업시간',    key: null,          w: 70  },
-    { label: '불량',        key: 'faultCnt',    w: 60  },
-    { label: '관리자 승인', key: 'approved',    w: 110 },
-    { label: '점검내용',    key: null,          w: 150 },
-    { label: '상세',        key: null,          w: 60  },
-    { label: '점검일자',    key: 'checkDate',   w: 100 },
+    { label: '관리번호',    key: 'no',          w: 100 },  // 0
+    { label: '센터',        key: 'center',      w: 80  },  // 1
+    { label: '관리주체',    key: 'manager_org', w: 90  },  // 2
+    { label: '탑승자',      key: 'driver_day',  w: 80  },  // 3
+    { label: '점검일자',    key: 'checkDate',   w: 100 },  // 4
+    { label: '점검상태',    key: 'status',      w: 80  },  // 5
+    { label: '외관점검',    key: null,          w: 80  },  // 6
+    { label: '운행 전',     key: null,          w: 80  },  // 7
+    { label: '완료 후',     key: null,          w: 80  },  // 8
+    { label: '시작',        key: 'startTime',   w: 70  },  // 9
+    { label: '종료',        key: 'endTime',     w: 70  },  // 10
+    { label: '작업시간',    key: null,          w: 70  },  // 11
+    { label: '불량',        key: 'faultCnt',    w: 60  },  // 12
+    { label: '관리자 승인', key: 'approved',    w: 110 },  // 13
+    { label: '점검내용',    key: null,          w: 150 },  // 14
+    { label: '상세',        key: null,          w: 60  },  // 15
 ];
 
 const LabeledSelect = ({ label, options, value, onChange }) => (
@@ -609,7 +609,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         if (!isRange) {
             return forklifts.map(f => {
                 const record = checks.find(c => c.forklift_id === f.id) || null;
-                return { forklift: f, record, status: getCheckStatus(record), fault: hasFault(record), faultCnt: faultCount(record), checkDate: startDate };
+                return { forklift: f, record, status: getCheckStatus(record), fault: hasFault(record), faultCnt: faultCount(record), checkDate: record?.check_date || null };
             });
         } else {
             return checks.map(c => {
@@ -836,9 +836,15 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                 return <td key={origIdx} className="p-4 text-gray-600">{f.manager_org}</td>;
             case 3: // 탑승자
                 return <td key={origIdx} className="p-4 text-gray-700">{f.driver_day || '-'}</td>;
-            case 4: // 점검상태
+            case 4: // 점검일자
+                return (
+                    <td key={origIdx} className="p-4 text-center text-gray-600 text-[12px]">
+                        {row.checkDate || '-'}
+                    </td>
+                );
+            case 5: // 점검상태
                 return <td key={origIdx} className="px-3 py-2"><StatusBadge status={status} /></td>;
-            case 5: // 외관점검
+            case 6: // 외관점검
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {preExterior ? (() => {
@@ -851,7 +857,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         })() : <span className="text-gray-300">-</span>}
                     </td>
                 );
-            case 6: // 운행 전
+            case 7: // 운행 전
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {preOp ? (() => {
@@ -864,7 +870,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         })() : <span className="text-gray-300">-</span>}
                     </td>
                 );
-            case 7: // 완료 후
+            case 8: // 완료 후
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {postOp ? (
@@ -878,11 +884,11 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         ) : <span className="text-gray-300">-</span>}
                     </td>
                 );
-            case 8: // 시작
+            case 9: // 시작
                 return <td key={origIdx} className="p-4 text-center text-gray-600">{fmtTime(record?.created_at)}</td>;
-            case 9: // 종료
+            case 10: // 종료
                 return <td key={origIdx} className="p-4 text-center text-gray-600">{postOp ? fmtTime(record?.updated_at) : '-'}</td>;
-            case 10: // 작업시간
+            case 11: // 작업시간
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {worked
@@ -890,7 +896,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                             : <span className="text-gray-300">-</span>}
                     </td>
                 );
-            case 11: // 불량
+            case 12: // 불량
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {faultCnt > 0
@@ -898,7 +904,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                             : <span className="text-gray-300">-</span>}
                     </td>
                 );
-            case 12: // 관리자 승인
+            case 13: // 관리자 승인
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {record?.approved_at ? (
@@ -914,7 +920,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                         ) : <span className="text-gray-300">-</span>}
                     </td>
                 );
-            case 13: // 점검내용
+            case 14: // 점검내용
                 return (
                     <td key={origIdx} className="p-4 text-center max-w-[160px]">
                         {record?.notes
@@ -922,7 +928,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                             : <span className="text-gray-300">-</span>}
                     </td>
                 );
-            case 14: // 상세
+            case 15: // 상세
                 return (
                     <td key={origIdx} className="p-4 text-center">
                         {record ? (
@@ -931,12 +937,6 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                 보기
                             </button>
                         ) : <span className="text-gray-300">-</span>}
-                    </td>
-                );
-            case 15: // 점검일자
-                return (
-                    <td key={origIdx} className="p-4 text-center text-gray-600 text-[12px]">
-                        {row.checkDate || '-'}
                     </td>
                 );
             default: return null;
