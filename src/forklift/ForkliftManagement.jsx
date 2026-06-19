@@ -1302,9 +1302,18 @@ export const ForkliftManagement = ({ userProfile }) => {
     }, [data, filterCenter, filterShape, filterOwn, filterStatus, filterManagerOrg, excludeRetired, searchField, searchValue, sortConfig]);
 
     // ── 현황 통계 카드
+    // 카드 필터(소유구분·상태)를 제외한 필터만 반영한 기준 집합
+    const statsBase = useMemo(() => {
+        let r = data;
+        if (excludeRetired)          r = r.filter(x => !EXCLUDE_STATUSES.includes(x.status));
+        if (filterManagerOrg !== '전체') r = r.filter(x => x.manager_org === filterManagerOrg);
+        if (filterCenter.length)     r = r.filter(x => filterCenter.includes(x.center));
+        if (filterShape.length)      r = r.filter(x => filterShape.includes(x.shape));
+        return r;
+    }, [data, excludeRetired, filterManagerOrg, filterCenter, filterShape]);
+
     const stats = useMemo(() => {
-        // 반납·매각 제외한 운영 중 기준으로 현황 집계
-        const active = data.filter(x => !EXCLUDE_STATUSES.includes(x.status));
+        const active = statsBase.filter(x => !EXCLUDE_STATUSES.includes(x.status));
         return {
             total:  active.length,
             own:    active.filter(x => x.own_type === '자가').length,
@@ -1313,7 +1322,7 @@ export const ForkliftManagement = ({ userProfile }) => {
             fault:  active.filter(x => x.status   === '고장').length,
             repair: active.filter(x => x.status   === '정비중').length,
         };
-    }, [data]);
+    }, [statsBase]);
 
     // ── 정렬
     const requestSort = (key) => setSortConfig(prev =>
