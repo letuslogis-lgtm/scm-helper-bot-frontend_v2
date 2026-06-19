@@ -223,7 +223,7 @@ const MonthPicker = ({ year, month, onChange, maxYear, maxMonth }) => {
                             const selected = pickerYear === year && idx === month;
                             return (
                                 <button key={idx} onClick={() => { if (disabled) return; onChange(pickerYear, idx); setOpen(false); }} disabled={disabled}
-                                    className={`py-1.5 rounded-[3px] text-[11px] font-bold transition-colors ${selected ? 'bg-letusBlue text-white' : disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-blue-50 hover:text-letusBlue'}`}>
+                                    className={`py-1.5 rounded-[3px] text-[11px] font-bold transition-colors ${selected ? 'bg-orange-500 text-white' : disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-500'}`}>
                                     {label}
                                 </button>
                             );
