@@ -209,28 +209,14 @@ const LabeledSelect = ({ label, options, value, onChange }) => (
 // 등록/수정 모달 — 필드 컴포넌트는 모달 외부에 정의 (커서 유지)
 // ─────────────────────────────────────────────────────────
 const EMPTY_FORM = {
-    no: '', center: '양지1', manager_org: '바로서비스', work_type: '',
-    maker: '클락', makerCustom: '',
-    shape: '리치', model: '', ton: '',
-    own_type: '자가',
+    no: '', center: '선택', manager_org: '선택', work_type: '',
+    maker: '선택', makerCustom: '',
+    shape: '선택', model: '', ton: '',
+    own_type: '선택',
     rental_company: '', rentalCustom: '',
     driver_day: '', driver_night: '',
     made_year: '', battery_year: '',
     asset_code: '', vin: '', status: '정상', note: '',
-};
-
-// 월 입력값(YYYY-MM) → "YYYY년 MM월" 변환
-const monthToKorean = (v) => {
-    if (!v) return '';
-    const [y, m] = v.split('-');
-    return `${y}년 ${m}월`;
-};
-// "YYYY년 MM월" → "YYYY-MM" 역변환
-const koreanToMonth = (v) => {
-    if (!v) return '';
-    const m = v.match(/(\d{4})년\s*(\d{1,2})월/);
-    if (!m) return '';
-    return `${m[1]}-${String(m[2]).padStart(2, '0')}`;
 };
 
 // 공통 input 스타일
@@ -247,28 +233,59 @@ const ScrollSelect = ({ value, onChange, options }) => {
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
     }, []);
+    const allOptions = ['선택', ...options];
+    const isPlaceholder = !value || value === '선택';
     return (
         <div className="relative w-full" ref={ref}>
             <button type="button" onClick={() => setOpen(v => !v)}
-                className={`w-full flex items-center justify-between text-sm border rounded px-2 h-[34px] bg-white focus:outline-none transition-colors ${open ? 'border-letusBlue' : 'border-gray-300 hover:border-gray-400'}`}>
-                <span className="text-gray-700">{value}</span>
-                <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                className={`w-full flex items-center justify-between border rounded-[4px] px-3.5 py-2 bg-white focus:outline-none transition-all ${open ? 'border-letusBlue' : 'border-gray-300 hover:border-gray-400'}`}>
+                <span className={`text-[11px] font-medium ${isPlaceholder ? 'text-gray-400' : 'text-gray-800'}`}>
+                    {isPlaceholder ? '선택' : value}
+                </span>
+                <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
             {open && (
                 <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
                     style={{ maxHeight: '192px', overflowY: 'auto' }}>
-                    {options.map(opt => (
+                    {allOptions.map(opt => (
                         <div key={opt}
                             onClick={() => { onChange(opt); setOpen(false); }}
-                            className={`px-3 py-1.5 text-sm cursor-pointer transition-colors
-                                ${opt === value ? 'bg-letusBlue text-white font-bold' : 'text-gray-700 hover:bg-blue-50'}`}>
+                            className={`px-3 py-1.5 text-[11px] cursor-pointer transition-colors
+                                ${opt === value ? 'bg-letusBlue text-white font-bold'
+                                : opt === '선택' ? 'text-gray-400 hover:bg-gray-50'
+                                : 'text-gray-700 hover:bg-blue-50'}`}>
                             {opt}
                         </div>
                     ))}
                 </div>
             )}
+        </div>
+    );
+};
+
+const YearMonthSelect = ({ value, onChange }) => {
+    const m = value ? value.match(/(\d{4})년\s*(\d{1,2})월/) : null;
+    const selYear  = m ? String(m[1]) : '';
+    const selMonth = m ? String(parseInt(m[2])) : '';
+    const currentYear = new Date().getFullYear();
+    const years  = Array.from({ length: 21 }, (_, i) => currentYear - 15 + i);
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const update = (y, mo) => {
+        if (y && mo) onChange(`${y}년 ${String(mo).padStart(2, '0')}월`);
+        else onChange('');
+    };
+    return (
+        <div className="flex gap-2">
+            <select value={selYear} onChange={e => update(e.target.value, selMonth)} className={SEL}>
+                <option value="">년도</option>
+                {years.map(y => <option key={y} value={String(y)}>{y}년</option>)}
+            </select>
+            <select value={selMonth} onChange={e => update(selYear, e.target.value)} className={SEL}>
+                <option value="">월</option>
+                {months.map(mo => <option key={mo} value={String(mo)}>{String(mo).padStart(2, '0')}월</option>)}
+            </select>
         </div>
     );
 };
@@ -284,13 +301,16 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
     const handleSaveClick = () => {
         const msg = mode === 'add' ? '등록하시겠습니까?' : '저장하시겠습니까?';
         if (!window.confirm(msg)) return;
-        // 최종 저장 전 커스텀 값 병합
         const final = { ...form };
         if (form.maker === '기타') final.maker = form.makerCustom?.trim() || '기타';
         if (form.rental_company === '기타') final.rental_company = form.rentalCustom?.trim() || '기타';
-        if (form.rental_company === '자가') final.rental_company = '';
+        if (form.own_type === '자가') final.rental_company = '';
         delete final.makerCustom;
         delete final.rentalCustom;
+        // '선택' 상태인 드롭박스는 null로 처리 (업서트 제외)
+        ['center', 'manager_org', 'maker', 'shape', 'own_type'].forEach(k => {
+            if (final[k] === '선택') final[k] = null;
+        });
         onSave(final);
     };
 
@@ -324,6 +344,7 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
                         <div>
                             <label className={LBL}>관리주체</label>
                             <select value={form.manager_org} onChange={e => set('manager_org', e.target.value)} className={SEL}>
+                                <option value="선택">선택</option>
                                 {MANAGER_ORGS.map(o => <option key={o}>{o}</option>)}
                             </select>
                         </div>
@@ -339,6 +360,7 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
                         <div>
                             <label className={LBL}>제조사</label>
                             <select value={form.maker} onChange={e => set('maker', e.target.value)} className={SEL}>
+                                <option value="선택">선택</option>
                                 {['클락', '예일', '현대', '크라운', '도요타', '기타'].map(o => <option key={o}>{o}</option>)}
                             </select>
                             {form.maker === '기타' && (
@@ -351,6 +373,7 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
                         <div>
                             <label className={LBL}>형태</label>
                             <select value={form.shape} onChange={e => set('shape', e.target.value)} className={SEL}>
+                                <option value="선택">선택</option>
                                 {['리치', '카운터', '하이리치', '오더피커'].map(o => <option key={o}>{o}</option>)}
                             </select>
                         </div>
@@ -380,23 +403,24 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
                             <label className={LBL}>소유구분</label>
                             <select value={form.own_type} onChange={e => {
                                 set('own_type', e.target.value);
-                                if (e.target.value === '자가') {
+                                if (e.target.value !== '렌탈') {
                                     set('rental_company', '');
                                     set('rentalCustom', '');
                                 }
                             }} className={SEL}>
+                                <option value="선택">선택</option>
                                 {['자가', '렌탈'].map(o => <option key={o}>{o}</option>)}
                             </select>
                         </div>
 
-                        {/* 렌탈업체 — 소유구분이 자가면 비활성화 */}
+                        {/* 렌탈업체 — 소유구분이 렌탈일 때만 활성화 */}
                         <div>
-                            <label className={`${LBL} ${form.own_type === '자가' ? 'opacity-40' : ''}`}>렌탈업체</label>
+                            <label className={`${LBL} ${form.own_type !== '렌탈' ? 'opacity-40' : ''}`}>렌탈업체</label>
                             <select
-                                disabled={form.own_type === '자가'}
+                                disabled={form.own_type !== '렌탈'}
                                 value={form.rental_company}
                                 onChange={e => set('rental_company', e.target.value)}
-                                className={`${SEL} ${form.own_type === '자가' ? 'opacity-40 cursor-not-allowed bg-gray-50' : ''}`}>
+                                className={`${SEL} ${form.own_type !== '렌탈' ? 'opacity-40 cursor-not-allowed bg-gray-50' : ''}`}>
                                 <option value="">선택</option>
                                 {['한국공항', 'J&U', '크라운', 'DPL', '삼성건기', '기타'].map(o => <option key={o}>{o}</option>)}
                             </select>
@@ -423,19 +447,13 @@ const ForkliftModal = ({ mode, data, onClose, onSave }) => {
                         {/* 제조연식 — month picker */}
                         <div>
                             <label className={LBL}>제조연식</label>
-                            <input type="month"
-                                value={koreanToMonth(form.made_year)}
-                                onChange={e => set('made_year', monthToKorean(e.target.value))}
-                                className={INP} />
+                            <YearMonthSelect value={form.made_year} onChange={v => set('made_year', v)} />
                         </div>
 
-                        {/* 배터리연식 — month picker */}
+                        {/* 배터리연식 */}
                         <div>
                             <label className={LBL}>배터리연식</label>
-                            <input type="month"
-                                value={koreanToMonth(form.battery_year)}
-                                onChange={e => set('battery_year', monthToKorean(e.target.value))}
-                                className={INP} />
+                            <YearMonthSelect value={form.battery_year} onChange={v => set('battery_year', v)} />
                         </div>
 
                         {/* 비고 */}
