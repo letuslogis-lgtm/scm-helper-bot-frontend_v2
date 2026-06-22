@@ -286,7 +286,7 @@ const ProtectedMobileRoute = () => {
             {/* ── 관리자 전용 라우트 ── */}
             <Route path="admin/issues" element={<MobileAdminIssueList userProfile={userProfile} />} />
             <Route path="admin/barcode-tester" element={<MobileBarcodeTester />} />
-            <Route path="admin/forklift-check" element={<MobileForkliftDailyCheck />} />
+            <Route path="admin/forklift-check" element={<MobileForkliftDailyCheck userProfile={userProfile} />} />
             {/* ── 작업자 라우트 (공지는 관리자도 접근 가능) ── */}
             <Route path="register" element={<MobileIssueRegister />} />
             <Route path="returns" element={<MobileReturnsRegister userProfile={userProfile} />} />

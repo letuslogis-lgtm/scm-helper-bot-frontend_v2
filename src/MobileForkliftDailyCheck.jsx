@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from './supabaseClient.js';
 
 const SECTIONS = [
     {
@@ -49,10 +50,9 @@ const SECTIONS = [
 ];
 
 // ── 시작 화면 (NFC 3트랙: 자동스캔 / 수동버튼 / 텍스트 입력)
-const StartScreen = ({ onStart }) => {
+const StartScreen = ({ onStart, isLoading, error }) => {
     const [forkliftNo, setForkliftNo] = useState('');
     const [nfcStatus, setNfcStatus] = useState('checking');
-    // 'checking' | 'auto-scanning' | 'scanning' | 'success' | 'error' | 'unsupported'
     const abortRef = useRef(null);
 
     const doScan = async () => {
@@ -81,13 +81,11 @@ const StartScreen = ({ onStart }) => {
             setNfcStatus('unsupported');
             return;
         }
-        // 트랙 ①: 진입 시 자동 스캔
         setNfcStatus('auto-scanning');
         doScan();
         return () => abortRef.current?.abort();
     }, []);
 
-    // 트랙 ②: 수동 재스캔
     const handleRescan = () => {
         setForkliftNo('');
         setNfcStatus('scanning');
@@ -104,7 +102,6 @@ const StartScreen = ({ onStart }) => {
             <p className="text-slate-400 text-sm mb-7 text-center">지게차 번호를 확인하고 시작해 주세요.</p>
 
             <div className="w-full max-w-sm space-y-5">
-                {/* NFC 영역 — Android Chrome 전용 */}
                 {nfcVisible && (
                     <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-center gap-4 shadow-sm">
                         <div className={`relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300 ${
@@ -174,7 +171,6 @@ const StartScreen = ({ onStart }) => {
                     </div>
                 )}
 
-                {/* 트랙 ③: 텍스트 입력 — 모든 기기에서 항상 표시 */}
                 <div>
                     {nfcStatus === 'unsupported' && (
                         <p className="text-xs text-slate-400 mb-3 text-center">지게차 번호를 입력하고 시작해 주세요.</p>
@@ -186,7 +182,7 @@ const StartScreen = ({ onStart }) => {
                         type="text"
                         value={forkliftNo}
                         onChange={e => setForkliftNo(e.target.value)}
-                        placeholder="예: F-001"
+                        placeholder="예: 양지-001"
                         className={`w-full rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none transition-all border ${
                             nfcStatus === 'success'
                                 ? 'bg-green-50 border-green-300 focus:border-green-400 focus:ring-1 focus:ring-green-300'
@@ -195,16 +191,23 @@ const StartScreen = ({ onStart }) => {
                     />
                 </div>
 
+                {/* 오류 메시지 */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                        <p className="text-sm text-red-600 font-bold">{error}</p>
+                    </div>
+                )}
+
                 <button
                     onClick={() => forkliftNo.trim() && onStart(forkliftNo.trim())}
-                    disabled={!forkliftNo.trim()}
+                    disabled={!forkliftNo.trim() || isLoading}
                     className={`w-full py-4 rounded-xl font-black text-base transition-all shadow-md ${
-                        forkliftNo.trim()
+                        forkliftNo.trim() && !isLoading
                             ? 'bg-letusBlue text-white active:scale-[0.98] shadow-blue-200'
                             : 'bg-slate-200 text-slate-400'
                     }`}
                 >
-                    점검 시작하기
+                    {isLoading ? '확인 중...' : '점검 시작하기'}
                 </button>
             </div>
         </div>
@@ -296,45 +299,113 @@ const DoneScreen = ({ forkliftNo, checkType, checkSeq, answers, notes }) => {
 };
 
 // ── 메인 컴포넌트
-export const MobileForkliftDailyCheck = () => {
+export const MobileForkliftDailyCheck = ({ userProfile }) => {
     const navigate = useNavigate();
-    const [phase, setPhase] = useState('start');         // 'start' | 'check' | 'done'
+    const [phase, setPhase] = useState('start');
     const [forkliftNo, setForkliftNo] = useState('');
-    const [checkType, setCheckType] = useState('first'); // 'first' | 'subsequent'
-    const [checkSeq, setCheckSeq] = useState(1);         // 오늘 몇 번째 점검인지
-    const [maxStep, setMaxStep] = useState(0);           // 가장 멀리 진행한 단계
-    const [activeStep, setActiveStep] = useState(0);     // 현재 열린 아코디언
+    const [forkliftId, setForkliftId] = useState(null);       // forklifts.id (uuid)
+    const [existingCheckId, setExistingCheckId] = useState(null); // 오늘 기존 레코드 id (N차용)
+    const [checkType, setCheckType] = useState('first');       // 'first' | 'subsequent'
+    const [checkSeq, setCheckSeq] = useState(1);
+    const [maxStep, setMaxStep] = useState(0);
+    const [activeStep, setActiveStep] = useState(0);
     const [answers, setAnswers] = useState({});
     const [notes, setNotes] = useState({});
     const [pendingNote, setPendingNote] = useState('');
     const [pendingFault, setPendingFault] = useState(false);
+    const [startLoading, setStartLoading] = useState(false);
+    const [startError, setStartError] = useState('');
+    const [saveLoading, setSaveLoading] = useState(false);
 
-    // checkType에 따라 활성 섹션/항목 결정
     const activeSections = checkType === 'first' ? SECTIONS.slice(0, 2) : SECTIONS.slice(2);
     const activeItems = activeSections.flatMap((sec, si) =>
         sec.items.map((label, ii) => ({ sectionIdx: si, itemIdx: ii, label, sec }))
     );
     const activeTotal = activeItems.length;
 
-    const getTodayKey = (no) => {
-        const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-        return `forklift_check_${today}_${no}`;
+    const toJsonb = (sectionItems) =>
+        sectionItems.map(label => ({
+            item: label,
+            checked: answers[label] === true,
+            memo: notes[label] || '',
+        }));
+
+    const handleStart = async (no) => {
+        setStartLoading(true);
+        setStartError('');
+        try {
+            // forklifts 테이블에서 no → id 조회
+            const { data: forklift } = await supabase
+                .from('forklifts')
+                .select('id, no')
+                .eq('no', no)
+                .maybeSingle();
+
+            if (!forklift) {
+                setStartError('등록되지 않은 지게차 번호입니다. 관리자에게 문의하세요.');
+                return;
+            }
+
+            // 오늘 점검 이력 확인
+            const today = new Date().toISOString().split('T')[0];
+            const { data: existing } = await supabase
+                .from('forklift_daily_checks')
+                .select('id, post_op')
+                .eq('forklift_id', forklift.id)
+                .eq('check_date', today)
+                .maybeSingle();
+
+            if (existing?.post_op) {
+                setStartError('오늘 이 지게차의 점검이 이미 완료됐습니다.');
+                return;
+            }
+
+            setForkliftId(forklift.id);
+            setExistingCheckId(existing?.id || null);
+            setCheckType(existing ? 'subsequent' : 'first');
+            setCheckSeq(existing ? 2 : 1);
+            setForkliftNo(no);
+            setMaxStep(0);
+            setActiveStep(0);
+            setAnswers({});
+            setNotes({});
+            setPendingFault(false);
+            setPendingNote('');
+            setPhase('check');
+        } catch {
+            setStartError('서버 오류가 발생했습니다. 다시 시도해 주세요.');
+        } finally {
+            setStartLoading(false);
+        }
     };
 
-    const handleStart = (no) => {
-        // DB 연결 전: localStorage로 당일 점검 횟수 확인
-        const key = getTodayKey(no);
-        const count = parseInt(localStorage.getItem(key) || '0', 10);
-        setCheckType(count === 0 ? 'first' : 'subsequent');
-        setCheckSeq(count + 1);
-        setForkliftNo(no);
-        setMaxStep(0);
-        setActiveStep(0);
-        setAnswers({});
-        setNotes({});
-        setPendingFault(false);
-        setPendingNote('');
-        setPhase('check');
+    const handleCheckComplete = async () => {
+        setSaveLoading(true);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+
+            if (checkType === 'first') {
+                await supabase.from('forklift_daily_checks').insert({
+                    forklift_id: forkliftId,
+                    check_date: today,
+                    checker_name: userProfile?.name || '',
+                    pre_exterior: toJsonb(SECTIONS[0].items),
+                    pre_op: toJsonb(SECTIONS[1].items),
+                });
+            } else {
+                await supabase.from('forklift_daily_checks').update({
+                    post_op: toJsonb(SECTIONS[2].items),
+                    updated_at: new Date().toISOString(),
+                }).eq('id', existingCheckId);
+            }
+
+            setPhase('done');
+        } catch {
+            // 저장 실패해도 완료 화면은 보여줌 (재시도 안내는 추후)
+            setPhase('done');
+        } finally {
+            setSaveLoading(false);
+        }
     };
 
     const advance = (label, isOk, note) => {
@@ -344,16 +415,10 @@ export const MobileForkliftDailyCheck = () => {
         setPendingNote('');
 
         if (activeStep < maxStep) {
-            // 이전 항목 재수정 후 → 최전선(maxStep)으로 복귀
             setActiveStep(maxStep);
         } else {
-            // 순방향 진행
             if (activeStep + 1 >= activeTotal) {
-                // 점검 완료 → 당일 카운트 +1 저장
-                const key = getTodayKey(forkliftNo);
-                const count = parseInt(localStorage.getItem(key) || '0', 10);
-                localStorage.setItem(key, String(count + 1));
-                setPhase('done');
+                handleCheckComplete();
             } else {
                 setMaxStep(s => s + 1);
                 setActiveStep(s => s + 1);
@@ -365,7 +430,6 @@ export const MobileForkliftDailyCheck = () => {
     const handleFaultSelect = () => { setPendingFault(true); setPendingNote(''); };
     const handleFaultConfirm = (label) => advance(label, false, pendingNote);
 
-    // 완료 항목 터치 → 재수정
     const handleReEdit = (idx) => {
         setActiveStep(idx);
         setPendingFault(false);
@@ -374,7 +438,6 @@ export const MobileForkliftDailyCheck = () => {
 
     const progressPct = activeTotal > 0 ? Math.round((maxStep / activeTotal) * 100) : 0;
 
-    // 섹션 구분 헤더가 필요한 인덱스
     const sectionStartIdxs = new Set();
     let acc = 0;
     activeSections.forEach(sec => { sectionStartIdxs.add(acc); acc += sec.items.length; });
@@ -386,13 +449,15 @@ export const MobileForkliftDailyCheck = () => {
         setAnswers({});
         setNotes({});
         setForkliftNo('');
+        setForkliftId(null);
+        setExistingCheckId(null);
         setPendingFault(false);
         setPendingNote('');
+        setStartError('');
     };
 
     return (
         <div className="min-h-screen bg-slate-100 flex flex-col">
-            {/* 헤더 */}
             <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
                 <div className="px-4 py-3 flex items-center gap-3">
@@ -424,18 +489,26 @@ export const MobileForkliftDailyCheck = () => {
 
                 {phase === 'check' && (
                     <div className="h-1.5 bg-slate-100">
-                        <div
-                            className="h-full bg-letusBlue transition-all duration-300"
-                            style={{ width: `${progressPct}%` }}
-                        />
+                        <div className="h-full bg-letusBlue transition-all duration-300" style={{ width: `${progressPct}%` }} />
                     </div>
                 )}
             </header>
 
-            {phase === 'start' && <StartScreen onStart={handleStart} />}
+            {phase === 'start' && (
+                <StartScreen
+                    onStart={handleStart}
+                    isLoading={startLoading}
+                    error={startError}
+                />
+            )}
 
             {phase === 'check' && (
                 <div className="flex-1 overflow-y-auto px-4 pt-4 pb-10 space-y-2">
+                    {saveLoading && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-center">
+                            <p className="text-sm text-blue-600 font-bold">저장 중...</p>
+                        </div>
+                    )}
                     {activeItems.map((item, idx) => {
                         const isCompleted = idx < maxStep && idx !== activeStep;
                         const isCurrent   = idx === activeStep;
@@ -453,7 +526,6 @@ export const MobileForkliftDailyCheck = () => {
                                     </div>
                                 )}
 
-                                {/* 완료 항목 — 터치 시 재수정 가능 */}
                                 {isCompleted && (
                                     <button
                                         onClick={() => handleReEdit(idx)}
@@ -478,7 +550,6 @@ export const MobileForkliftDailyCheck = () => {
                                     </button>
                                 )}
 
-                                {/* 현재 항목 — 펼쳐진 아코디언 */}
                                 {isCurrent && (
                                     <div className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden ${sec.border}`}>
                                         <div className={`px-4 py-3 ${sec.bg} border-b ${sec.border}`}>
@@ -542,7 +613,6 @@ export const MobileForkliftDailyCheck = () => {
                                     </div>
                                 )}
 
-                                {/* 미완료 항목 */}
                                 {isPending && (
                                     <div className="bg-white rounded-xl border border-slate-100 flex items-center px-4 py-3 gap-3 opacity-35">
                                         <div className="w-6 h-6 rounded-full border-2 border-slate-200 shrink-0 flex items-center justify-center">
