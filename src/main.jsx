@@ -31,6 +31,7 @@ import { ErpInboundConfig } from './ErpInboundConfig.jsx';
 import { InboundClosing } from './inbound/InboundClosing.jsx';
 import { MobileIssueRegister } from './MobileIssueRegister.jsx';
 import { MobileForkliftDailyCheck } from './MobileForkliftDailyCheck.jsx';
+import { MobileForkliftIssueRegister } from './MobileForkliftIssueRegister.jsx';
 import { MobileReturnsRegister } from './MobileReturnsRegister.jsx';
 import { MobilePreDeliveryManage } from './MobilePreDeliveryManage.jsx';
 import { MobileReturnsList } from './MobileReturnsList.jsx';
@@ -287,6 +288,7 @@ const ProtectedMobileRoute = () => {
             <Route path="admin/issues" element={<MobileAdminIssueList userProfile={userProfile} />} />
             <Route path="admin/barcode-tester" element={<MobileBarcodeTester />} />
             <Route path="admin/forklift-check" element={<MobileForkliftDailyCheck userProfile={userProfile} />} />
+            <Route path="admin/forklift-issue" element={<MobileForkliftIssueRegister userProfile={userProfile} />} />
             {/* ── 작업자 라우트 (공지는 관리자도 접근 가능) ── */}
             <Route path="register" element={<MobileIssueRegister />} />
             <Route path="returns" element={<MobileReturnsRegister userProfile={userProfile} />} />

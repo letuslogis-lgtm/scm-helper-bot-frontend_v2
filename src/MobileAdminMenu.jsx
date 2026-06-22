@@ -117,6 +117,15 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
                     path: '/mobile/admin/forklift-check',
                     badge: 0,
                 },
+                {
+                    id: 'forklift-issue',
+                    icon: '🔧',
+                    title: '이슈 등록',
+                    subtitle: '고장·이상 발생 즉시 등록',
+                    iconBg: 'bg-red-50',
+                    path: '/mobile/admin/forklift-issue',
+                    badge: 0,
+                },
             ],
         },
         {
