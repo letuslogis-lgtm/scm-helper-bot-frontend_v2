@@ -221,13 +221,16 @@ const AccidentList = ({ userProfile, initialFilter }) => {
         e.preventDefault(); e.stopPropagation();
         const origIdx = safeColOrder[visualIdx];
         resizingRef.current = { origIdx, startX: e.clientX, startW: safeColWidths[origIdx] };
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
         const onMove = (ev) => {
+            if (!resizingRef.current) return;
             const { origIdx, startX, startW } = resizingRef.current;
             setColWidths(prev => { const n = [...prev]; n[origIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
         };
-        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        const onUp = () => { resizingRef.current = null; el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); };
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
     };
     const handleDragStart = (e, visualIdx) => { dragSrcRef.current = visualIdx; wasDraggedRef.current = false; e.dataTransfer.effectAllowed = 'move'; };
     const handleDragOver = (e, visualIdx) => { e.preventDefault(); setDragOverIdx(visualIdx); };
@@ -1071,7 +1074,7 @@ const AccidentList = ({ userProfile, initialFilter }) => {
                                                 {col.key && getSortIcon(col.key)}
                                             </div>
                                             <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
-                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                                onPointerDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
                                         </th>
                                     );
                                 })}

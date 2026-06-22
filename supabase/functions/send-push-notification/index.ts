@@ -1,16 +1,30 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = [
+  'https://scm-helper-bot-frontend-v2.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]
+
+function buildCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') ?? ''
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Vary': 'Origin',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
     const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
@@ -18,6 +32,24 @@ Deno.serve(async (req) => {
 
     if (!SUPABASE_URL || !SERVICE_KEY || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
       return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500, headers: corsHeaders })
+    }
+
+    // ── 인증: service_role(내부/웹훅 호출) 또는 유효한 사용자 JWT만 허용 ──
+    //    기존엔 인증이 전혀 없어 익명 호출로 임의 사용자에게 푸시 발송/구독 삭제가 가능했음.
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const bearer = authHeader.replace(/^Bearer\s+/i, '').trim()
+    if (!bearer) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+    }
+    if (bearer !== SERVICE_KEY) {
+      // 내부 호출(service_role)이 아니면 실제 로그인 사용자 토큰인지 검증 (anon 키·비로그인 차단)
+      const callerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+      })
+      const { data: { user: caller }, error: authErr } = await callerClient.auth.getUser()
+      if (authErr || !caller) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+      }
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {

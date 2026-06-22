@@ -717,13 +717,16 @@ const ReturnsManagement = ({ userProfile }) => {
         e.preventDefault(); e.stopPropagation();
         const origIdx = colOrder[visualIdx];
         resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
         const onMove = (ev) => {
+            if (!resizingRef.current) return;
             const { origIdx: oi, startX, startW } = resizingRef.current;
             setColWidths(prev => { const n = [...prev]; n[oi] = Math.max(50, startW + (ev.clientX - startX)); return n; });
         };
-        const onUp = () => { resizingRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        const onUp = () => { resizingRef.current = null; el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); };
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
     };
 
     // ── 컬럼 드래그 핸들러 ──
@@ -1054,7 +1057,7 @@ const ReturnsManagement = ({ userProfile }) => {
                                                 {col.key && getSortIcon(col.key)}
                                             </div>
                                             <div className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
-                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
+                                                onPointerDown={(e) => handleResizeStart(e, visualIdx)} onClick={e => e.stopPropagation()} />
                                         </th>
                                     );
                                 })}

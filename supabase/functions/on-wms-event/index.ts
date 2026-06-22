@@ -1,8 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = [
+  'https://scm-helper-bot-frontend-v2.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]
+
+function buildCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') ?? ''
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Vary': 'Origin',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 // ── Slack DM 헬퍼 ────────────────────────────────────────────
@@ -46,6 +58,7 @@ function vendorMatch(profile: Profile, vendor: string) {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
@@ -54,6 +67,14 @@ Deno.serve(async (req) => {
 
     if (!SUPABASE_URL || !SERVICE_KEY) {
       return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500, headers: corsHeaders })
+    }
+
+    // ── 인증: service_role(내부 호출) 또는 x-webhook-secret(웹훅) 일치만 허용 ──
+    const WEBHOOK_SECRET = Deno.env.get('EDGE_WEBHOOK_SECRET') ?? ''
+    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+    const webhookSecret = req.headers.get('x-webhook-secret') ?? ''
+    if (!((bearer && bearer === SERVICE_KEY) || (WEBHOOK_SECRET && webhookSecret === WEBHOOK_SECRET))) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {

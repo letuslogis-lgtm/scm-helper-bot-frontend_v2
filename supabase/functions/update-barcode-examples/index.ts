@@ -14,7 +14,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://scm-helper-bot-frontend-v2.vercel.app',
+  'Vary': 'Origin',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
@@ -33,6 +34,14 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Server misconfigured' }, 500)
+
+    // ── 인증: service_role(내부 호출) 또는 x-webhook-secret(웹훅) 일치만 허용 ──
+    const WEBHOOK_SECRET = Deno.env.get('EDGE_WEBHOOK_SECRET') ?? ''
+    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+    const webhookSecret = req.headers.get('x-webhook-secret') ?? ''
+    if (!((bearer && bearer === SERVICE_KEY) || (WEBHOOK_SECRET && webhookSecret === WEBHOOK_SECRET))) {
+      return json({ error: 'Unauthorized' }, 401)
+    }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },

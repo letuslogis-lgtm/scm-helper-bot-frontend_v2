@@ -254,17 +254,20 @@ export const RpaManagement = () => {
         e.preventDefault(); e.stopPropagation();
         const origIdx = colOrder[visualIdx];
         resizingRef.current = { origIdx, startX: e.clientX, startW: colWidths[origIdx] };
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
         const onMove = (ev) => {
+            if (!resizingRef.current) return;
             const { origIdx: oIdx, startX, startW } = resizingRef.current;
             setColWidths(prev => { const n = [...prev]; n[oIdx] = Math.max(50, startW + (ev.clientX - startX)); return n; });
         };
         const onUp = () => {
             resizingRef.current = null;
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
+            el.removeEventListener('pointermove', onMove);
+            el.removeEventListener('pointerup', onUp);
         };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onUp);
     };
 
     const handleDragStart = (e, visualIdx) => {
@@ -623,7 +626,7 @@ export const RpaManagement = () => {
                                             </div>
                                             <div
                                                 className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-letusBlue/40 z-10"
-                                                onMouseDown={(e) => handleResizeStart(e, visualIdx)}
+                                                onPointerDown={(e) => handleResizeStart(e, visualIdx)}
                                                 onClick={e => e.stopPropagation()}
                                             />
                                         </th>
