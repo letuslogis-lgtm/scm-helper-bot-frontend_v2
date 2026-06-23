@@ -88,16 +88,15 @@ const buildDailySheet = (f, record, approval, dateStr, dateLabel) => {
     const status      = getCheckStatus(record);
     const statusLabel = { done: '완료', inProgress: '운행중', unchecked: '미점검' }[status];
 
-    const driverNote   = record?.notes  || '';
-    const managerNote  = approval?.note || '';
+    const managerNote  = record?.approve_note || '';
 
-    const mkRow = (item, val, isLast) => {
+    const mkRow = (item, val, itemMemo) => {
         const isFault = val === false;
         const resultTd = `<td>${val===true?'정상':val===false?'<span style="color:#dc2626">불량</span>':'-'}</td>`;
         const mainRow = `<tr${isFault?' style="background:#fff8f8"':''}><td>${chkIcon(val)}</td><td>${item}</td>${resultTd}</tr>`;
         if (!isFault) return mainRow;
         const noteContent = [
-            driverNote   ? `<span style="color:#555"><strong>탑승자 메모:</strong> ${driverNote}</span>`   : '',
+            itemMemo     ? `<span style="color:#555"><strong>탑승자 메모:</strong> ${itemMemo}</span>`   : '',
             managerNote  ? `<span style="color:#166534;margin-left:16px"><strong>관리자 조치:</strong> ${managerNote}</span>` : '',
         ].filter(Boolean).join('');
         return mainRow + (noteContent
@@ -105,9 +104,9 @@ const buildDailySheet = (f, record, approval, dateStr, dateLabel) => {
             : '');
     };
 
-    const extRows  = EXTERIOR_ITEMS.map((item, i) => mkRow(item, preExterior?.[i]?.checked)).join('');
-    const preRows  = PREOP_ITEMS.map((item, i)    => mkRow(item, preOp?.[i]?.checked)).join('');
-    const postRows = POSTOP_ITEMS.map((item, i)   => mkRow(item, postOp?.[i]?.checked)).join('');
+    const extRows  = EXTERIOR_ITEMS.map((item, i) => mkRow(item, preExterior?.[i]?.checked, preExterior?.[i]?.memo)).join('');
+    const preRows  = PREOP_ITEMS.map((item, i)    => mkRow(item, preOp?.[i]?.checked, preOp?.[i]?.memo)).join('');
+    const postRows = POSTOP_ITEMS.map((item, i)   => mkRow(item, postOp?.[i]?.checked, postOp?.[i]?.memo)).join('');
 
     const driverName   = record?.checker_name || '-';
     const endDatetime  = record?.post_op ? `${dateLabel} ${pFmt(record.updated_at)}` : dateLabel;
@@ -357,14 +356,18 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
     const preOp       = record.pre_op;
     const postOp      = record.post_op;
 
-    const CheckRow = ({ text, val }) => (
-        <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg
-            ${val === false ? 'bg-red-50' : 'bg-gray-50'}`}>
-            <span className="text-xs text-gray-700 flex-1">{text}</span>
-            <span className={`text-[11px] font-black ml-3 shrink-0
-                ${val === true ? 'text-green-600' : val === false ? 'text-red-500' : 'text-gray-300'}`}>
-                {val === true ? '정상' : val === false ? '불량' : '-'}
-            </span>
+    const CheckRow = ({ text, val, memo }) => (
+        <div className={`px-3 py-1.5 rounded-lg ${val === false ? 'bg-red-50' : 'bg-gray-50'}`}>
+            <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-700 flex-1">{text}</span>
+                <span className={`text-[11px] font-black ml-3 shrink-0
+                    ${val === true ? 'text-green-600' : val === false ? 'text-red-500' : 'text-gray-300'}`}>
+                    {val === true ? '정상' : val === false ? '불량' : '-'}
+                </span>
+            </div>
+            {val === false && memo && (
+                <p className="text-[11px] text-red-600 mt-1 pl-0.5">└ {memo}</p>
+            )}
         </div>
     );
 
@@ -373,7 +376,7 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
             <p className={`text-xs font-black mb-1.5 px-1 ${color}`}>{title}</p>
             <div className="space-y-1">
                 {items.map((text, i) => (
-                    <CheckRow key={i} text={text} val={answers?.[i]?.checked ?? null} />
+                    <CheckRow key={i} text={text} val={answers?.[i]?.checked ?? null} memo={answers?.[i]?.memo} />
                 ))}
             </div>
         </div>
@@ -385,7 +388,7 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
                 {/* 헤더 */}
                 <div className="px-5 py-4 border-b shrink-0 flex items-center justify-between">
                     <div>
-                        <p className="text-sm font-black text-gray-800">{record.forklift_id} 점검 상세</p>
+                        <p className="text-sm font-black text-gray-800">{forklift?.no || record.forklift_id} 점검 상세</p>
                         <p className="text-xs text-gray-400">{fmtDate(record.check_date)} · {record.checker_name} · {record.overall_status}</p>
                     </div>
                     <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
@@ -422,6 +425,22 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
                             </div>
                         </>
                     ) : preExterior && <p className="text-xs text-gray-400 text-center py-3 border-t border-gray-100 mt-4">작업완료 후 점검 미제출 (운행 중)</p>}
+
+                    {record?.approved_at && (
+                        <div className="border-t border-gray-100 pt-4">
+                            <p className="text-xs font-black mb-2 px-1 text-green-700">관리자 승인</p>
+                            <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-500">승인자</span>
+                                    <span className="text-[11px] font-bold text-gray-800">{record.approved_by}</span>
+                                    <span className="text-[11px] text-gray-400 ml-auto">{fmtDate(record.approved_at)} {fmtTime(record.approved_at)}</span>
+                                </div>
+                                {record.approve_note && (
+                                    <p className="text-[11px] text-green-800 pt-1 border-t border-green-100">조치사항: {record.approve_note}</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -599,6 +618,8 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         if (userProfile?.id) localStorage.removeItem(`letus_dailycheck_col_${userProfile.id}`);
     };
 
+    const forkliftMap = useMemo(() => Object.fromEntries(forklifts.map(f => [f.id, f])), [forklifts]);
+
     const ORGS    = useMemo(() => [...new Set(forklifts.map(f => f.manager_org).filter(Boolean))], [forklifts]);
     const CENTERS = useMemo(() => sortCenters([...new Set(forklifts.map(f => f.center).filter(Boolean))]), [forklifts]);
     const filteredCenters      = useMemo(() => filterOrg === '전체' ? CENTERS : sortCenters([...new Set(forklifts.filter(f => f.manager_org === filterOrg).map(f => f.center).filter(Boolean))]), [forklifts, filterOrg, CENTERS]);
@@ -631,6 +652,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             supabase.from('forklift_daily_checks').update({
                 approved_at: now,
                 approved_by: approverName,
+                approve_note: approvalNotes[r.forklift.id] || '',
             }).eq('id', r.record.id)
         ));
 
@@ -638,7 +660,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         setChecks(prev => prev.map(c => {
             const matched = approvableRows.find(r => r.record?.id === c.id);
             if (!matched) return c;
-            return { ...c, approved_at: now, approved_by: approverName };
+            return { ...c, approved_at: now, approved_by: approverName, approve_note: approvalNotes[matched.forklift.id] || '' };
         }));
 
         setSelectedIds([]);
@@ -1159,6 +1181,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             {detailRecord && (
                 <CheckDetailModal
                     record={detailRecord}
+                    forklift={forkliftMap[detailRecord?.forklift_id]}
                     onClose={() => setDetailRecord(null)}
                 />
             )}

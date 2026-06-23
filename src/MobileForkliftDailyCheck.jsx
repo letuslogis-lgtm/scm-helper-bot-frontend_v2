@@ -326,7 +326,7 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
     const toJsonb = (sectionItems) =>
         sectionItems.map(label => ({
             item: label,
-            checked: answers[label] === true,
+            checked: answers[label] === true ? true : answers[label] === false ? false : null,
             memo: notes[label] || '',
         }));
 
