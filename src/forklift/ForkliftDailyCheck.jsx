@@ -76,7 +76,7 @@ h2{font-size:17px;font-weight:700;text-align:center;margin-bottom:12px}
 .unc-cell{color:#ccc}
 .note-section{margin-top:10px;font-size:10px}
 .note-item{padding:4px 9px;background:#fffbeb;border-left:2px solid #f59e0b;margin-bottom:3px;font-size:9.5px}
-.fault-note-row td{background:#fff8f0 !important;font-size:8.5px;color:#555;text-align:left;padding:3px 8px;border-top:none}
+.fault-note-row td{background:#fff8f0 !important;font-size:10.5px;color:#555;text-align:left !important;padding:3px 8px;border-top:none}
 @media print{.sheet{border-bottom:none}${landscape?'@page{size:A4 landscape}':'@page{size:A4 portrait}'}}
 </style></head><body>${body}</body></html>`;
 
@@ -95,10 +95,9 @@ const buildDailySheet = (f, record, approval, dateStr, dateLabel) => {
         const resultTd = `<td>${val===true?'정상':val===false?'<span style="color:#dc2626">불량</span>':'-'}</td>`;
         const mainRow = `<tr${isFault?' style="background:#fff8f8"':''}><td>${chkIcon(val)}</td><td>${item}</td>${resultTd}</tr>`;
         if (!isFault) return mainRow;
-        const noteContent = [
-            itemMemo     ? `<span style="color:#555"><strong>탑승자 메모:</strong> ${itemMemo}</span>`   : '',
-            managerNote  ? `<span style="color:#166534;margin-left:16px"><strong>관리자 조치:</strong> ${managerNote}</span>` : '',
-        ].filter(Boolean).join('');
+        const noteContent = itemMemo
+            ? `<span style="color:#555"><strong>탑승자 메모:</strong> ${itemMemo}</span>`
+            : '';
         return mainRow + (noteContent
             ? `<tr class="fault-note-row"><td></td><td colspan="2">${noteContent}</td></tr>`
             : '');
@@ -447,19 +446,58 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
     );
 };
 
+// ── 수기 점검 등록 모달 — 서브 컴포넌트 (모달 밖에 정의해야 리렌더 시 스크롤 리셋 방지)
+const CheckItemRow = ({ text, answer, onToggle, onMemo }) => (
+    <div className={`px-3 py-2 rounded-lg ${answer.checked === false ? 'bg-red-50' : 'bg-gray-50'}`}>
+        <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-700 flex-1 leading-tight">{text}</span>
+            <div className="flex gap-1 shrink-0">
+                {[{ val: true, label: '정상', cls: answer.checked === true ? 'bg-green-500 text-white' : 'bg-white text-gray-400 border border-gray-200' },
+                  { val: false, label: '불량', cls: answer.checked === false ? 'bg-red-500 text-white' : 'bg-white text-gray-400 border border-gray-200' },
+                  { val: null,  label: '-',    cls: answer.checked === null  ? 'bg-gray-300 text-white' : 'bg-white text-gray-400 border border-gray-200' },
+                ].map(({ val, label, cls }) => (
+                    <button key={String(val)} type="button" onClick={() => onToggle(val)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${cls}`}>
+                        {label}
+                    </button>
+                ))}
+            </div>
+        </div>
+        {answer.checked === false && (
+            <input value={answer.memo} onChange={e => onMemo(e.target.value)}
+                placeholder="메모 (선택)"
+                className="mt-1.5 w-full text-xs border border-red-200 rounded px-2 py-1 focus:outline-none focus:border-red-400 bg-white" />
+        )}
+    </div>
+);
+
+const SectionBlock = ({ title, color, items, answers, setAnswer, setter }) => (
+    <div>
+        <p className={`text-xs font-black mb-2 ${color}`}>{title}</p>
+        <div className="space-y-1.5">
+            {items.map((text, i) => (
+                <CheckItemRow key={i} text={text} answer={answers[i]}
+                    onToggle={val => setAnswer(setter, i, 'checked', val)}
+                    onMemo={val => setAnswer(setter, i, 'memo', val)} />
+            ))}
+        </div>
+    </div>
+);
+
 // ── 수기 점검 등록 모달
-const ManualCheckModal = ({ forklift, onSave, onClose, userProfile }) => {
+const ManualCheckModal = ({ forklift, existingRecord, onSave, onClose, userProfile }) => {
     const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
-    const [checkDate,   setCheckDate]   = useState(today());
-    const [checkerName, setCheckerName] = useState(userProfile?.name || '');
-    const [notes,       setNotes]       = useState('');
-    const [includePost, setIncludePost] = useState(false);
-    // answers: { ext: [{checked:null,memo:''},...], pre: [...], post: [...] }
-    const mkAnswers = (count) => Array.from({ length: count }, () => ({ checked: null, memo: '' }));
-    const [extAnswers,  setExtAnswers]  = useState(() => mkAnswers(EXTERIOR_ITEMS.length));
-    const [preAnswers,  setPreAnswers]  = useState(() => mkAnswers(PREOP_ITEMS.length));
-    const [postAnswers, setPostAnswers] = useState(() => mkAnswers(POSTOP_ITEMS.length));
+    const mkAnswers = (items, saved) =>
+        items.map((_, i) => ({ checked: saved?.[i]?.checked ?? null, memo: saved?.[i]?.memo || '' }));
+
+    const [checkDate,   setCheckDate]   = useState(existingRecord?.check_date || today());
+    const [checkerName, setCheckerName] = useState(existingRecord?.checker_name || userProfile?.name || '');
+    const [notes,       setNotes]       = useState(existingRecord?.notes || '');
+    const [includePost, setIncludePost] = useState(!!existingRecord?.post_op);
+    const [extAnswers,  setExtAnswers]  = useState(() => mkAnswers(EXTERIOR_ITEMS, existingRecord?.pre_exterior));
+    const [preAnswers,  setPreAnswers]  = useState(() => mkAnswers(PREOP_ITEMS,    existingRecord?.pre_op));
+    const [postAnswers, setPostAnswers] = useState(() => mkAnswers(POSTOP_ITEMS,   existingRecord?.post_op));
 
     const setAnswer = (setter, idx, field, val) =>
         setter(prev => prev.map((a, i) => i === idx ? { ...a, [field]: val } : a));
@@ -489,42 +527,6 @@ const ManualCheckModal = ({ forklift, onSave, onClose, userProfile }) => {
         onSave(record);
     };
 
-    const CheckItemRow = ({ text, answer, onToggle, onMemo }) => (
-        <div className={`px-3 py-2 rounded-lg ${answer.checked === false ? 'bg-red-50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-700 flex-1 leading-tight">{text}</span>
-                <div className="flex gap-1 shrink-0">
-                    {[{ val: true, label: '정상', cls: answer.checked === true ? 'bg-green-500 text-white' : 'bg-white text-gray-400 border border-gray-200' },
-                      { val: false, label: '불량', cls: answer.checked === false ? 'bg-red-500 text-white' : 'bg-white text-gray-400 border border-gray-200' },
-                      { val: null,  label: '-',    cls: answer.checked === null  ? 'bg-gray-300 text-white' : 'bg-white text-gray-400 border border-gray-200' },
-                    ].map(({ val, label, cls }) => (
-                        <button key={String(val)} type="button" onClick={() => onToggle(val)}
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${cls}`}>
-                            {label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-            {answer.checked === false && (
-                <input value={answer.memo} onChange={e => onMemo(e.target.value)}
-                    placeholder="메모 (선택)"
-                    className="mt-1.5 w-full text-xs border border-red-200 rounded px-2 py-1 focus:outline-none focus:border-red-400 bg-white" />
-            )}
-        </div>
-    );
-
-    const SectionBlock = ({ title, color, items, answers, setter }) => (
-        <div>
-            <p className={`text-xs font-black mb-2 ${color}`}>{title}</p>
-            <div className="space-y-1.5">
-                {items.map((text, i) => (
-                    <CheckItemRow key={i} text={text} answer={answers[i]}
-                        onToggle={val => setAnswer(setter, i, 'checked', val)}
-                        onMemo={val => setAnswer(setter, i, 'memo', val)} />
-                ))}
-            </div>
-        </div>
-    );
 
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
@@ -557,8 +559,8 @@ const ManualCheckModal = ({ forklift, onSave, onClose, userProfile }) => {
 
                     <div className="border-t border-gray-200" />
 
-                    <SectionBlock title="① 외관점검" color="text-blue-600" items={EXTERIOR_ITEMS} answers={extAnswers} setter={setExtAnswers} />
-                    <SectionBlock title="② 운행 전 점검" color="text-purple-600" items={PREOP_ITEMS} answers={preAnswers} setter={setPreAnswers} />
+                    <SectionBlock title="① 외관점검" color="text-blue-600" items={EXTERIOR_ITEMS} answers={extAnswers} setAnswer={setAnswer} setter={setExtAnswers} />
+                    <SectionBlock title="② 운행 전 점검" color="text-purple-600" items={PREOP_ITEMS} answers={preAnswers} setAnswer={setAnswer} setter={setPreAnswers} />
 
                     {/* 작업완료 후 점검 토글 */}
                     <div>
@@ -569,7 +571,7 @@ const ManualCheckModal = ({ forklift, onSave, onClose, userProfile }) => {
                         </label>
                     </div>
                     {includePost && (
-                        <SectionBlock title="③ 작업 완료 후 점검" color="text-amber-600" items={POSTOP_ITEMS} answers={postAnswers} setter={setPostAnswers} />
+                        <SectionBlock title="③ 작업 완료 후 점검" color="text-amber-600" items={POSTOP_ITEMS} answers={postAnswers} setAnswer={setAnswer} setter={setPostAnswers} />
                     )}
 
                     {/* 특이사항 */}
@@ -1362,6 +1364,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             {showManualCheck && (
                 <ManualCheckModal
                     forklift={forkliftMap[selectedIds[0]]}
+                    existingRecord={checks.find(c => c.forklift_id === selectedIds[0] && c.check_date === startDate) || null}
                     onSave={handleManualCheckSave}
                     onClose={() => setShowManualCheck(false)}
                     userProfile={userProfile}
