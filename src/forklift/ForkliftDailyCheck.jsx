@@ -820,9 +820,18 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
 
     // 수기 점검 등록
     const handleManualCheckSave = useCallback(async (record) => {
-        const { data, error } = await supabase.from('forklift_daily_checks').insert(record).select().single();
+        const { data, error } = await supabase
+            .from('forklift_daily_checks')
+            .upsert(record, { onConflict: 'forklift_id,check_date' })
+            .select()
+            .single();
         if (!error && data) {
-            setChecks(prev => [data, ...prev]);
+            setChecks(prev => {
+                const exists = prev.some(c => c.forklift_id === data.forklift_id && c.check_date === data.check_date);
+                return exists
+                    ? prev.map(c => (c.forklift_id === data.forklift_id && c.check_date === data.check_date) ? data : c)
+                    : [data, ...prev];
+            });
         }
         setShowManualCheck(false);
     }, []);
