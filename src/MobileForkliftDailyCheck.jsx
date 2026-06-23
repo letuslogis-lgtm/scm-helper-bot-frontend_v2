@@ -316,6 +316,7 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
     const [startLoading, setStartLoading] = useState(false);
     const [startError, setStartError] = useState('');
     const [saveLoading, setSaveLoading] = useState(false);
+    const [choiceLoading, setChoiceLoading] = useState(false);
 
     const activeSections = checkType === 'first' ? SECTIONS.slice(0, 2) : SECTIONS.slice(2);
     const activeItems = activeSections.flatMap((sec, si) =>
@@ -362,8 +363,6 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
 
             setForkliftId(forklift.id);
             setExistingCheckId(existing?.id || null);
-            setCheckType(existing ? 'subsequent' : 'first');
-            setCheckSeq(existing ? 2 : 1);
             setForkliftNo(no);
             setMaxStep(0);
             setActiveStep(0);
@@ -371,7 +370,13 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
             setNotes({});
             setPendingFault(false);
             setPendingNote('');
-            setPhase('check');
+            if (existing && !existing.post_op) {
+                setPhase('choice');
+            } else {
+                setCheckType('first');
+                setCheckSeq(1);
+                setPhase('check');
+            }
         } catch {
             setStartError('서버 오류가 발생했습니다. 다시 시도해 주세요.');
         } finally {
@@ -385,13 +390,21 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
             const today = new Date().toISOString().split('T')[0];
 
             if (checkType === 'first') {
-                await supabase.from('forklift_daily_checks').insert({
-                    forklift_id: forkliftId,
-                    check_date: today,
-                    checker_name: userProfile?.name || '',
-                    pre_exterior: toJsonb(SECTIONS[0].items),
-                    pre_op: toJsonb(SECTIONS[1].items),
-                });
+                if (existingCheckId) {
+                    await supabase.from('forklift_daily_checks').update({
+                        pre_exterior: toJsonb(SECTIONS[0].items),
+                        pre_op: toJsonb(SECTIONS[1].items),
+                        updated_at: new Date().toISOString(),
+                    }).eq('id', existingCheckId);
+                } else {
+                    await supabase.from('forklift_daily_checks').insert({
+                        forklift_id: forkliftId,
+                        check_date: today,
+                        checker_name: userProfile?.name || '',
+                        pre_exterior: toJsonb(SECTIONS[0].items),
+                        pre_op: toJsonb(SECTIONS[1].items),
+                    });
+                }
             } else {
                 await supabase.from('forklift_daily_checks').update({
                     post_op: toJsonb(SECTIONS[2].items),
@@ -406,6 +419,43 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
         } finally {
             setSaveLoading(false);
         }
+    };
+
+    const handleChoiceEdit = async () => {
+        setChoiceLoading(true);
+        try {
+            const { data } = await supabase
+                .from('forklift_daily_checks')
+                .select('pre_exterior, pre_op')
+                .eq('id', existingCheckId)
+                .single();
+            const loadedAnswers = {};
+            const loadedNotes = {};
+            [...(data?.pre_exterior || []), ...(data?.pre_op || [])].forEach(row => {
+                if (row.checked !== null) loadedAnswers[row.item] = row.checked;
+                if (row.memo) loadedNotes[row.item] = row.memo;
+            });
+            setAnswers(loadedAnswers);
+            setNotes(loadedNotes);
+        } catch {
+            setAnswers({});
+            setNotes({});
+        } finally {
+            setChoiceLoading(false);
+        }
+        setCheckType('first');
+        setCheckSeq(1);
+        setMaxStep(0);
+        setActiveStep(0);
+        setPhase('check');
+    };
+
+    const handleChoiceSubsequent = () => {
+        setCheckType('subsequent');
+        setCheckSeq(2);
+        setMaxStep(0);
+        setActiveStep(0);
+        setPhase('check');
     };
 
     const advance = (label, isOk, note) => {
@@ -462,7 +512,11 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
                 <div className="px-4 py-3 flex items-center gap-3">
                     <button
-                        onClick={() => phase === 'start' ? navigate(-1) : phase === 'done' ? resetAll() : null}
+                        onClick={() => {
+                            if (phase === 'start') navigate(-1);
+                            else if (phase === 'choice') setPhase('start');
+                            else if (phase === 'done') resetAll();
+                        }}
                         className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
                     >
                         <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -471,6 +525,9 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
                     </button>
                     <div className="flex-1">
                         <h1 className="text-slate-800 font-black text-base leading-none">일일 지게차 점검</h1>
+                        {phase === 'choice' && (
+                            <p className="text-slate-400 text-[11px] mt-0.5">{forkliftNo} · 점검 유형 선택</p>
+                        )}
                         {phase === 'check' && (
                             <p className="text-slate-400 text-[11px] mt-0.5">
                                 {forkliftNo} · {checkSeq}차 점검 · {checkType === 'first' ? '운행 전' : '작업 완료 후'}
@@ -500,6 +557,55 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
                     isLoading={startLoading}
                     error={startError}
                 />
+            )}
+
+            {phase === 'choice' && (
+                <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+                    <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mb-4 text-3xl">📋</div>
+                    <h2 className="text-xl font-black text-slate-800 mb-1">{forkliftNo}</h2>
+                    <p className="text-slate-500 text-sm mb-1 text-center font-bold">오늘 1차 점검이 이미 완료됐습니다.</p>
+                    <p className="text-slate-400 text-xs mb-8 text-center">어떤 작업을 진행하시겠습니까?</p>
+
+                    <div className="w-full max-w-sm space-y-3">
+                        <button
+                            onClick={handleChoiceEdit}
+                            disabled={choiceLoading}
+                            className="w-full bg-white rounded-2xl border-2 border-blue-200 shadow-sm p-5 text-left active:bg-blue-50 transition-colors disabled:opacity-50"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl shrink-0">✏️</div>
+                                <div>
+                                    <p className="font-black text-slate-800 text-base">기존 점검 내용 수정</p>
+                                    <p className="text-slate-400 text-xs mt-0.5">외관점검 및 운행 전 점검 내용 수정</p>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={handleChoiceSubsequent}
+                            disabled={choiceLoading}
+                            className="w-full bg-white rounded-2xl border-2 border-amber-200 shadow-sm p-5 text-left active:bg-amber-50 transition-colors disabled:opacity-50"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-2xl shrink-0">🏁</div>
+                                <div>
+                                    <p className="font-black text-slate-800 text-base">운행 완료 점검</p>
+                                    <p className="text-slate-400 text-xs mt-0.5">작업 완료 후 점검 항목 입력</p>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+
+                    {choiceLoading && (
+                        <div className="mt-6 flex items-center gap-2 text-sm text-slate-400">
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            데이터 불러오는 중...
+                        </div>
+                    )}
+                </div>
             )}
 
             {phase === 'check' && (
