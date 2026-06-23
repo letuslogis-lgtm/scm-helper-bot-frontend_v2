@@ -448,10 +448,9 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
 };
 
 // ── 수기 점검 등록 모달
-const ManualCheckModal = ({ forklifts, onSave, onClose, userProfile }) => {
+const ManualCheckModal = ({ forklift, onSave, onClose, userProfile }) => {
     const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
-    const [forkliftId,  setForkliftId]  = useState('');
     const [checkDate,   setCheckDate]   = useState(today());
     const [checkerName, setCheckerName] = useState(userProfile?.name || '');
     const [notes,       setNotes]       = useState('');
@@ -468,7 +467,7 @@ const ManualCheckModal = ({ forklifts, onSave, onClose, userProfile }) => {
     const toJsonb = (items, answers) =>
         items.map((item, i) => ({ item, checked: answers[i].checked, memo: answers[i].memo }));
 
-    const canSave = forkliftId && checkDate && checkerName.trim();
+    const canSave = checkDate && checkerName.trim();
 
     const handleSave = async () => {
         if (!canSave) return;
@@ -476,7 +475,7 @@ const ManualCheckModal = ({ forklifts, onSave, onClose, userProfile }) => {
         const preOp = toJsonb(PREOP_ITEMS, preAnswers);
         const postOp = includePost ? toJsonb(POSTOP_ITEMS, postAnswers) : null;
         const record = {
-            forklift_id: forkliftId,
+            forklift_id: forklift.id,
             check_date: checkDate,
             checker_name: checkerName.trim(),
             pre_exterior: preExterior,
@@ -534,6 +533,7 @@ const ManualCheckModal = ({ forklifts, onSave, onClose, userProfile }) => {
                     <h3 className="text-sm font-bold text-gray-800 flex items-center">
                         <span className="w-1.5 h-3.5 bg-letusBlue rounded-full mr-2"></span>
                         수기 점검 등록
+                        <span className="ml-2 text-xs font-black text-letusBlue bg-blue-50 px-2 py-0.5 rounded-full">{forklift?.no}</span>
                     </h3>
                     <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -542,21 +542,13 @@ const ManualCheckModal = ({ forklifts, onSave, onClose, userProfile }) => {
 
                 <div className="p-5 bg-slate-50 flex-1 overflow-y-auto custom-scrollbar space-y-5">
                     {/* 기본 정보 */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="flex flex-col gap-1.5 col-span-1">
-                            <label className="text-xs font-bold text-gray-700">장비 <span className="text-red-500">*</span></label>
-                            <select value={forkliftId} onChange={e => setForkliftId(e.target.value)}
-                                className="border border-gray-300 rounded-[4px] px-2.5 py-2 text-xs focus:outline-none focus:border-letusBlue bg-white w-full cursor-pointer font-bold">
-                                <option value="">선택</option>
-                                {forklifts.map(f => <option key={f.id} value={f.id}>{f.no}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex flex-col gap-1.5 col-span-1">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold text-gray-700">점검일자 <span className="text-red-500">*</span></label>
                             <input type="date" value={checkDate} onChange={e => setCheckDate(e.target.value)}
                                 className="border border-gray-300 rounded-[4px] px-2.5 py-2 text-xs focus:outline-none focus:border-letusBlue bg-white w-full" />
                         </div>
-                        <div className="flex flex-col gap-1.5 col-span-1">
+                        <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold text-gray-700">탑승자 <span className="text-red-500">*</span></label>
                             <input value={checkerName} onChange={e => setCheckerName(e.target.value)} placeholder="이름 입력"
                                 className="border border-gray-300 rounded-[4px] px-2.5 py-2 text-xs focus:outline-none focus:border-letusBlue bg-white w-full" />
@@ -1259,7 +1251,12 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                     출력
                                 </button>
                                 <button
-                                    onClick={() => { setShowManualCheck(true); setIsActionMenuOpen(false); }}
+                                    onClick={() => {
+                                        setIsActionMenuOpen(false);
+                                        if (selectedIds.length === 0) { alert('장비를 1개 선택해 주세요.'); return; }
+                                        if (selectedIds.length > 1)   { alert('수기 등록은 장비를 1개만 선택해 주세요.'); return; }
+                                        setShowManualCheck(true);
+                                    }}
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors">
                                     <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1355,7 +1352,7 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
             {/* 수기 점검 등록 모달 */}
             {showManualCheck && (
                 <ManualCheckModal
-                    forklifts={forklifts}
+                    forklift={forkliftMap[selectedIds[0]]}
                     onSave={handleManualCheckSave}
                     onClose={() => setShowManualCheck(false)}
                     userProfile={userProfile}
