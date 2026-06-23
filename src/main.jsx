@@ -42,6 +42,7 @@ import { MobileLoginView } from './MobileLoginView.jsx';
 import { MobileAdminMenu } from './MobileAdminMenu.jsx';
 import { MobileAdminIssueList } from './MobileAdminIssueList.jsx';
 import { MobileBarcodeTester } from './MobileBarcodeTester.jsx';
+import { MobileBarcodeLiveTester } from './MobileBarcodeLiveTester.jsx';
 import { MobileSuggestion } from './MobileSuggestion.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { ForkliftDashboard } from './forklift/ForkliftDashboard.jsx';
@@ -287,6 +288,7 @@ const ProtectedMobileRoute = () => {
             {/* ── 관리자 전용 라우트 ── */}
             <Route path="admin/issues" element={<MobileAdminIssueList userProfile={userProfile} />} />
             <Route path="admin/barcode-tester" element={<MobileBarcodeTester />} />
+            <Route path="admin/live-scanner" element={<MobileBarcodeLiveTester />} />
             <Route path="admin/forklift-check" element={<MobileForkliftDailyCheck userProfile={userProfile} />} />
             <Route path="admin/forklift-issue" element={<MobileForkliftIssueRegister userProfile={userProfile} />} />
             {/* ── 작업자 라우트 (공지는 관리자도 접근 가능) ── */}
