@@ -10,12 +10,15 @@ export const MobileBarcodeLiveTester = () => {
     const viewportRef = useRef(null);
     const startTimeRef = useRef(null);
     const quaggaRunning = useRef(false);
+    const detectionCountRef = useRef({});
+    const CONFIRM_COUNT = 3;
 
     const stopQuagga = () => {
         if (quaggaRunning.current) {
             Quagga.offDetected();
             Quagga.stop();
             quaggaRunning.current = false;
+            if (viewportRef.current) viewportRef.current.innerHTML = '';
         }
     };
 
@@ -55,14 +58,20 @@ export const MobileBarcodeLiveTester = () => {
             }
             Quagga.start();
             quaggaRunning.current = true;
+            detectionCountRef.current = {};
 
             Quagga.onDetected((data) => {
-                const elapsed = Date.now() - startTimeRef.current;
                 const code = data.codeResult.code;
                 const format = data.codeResult.format;
-                stopQuagga();
-                setScanning(false);
-                setResult({ code, format, elapsed });
+                const counts = detectionCountRef.current;
+                counts[code] = (counts[code] || 0) + 1;
+
+                if (counts[code] >= CONFIRM_COUNT) {
+                    const elapsed = Date.now() - startTimeRef.current;
+                    stopQuagga();
+                    setScanning(false);
+                    setResult({ code, format, elapsed });
+                }
             });
         });
     };
