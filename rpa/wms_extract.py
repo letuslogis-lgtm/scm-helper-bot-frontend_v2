@@ -234,6 +234,8 @@ def fetch_cut_list(cookies: dict, warehouse_id: str, start_date: str, end_date: 
         timeout=60,
     )
     resp.raise_for_status()
+    if not resp.text.strip():
+        return []
     data = resp.json()
     return data if isinstance(data, list) else []
 
