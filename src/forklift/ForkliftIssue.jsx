@@ -915,18 +915,30 @@ export const ForkliftIssue = ({ userProfile }) => {
     }, [filteredBase, filterStatus, sortConfig]);
 
     const orgStats = useMemo(() => {
+        // issues 기준: 검수완료가 아닌 이슈가 있는 지게차 = 문제있음
+        const activeIssueMap = {};  // forklift_id → 'broken' | 'inRepair'
+        issues.forEach(issue => {
+            if (issue.status === 'approved') return;
+            const prev = activeIssueMap[issue.forklift_id];
+            const next = (issue.status === 'reported' || issue.status === 'accepted') ? 'broken' : 'inRepair';
+            // broken 우선
+            if (!prev || (next === 'broken' && prev !== 'broken')) {
+                activeIssueMap[issue.forklift_id] = next;
+            }
+        });
+
         const orgs = [...new Set(activeForklifts.map(f => f.manager_org).filter(Boolean))].sort();
         return orgs.map(org => {
             const orgForklifts = activeForklifts.filter(f => f.manager_org === org);
             return {
                 org,
                 total:    orgForklifts.length,
-                normal:   orgForklifts.filter(f => f.status === '정상').length,
-                inRepair: orgForklifts.filter(f => f.status === '정비중').length,
-                broken:   orgForklifts.filter(f => f.status === '고장').length,
+                broken:   orgForklifts.filter(f => activeIssueMap[f.id] === 'broken').length,
+                inRepair: orgForklifts.filter(f => activeIssueMap[f.id] === 'inRepair').length,
+                normal:   orgForklifts.filter(f => !activeIssueMap[f.id]).length,
             };
         }).filter(s => s.total > 0);
-    }, [activeForklifts]);
+    }, [activeForklifts, issues]);
 
     // 전역 요약 카드 수치 (필터 무관)
     const globalStats = useMemo(() => {
