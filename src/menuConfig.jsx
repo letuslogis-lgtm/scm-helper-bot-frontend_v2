@@ -68,7 +68,7 @@ export const ALL_MENUS = [
             { id: 'forklift_list',      label: '지게차 관리대장' },
             { id: 'forklift_check',     label: '일일점검' },
             { id: 'forklift_repair',    label: '정비·수리 이력' },
-            { id: 'forklift_issue',     label: '이슈 등록' },
+            { id: 'forklift_issue',     label: '이슈 등록·현황' },
         ]
     },
     {

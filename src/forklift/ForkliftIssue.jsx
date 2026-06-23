@@ -187,6 +187,396 @@ const ForkliftPicker = ({ forklifts, value, onChange }) => {
     );
 };
 
+// ── 날짜+시간 커스텀 인풋
+const SingleDateTimeInput = ({ value, onChange, placeholder = '날짜/시간 선택' }) => {
+    const [open, setOpen] = React.useState(false);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const todayISO = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const parseVal = (v) => {
+        if (!v) return { date: '', h: now.getHours(), m: now.getMinutes() };
+        const [dp, tp] = v.split('T');
+        return { date: dp || '', h: tp ? parseInt(tp.split(':')[0]) : 0, m: tp ? parseInt(tp.split(':')[1]) : 0 };
+    };
+    const init = parseVal(value);
+    const [viewYear,  setViewYear]  = React.useState(init.date ? parseInt(init.date.slice(0, 4)) : now.getFullYear());
+    const [viewMonth, setViewMonth] = React.useState(init.date ? parseInt(init.date.slice(5, 7)) - 1 : now.getMonth());
+    const [selHour,   setSelHour]   = React.useState(init.h);
+    const [selMin,    setSelMin]    = React.useState(init.m);
+    const triggerRef = React.useRef(null);
+    const popupRef   = React.useRef(null);
+    const hourRef    = React.useRef(null);
+    const minRef     = React.useRef(null);
+    const [popupPos, setPopupPos]   = React.useState({ top: 0, left: 0 });
+    const selDate = value ? value.split('T')[0] : '';
+
+    React.useEffect(() => {
+        if (!open) return;
+        const onDown = (e) => {
+            if (triggerRef.current?.contains(e.target)) return;
+            if (popupRef.current?.contains(e.target)) return;
+            setOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [open]);
+
+    React.useEffect(() => {
+        if (!open) return;
+        setTimeout(() => {
+            if (hourRef.current) {
+                const el = hourRef.current.querySelector(`[data-h="${selHour}"]`);
+                el?.scrollIntoView({ block: 'center' });
+            }
+            if (minRef.current) {
+                const el = minRef.current.querySelector(`[data-m="${selMin}"]`);
+                el?.scrollIntoView({ block: 'center' });
+            }
+        }, 30);
+    }, [open]);
+
+    const handleOpen = () => {
+        if (!open && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            const popupW = 340;
+            const left = Math.min(rect.left, window.innerWidth - popupW - 8);
+            setPopupPos({ top: rect.bottom + 4, left: Math.max(4, left) });
+            const { date, h, m } = parseVal(value);
+            if (date) { setViewYear(parseInt(date.slice(0, 4))); setViewMonth(parseInt(date.slice(5, 7)) - 1); }
+            setSelHour(h); setSelMin(m);
+        }
+        setOpen(o => !o);
+    };
+
+    const handleDayClick = (ds) => onChange(`${ds}T${pad(selHour)}:${pad(selMin)}`);
+    const handleHourClick = (h) => { setSelHour(h); onChange(`${selDate || todayISO}T${pad(h)}:${pad(selMin)}`); };
+    const handleMinClick  = (m) => { setSelMin(m);  onChange(`${selDate || todayISO}T${pad(selHour)}:${pad(m)}`); };
+
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
+    const cells = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+    const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+    const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
+    const prevMonth = () => { if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); } else setViewMonth(m => m - 1); };
+    const nextMonth = () => { if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); } else setViewMonth(m => m + 1); };
+
+    const displayValue = () => {
+        if (!value) return null;
+        const [dp, tp] = value.split('T');
+        if (!dp) return null;
+        const [y, mo, d] = dp.split('-').map(Number);
+        const h = tp ? parseInt(tp.split(':')[0]) : 0;
+        const m = tp ? parseInt(tp.split(':')[1]) : 0;
+        const ampm = h >= 12 ? '오후' : '오전';
+        const h12 = h % 12 || 12;
+        return `${y}. ${pad(mo)}. ${pad(d)}. ${ampm} ${pad(h12)}:${pad(m)}`;
+    };
+
+    return (
+        <div ref={triggerRef} className="relative w-full">
+            <div onClick={handleOpen}
+                className={`w-full border rounded-[4px] px-3.5 py-2 text-xs flex items-center gap-2 cursor-pointer transition-all bg-white ${open ? 'border-letusBlue' : 'border-gray-300 hover:border-gray-400'}`}>
+                <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className={value ? 'text-gray-700' : 'text-gray-400'}>{displayValue() || placeholder}</span>
+            </div>
+            {open && (
+                <div ref={popupRef} style={{ position: 'fixed', top: popupPos.top, left: popupPos.left, zIndex: 9999 }}
+                    className="bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden select-none flex">
+                    {/* 캘린더 */}
+                    <div className="w-56">
+                        <div className="bg-letusOrange px-3 py-2 flex items-center justify-between">
+                            <button onClick={prevMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">‹</button>
+                            <div className="flex items-center gap-1">
+                                <select value={viewYear} onChange={e => setViewYear(Number(e.target.value))}
+                                    className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer">
+                                    {years.map(y => <option key={y} value={y} className="text-gray-800 bg-white">{y}년</option>)}
+                                </select>
+                                <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))}
+                                    className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer">
+                                    {Array.from({ length: 12 }, (_, i) => i).map(m => <option key={m} value={m} className="text-gray-800 bg-white">{m + 1}월</option>)}
+                                </select>
+                            </div>
+                            <button onClick={nextMonth} className="text-white text-lg font-bold w-6 text-center hover:opacity-70 leading-none">›</button>
+                        </div>
+                        <div className="grid grid-cols-7 px-2 pt-2">
+                            {DAY_NAMES.map((d, i) => (
+                                <div key={d} className={`text-center text-[10px] font-bold pb-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}>{d}</div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 pb-2">
+                            {cells.map((day, idx) => {
+                                if (!day) return <div key={`e${idx}`} className="h-7" />;
+                                const ds = `${viewYear}-${pad(viewMonth + 1)}-${pad(day)}`;
+                                const isToday = ds === todayISO;
+                                const isSelected = ds === selDate;
+                                const dow = (firstDay + day - 1) % 7;
+                                return (
+                                    <div key={day} className="h-7 flex items-center justify-center">
+                                        <button onClick={() => handleDayClick(ds)}
+                                            className={`h-7 w-7 flex items-center justify-center text-[11px] font-semibold rounded-full transition-colors ${
+                                                isSelected ? 'bg-letusOrange text-white' :
+                                                isToday ? 'border border-letusOrange text-letusOrange' :
+                                                dow === 0 ? 'text-red-400 hover:bg-orange-50' :
+                                                dow === 6 ? 'text-blue-400 hover:bg-orange-50' :
+                                                'text-gray-700 hover:bg-orange-50'
+                                            }`}>
+                                            {day}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="border-t border-gray-100 flex items-center justify-between px-3 py-1.5">
+                            <button onClick={() => { onChange(''); setOpen(false); }}
+                                className="text-[11px] text-gray-400 hover:text-gray-600 font-bold">지우기</button>
+                            <button onClick={() => {
+                                const n = new Date();
+                                const ds = `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
+                                const h = n.getHours(); const m = n.getMinutes();
+                                setSelHour(h); setSelMin(m);
+                                setViewYear(n.getFullYear()); setViewMonth(n.getMonth());
+                                onChange(`${ds}T${pad(h)}:${pad(m)}`);
+                            }} className="text-[11px] text-letusOrange hover:opacity-70 font-bold">지금</button>
+                        </div>
+                    </div>
+                    {/* 시 / 분 */}
+                    <div className="border-l border-gray-100 flex">
+                        <div ref={hourRef} className="w-[50px] overflow-y-auto" style={{ height: '218px' }}>
+                            <div className="bg-letusOrange py-1.5 text-white text-[10px] font-bold text-center sticky top-0">시</div>
+                            {Array.from({ length: 24 }, (_, i) => i).map(h => (
+                                <button key={h} data-h={h} onClick={() => handleHourClick(h)}
+                                    className={`w-full py-[5px] text-[11px] font-bold text-center transition-colors ${selHour === h ? 'bg-letusOrange text-white' : 'text-gray-700 hover:bg-orange-50'}`}>
+                                    {pad(h)}
+                                </button>
+                            ))}
+                        </div>
+                        <div ref={minRef} className="w-[50px] overflow-y-auto border-l border-gray-100" style={{ height: '218px' }}>
+                            <div className="bg-letusOrange py-1.5 text-white text-[10px] font-bold text-center sticky top-0">분</div>
+                            {Array.from({ length: 60 }, (_, i) => i).map(m => (
+                                <button key={m} data-m={m} onClick={() => handleMinClick(m)}
+                                    className={`w-full py-[5px] text-[11px] font-bold text-center transition-colors ${selMin === m ? 'bg-letusOrange text-white' : 'text-gray-700 hover:bg-orange-50'}`}>
+                                    {pad(m)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── 수기 등록 모달
+const ManualIssueModal = ({ forklifts, onSave, onClose, userProfile }) => {
+    const pad = n => String(n).padStart(2, '0');
+    const nowLocal = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+    const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+
+    const [forkliftId,   setForkliftId]   = useState('');
+    const [faultType,    setFaultType]    = useState('');
+    const [errorCode,    setErrorCode]    = useState('');
+    const [faultDesc,    setFaultDesc]    = useState('');
+    const [reporter,     setReporter]     = useState(userProfile?.name || userProfile?.email || '');
+    const [reportedAt,   setReportedAt]   = useState(nowLocal());
+    const [status,       setStatus]       = useState('reported');
+    const [acceptedBy,   setAcceptedBy]   = useState('');
+    const [acceptedAt,   setAcceptedAt]   = useState(nowLocal());
+    const [acceptNote,   setAcceptNote]   = useState('');
+    const [repairDesc,   setRepairDesc]   = useState('');
+    const [repairVendor, setRepairVendor] = useState('');
+    const [completedAt,  setCompletedAt]  = useState(todayStr());
+    const [approvedBy,   setApprovedBy]   = useState(userProfile?.name || userProfile?.email || '');
+    const [approvedAt,   setApprovedAt]   = useState(nowLocal());
+
+    const canSave = forkliftId && faultDesc.trim() && reporter.trim();
+    const isAccepted  = status === 'accepted'  || status === 'completed' || status === 'approved';
+    const isCompleted = status === 'completed' || status === 'approved';
+    const isApproved  = status === 'approved';
+
+    const handleSave = () => {
+        if (!canSave) return;
+        const id = `ISS-${Date.now().toString(36).toUpperCase()}`;
+        const record = {
+            id, forklift_id: forkliftId, fault_type: faultType, error_code: errorCode,
+            fault_desc: faultDesc, reporter,
+            reported_at: reportedAt ? new Date(reportedAt).toISOString() : new Date().toISOString(),
+            status, created_at: new Date().toISOString(),
+        };
+        if (isAccepted) {
+            record.accepted_by = acceptedBy;
+            record.accepted_at = acceptedAt ? new Date(acceptedAt).toISOString() : new Date().toISOString();
+            if (acceptNote.trim()) record.accept_note = acceptNote.trim();
+        }
+        if (isCompleted) {
+            record.repair_desc = repairDesc;
+            record.repair_vendor = repairVendor;
+            record.completed_at = completedAt;
+            record.repair_completed_by = acceptedBy;
+            record.completed_recorded_at = new Date().toISOString();
+        }
+        if (isApproved) {
+            record.approved_by = approvedBy;
+            record.approved_at = approvedAt ? new Date(approvedAt).toISOString() : new Date().toISOString();
+        }
+        onSave(record);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[520px] overflow-hidden flex flex-col slide-up">
+                {/* 헤더 */}
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full mr-2"></span>
+                        수기 등록
+                    </h3>
+                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                {/* 본문 */}
+                <div className="p-6 bg-slate-50 flex-1 overflow-y-auto max-h-[75vh] custom-scrollbar space-y-4">
+                    {/* 장비 선택 */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">장비 선택 <span className="text-red-500">*</span></label>
+                        <ForkliftPicker forklifts={forklifts} value={forkliftId} onChange={setForkliftId} />
+                    </div>
+                    {/* 등록 상태 */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">등록 상태</label>
+                        <select value={status} onChange={e => setStatus(e.target.value)}
+                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full font-bold cursor-pointer">
+                            <option value="reported">고장접수</option>
+                            <option value="accepted">정비중</option>
+                            <option value="completed">정비완료</option>
+                            <option value="approved">검수완료</option>
+                        </select>
+                    </div>
+                    <div className="border-t border-gray-200" />
+                    {/* 고장 유형 */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">고장 유형</label>
+                        <div className="flex flex-wrap gap-2">
+                            {FAULT_TYPES.map(t => (
+                                <button key={t} type="button" onClick={() => setFaultType(t === faultType ? '' : t)}
+                                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${faultType === t ? 'border-red-400 bg-red-50 text-red-700 font-bold' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                                    {t}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    {/* 에러 코드 */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">에러 코드 <span className="text-gray-400 font-normal">(선택)</span></label>
+                        <input value={errorCode} onChange={e => setErrorCode(e.target.value)}
+                            placeholder="예) E-01, F23, ERR_HYD 등"
+                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                    </div>
+                    {/* 고장 내용 */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">고장 내용 <span className="text-red-500">*</span></label>
+                        <textarea value={faultDesc} onChange={e => setFaultDesc(e.target.value)}
+                            rows={2} placeholder="고장 증상을 입력해 주세요"
+                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full resize-none" />
+                    </div>
+                    {/* 신고자 / 신고 일시 */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">신고자 <span className="text-red-500">*</span></label>
+                            <input value={reporter} onChange={e => setReporter(e.target.value)} placeholder="이름 입력"
+                                className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-gray-700">신고 일시</label>
+                            <SingleDateTimeInput value={reportedAt} onChange={setReportedAt} placeholder="날짜/시간 선택" />
+                        </div>
+                    </div>
+                    {/* 접수 정보 */}
+                    {isAccepted && (
+                        <>
+                            <div className="border-t border-gray-200" />
+                            <p className="text-[11px] font-black text-orange-500">접수 정보</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-gray-700">접수자</label>
+                                    <input value={acceptedBy} onChange={e => setAcceptedBy(e.target.value)} placeholder="이름 입력"
+                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-gray-700">접수 일시</label>
+                                    <SingleDateTimeInput value={acceptedAt} onChange={setAcceptedAt} placeholder="날짜/시간 선택" />
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">접수 메모 <span className="text-gray-400 font-normal">(선택)</span></label>
+                                <input value={acceptNote} onChange={e => setAcceptNote(e.target.value)} placeholder="정비 지시사항 등"
+                                    className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                            </div>
+                        </>
+                    )}
+                    {/* 정비완료 정보 */}
+                    {isCompleted && (
+                        <>
+                            <div className="border-t border-gray-200" />
+                            <p className="text-[11px] font-black text-blue-500">정비완료 정보</p>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-gray-700">정비 내용</label>
+                                <textarea value={repairDesc} onChange={e => setRepairDesc(e.target.value)}
+                                    rows={2} placeholder="정비 내용을 입력해 주세요"
+                                    className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full resize-none" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-gray-700">정비업체</label>
+                                    <input value={repairVendor} onChange={e => setRepairVendor(e.target.value)} placeholder="업체명 입력"
+                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-gray-700">완료일</label>
+                                    <input type="date" value={completedAt} onChange={e => setCompletedAt(e.target.value)}
+                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    {/* 검수완료 정보 */}
+                    {isApproved && (
+                        <>
+                            <div className="border-t border-gray-200" />
+                            <p className="text-[11px] font-black text-green-600">검수완료 정보</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-gray-700">검수자</label>
+                                    <input value={approvedBy} onChange={e => setApprovedBy(e.target.value)} placeholder="이름 입력"
+                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-gray-700">검수 일시</label>
+                                    <SingleDateTimeInput value={approvedAt} onChange={setApprovedAt} placeholder="날짜/시간 선택" />
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+                {/* 하단 버튼 */}
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+                    <button type="button" onClick={onClose}
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
+                        취소
+                    </button>
+                    <button onClick={handleSave} disabled={!canSave}
+                        className={`px-5 py-[9px] text-white text-[11px] font-bold rounded-[3px] transition-colors ${canSave ? 'bg-letusBlue hover:bg-blue-600' : 'bg-gray-300 cursor-not-allowed'}`}>
+                        수기 등록
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── 이슈 등록/수정 모달
 const IssueFormModal = ({ forklifts, onSave, onClose, editIssue, userProfile }) => {
     const defaultReporter = userProfile?.name || userProfile?.email || '';
@@ -268,8 +658,7 @@ const IssueFormModal = ({ forklifts, onSave, onClose, editIssue, userProfile }) 
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold text-gray-700">신고 일시</label>
-                            <input type="datetime-local" value={reportedAt} onChange={e => setReportedAt(e.target.value)}
-                                className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
+                            <SingleDateTimeInput value={reportedAt} onChange={setReportedAt} placeholder="날짜/시간 선택" />
                         </div>
                     </div>
                 </div>
@@ -532,7 +921,8 @@ export const ForkliftIssue = ({ userProfile }) => {
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
     const [excludeApproved, setExcludeApproved] = useState(true);  // 검수완료 제외 (기본 체크)
-    const [showForm,      setShowForm]      = useState(false);
+    const [showForm,       setShowForm]       = useState(false);
+    const [showManualForm, setShowManualForm] = useState(false);
     const [editIssue,     setEditIssue]     = useState(null);
     const [detailIssue,   setDetailIssue]   = useState(null);
     const [completeIssue, setCompleteIssue] = useState(null);
@@ -651,6 +1041,22 @@ export const ForkliftIssue = ({ userProfile }) => {
         setIssues(prev => prev.map(i => i.id !== approveIssue.id ? i : { ...i, ...updates }));
         setApproveIssue(null);
     }, [issues, approveIssue, userProfile]);
+
+    // 수기 등록
+    const handleManualSave = useCallback(async (record) => {
+        const { error } = await supabase.from('forklift_issues').insert(record);
+        if (!error) {
+            if (record.status === 'reported' || record.status === 'accepted') {
+                await supabase.from('forklifts').update({ status: '고장' }).eq('id', record.forklift_id);
+                setForklifts(prev => prev.map(f => f.id === record.forklift_id ? { ...f, status: '고장' } : f));
+            } else {
+                await supabase.from('forklifts').update({ status: '정상' }).eq('id', record.forklift_id);
+                setForklifts(prev => prev.map(f => f.id === record.forklift_id ? { ...f, status: '정상' } : f));
+            }
+            setIssues(prev => [record, ...prev]);
+        }
+        setShowManualForm(false);
+    }, []);
 
     // 체크박스
     const handleSelectAll = (e) => {
@@ -939,6 +1345,11 @@ export const ForkliftIssue = ({ userProfile }) => {
                                     이슈 등록
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                                 </button>
+                                <button onClick={() => { setIsActionMenuOpen(false); setShowManualForm(true); }}
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-between">
+                                    수기 등록
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                </button>
                                 <div className="border-t border-gray-100 my-1" />
                                 <button onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
                                     className="w-full text-left px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors flex items-center justify-between">
@@ -1017,6 +1428,11 @@ export const ForkliftIssue = ({ userProfile }) => {
                     </table>
                 </div>
             </div>
+
+            {/* 수기 등록 모달 */}
+            {showManualForm && (
+                <ManualIssueModal forklifts={activeForklifts} onSave={handleManualSave} onClose={() => setShowManualForm(false)} userProfile={userProfile} />
+            )}
 
             {/* 이슈 등록 모달 */}
             {showForm && !editIssue && (
