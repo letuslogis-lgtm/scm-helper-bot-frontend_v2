@@ -41,14 +41,7 @@ export const MobileBarcodeLiveTester = () => {
             },
             locate: true,
             decoder: {
-                readers: [
-                    'code_128_reader',
-                    'ean_reader',
-                    'ean_8_reader',
-                    'code_39_reader',
-                    'upc_reader',
-                    'upc_e_reader',
-                ],
+                readers: ['code_128_reader'],
             },
         }, (err) => {
             if (err) {
@@ -111,14 +104,20 @@ export const MobileBarcodeLiveTester = () => {
             <div className="flex-1 flex flex-col">
                 {/* 카메라 뷰파인더 */}
                 <style>{`
-                    .quagga-viewport video,
-                    .quagga-viewport canvas {
+                    .quagga-viewport {
+                        position: relative;
+                        overflow: hidden;
+                    }
+                    .quagga-viewport video {
                         width: 100% !important;
                         height: 100% !important;
                         position: absolute !important;
                         top: 0 !important;
                         left: 0 !important;
                         object-fit: cover;
+                    }
+                    .quagga-viewport canvas {
+                        display: none !important;
                     }
                 `}</style>
                 <div className="relative bg-black" style={{ height: '60vh' }}>
