@@ -447,6 +447,163 @@ const CheckDetailModal = ({ record, forklift, onClose }) => {
     );
 };
 
+// ── 수기 점검 등록 모달
+const ManualCheckModal = ({ forklifts, onSave, onClose, userProfile }) => {
+    const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+
+    const [forkliftId,  setForkliftId]  = useState('');
+    const [checkDate,   setCheckDate]   = useState(today());
+    const [checkerName, setCheckerName] = useState(userProfile?.name || '');
+    const [notes,       setNotes]       = useState('');
+    const [includePost, setIncludePost] = useState(false);
+    // answers: { ext: [{checked:null,memo:''},...], pre: [...], post: [...] }
+    const mkAnswers = (count) => Array.from({ length: count }, () => ({ checked: null, memo: '' }));
+    const [extAnswers,  setExtAnswers]  = useState(() => mkAnswers(EXTERIOR_ITEMS.length));
+    const [preAnswers,  setPreAnswers]  = useState(() => mkAnswers(PREOP_ITEMS.length));
+    const [postAnswers, setPostAnswers] = useState(() => mkAnswers(POSTOP_ITEMS.length));
+
+    const setAnswer = (setter, idx, field, val) =>
+        setter(prev => prev.map((a, i) => i === idx ? { ...a, [field]: val } : a));
+
+    const toJsonb = (items, answers) =>
+        items.map((item, i) => ({ item, checked: answers[i].checked, memo: answers[i].memo }));
+
+    const canSave = forkliftId && checkDate && checkerName.trim();
+
+    const handleSave = async () => {
+        if (!canSave) return;
+        const preExterior = toJsonb(EXTERIOR_ITEMS, extAnswers);
+        const preOp = toJsonb(PREOP_ITEMS, preAnswers);
+        const postOp = includePost ? toJsonb(POSTOP_ITEMS, postAnswers) : null;
+        const record = {
+            forklift_id: forkliftId,
+            check_date: checkDate,
+            checker_name: checkerName.trim(),
+            pre_exterior: preExterior,
+            pre_op: preOp,
+            post_op: postOp,
+            notes: notes.trim() || null,
+            overall_status: postOp ? 'completed' : 'inProgress',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+        onSave(record);
+    };
+
+    const CheckItemRow = ({ text, answer, onToggle, onMemo }) => (
+        <div className={`px-3 py-2 rounded-lg ${answer.checked === false ? 'bg-red-50' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-700 flex-1 leading-tight">{text}</span>
+                <div className="flex gap-1 shrink-0">
+                    {[{ val: true, label: '정상', cls: answer.checked === true ? 'bg-green-500 text-white' : 'bg-white text-gray-400 border border-gray-200' },
+                      { val: false, label: '불량', cls: answer.checked === false ? 'bg-red-500 text-white' : 'bg-white text-gray-400 border border-gray-200' },
+                      { val: null,  label: '-',    cls: answer.checked === null  ? 'bg-gray-300 text-white' : 'bg-white text-gray-400 border border-gray-200' },
+                    ].map(({ val, label, cls }) => (
+                        <button key={String(val)} type="button" onClick={() => onToggle(val)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${cls}`}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            {answer.checked === false && (
+                <input value={answer.memo} onChange={e => onMemo(e.target.value)}
+                    placeholder="메모 (선택)"
+                    className="mt-1.5 w-full text-xs border border-red-200 rounded px-2 py-1 focus:outline-none focus:border-red-400 bg-white" />
+            )}
+        </div>
+    );
+
+    const SectionBlock = ({ title, color, items, answers, setter }) => (
+        <div>
+            <p className={`text-xs font-black mb-2 ${color}`}>{title}</p>
+            <div className="space-y-1.5">
+                {items.map((text, i) => (
+                    <CheckItemRow key={i} text={text} answer={answers[i]}
+                        onToggle={val => setAnswer(setter, i, 'checked', val)}
+                        onMemo={val => setAnswer(setter, i, 'memo', val)} />
+                ))}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[560px] overflow-hidden flex flex-col slide-up max-h-[90vh]">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full mr-2"></span>
+                        수기 점검 등록
+                    </h3>
+                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div className="p-5 bg-slate-50 flex-1 overflow-y-auto custom-scrollbar space-y-5">
+                    {/* 기본 정보 */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="flex flex-col gap-1.5 col-span-1">
+                            <label className="text-xs font-bold text-gray-700">장비 <span className="text-red-500">*</span></label>
+                            <select value={forkliftId} onChange={e => setForkliftId(e.target.value)}
+                                className="border border-gray-300 rounded-[4px] px-2.5 py-2 text-xs focus:outline-none focus:border-letusBlue bg-white w-full cursor-pointer font-bold">
+                                <option value="">선택</option>
+                                {forklifts.map(f => <option key={f.id} value={f.id}>{f.no}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1.5 col-span-1">
+                            <label className="text-xs font-bold text-gray-700">점검일자 <span className="text-red-500">*</span></label>
+                            <input type="date" value={checkDate} onChange={e => setCheckDate(e.target.value)}
+                                className="border border-gray-300 rounded-[4px] px-2.5 py-2 text-xs focus:outline-none focus:border-letusBlue bg-white w-full" />
+                        </div>
+                        <div className="flex flex-col gap-1.5 col-span-1">
+                            <label className="text-xs font-bold text-gray-700">탑승자 <span className="text-red-500">*</span></label>
+                            <input value={checkerName} onChange={e => setCheckerName(e.target.value)} placeholder="이름 입력"
+                                className="border border-gray-300 rounded-[4px] px-2.5 py-2 text-xs focus:outline-none focus:border-letusBlue bg-white w-full" />
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-200" />
+
+                    <SectionBlock title="① 외관점검" color="text-blue-600" items={EXTERIOR_ITEMS} answers={extAnswers} setter={setExtAnswers} />
+                    <SectionBlock title="② 운행 전 점검" color="text-purple-600" items={PREOP_ITEMS} answers={preAnswers} setter={setPreAnswers} />
+
+                    {/* 작업완료 후 점검 토글 */}
+                    <div>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" checked={includePost} onChange={e => setIncludePost(e.target.checked)}
+                                className="w-3.5 h-3.5 accent-letusBlue cursor-pointer" />
+                            <span className="text-xs font-bold text-amber-600">③ 작업 완료 후 점검 포함</span>
+                        </label>
+                    </div>
+                    {includePost && (
+                        <SectionBlock title="③ 작업 완료 후 점검" color="text-amber-600" items={POSTOP_ITEMS} answers={postAnswers} setter={setPostAnswers} />
+                    )}
+
+                    {/* 특이사항 */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-gray-700">특이사항 <span className="text-gray-400 font-normal">(선택)</span></label>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                            placeholder="특이사항을 입력하세요"
+                            className="border border-gray-300 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue bg-white w-full resize-none" />
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+                    <button type="button" onClick={onClose}
+                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
+                        취소
+                    </button>
+                    <button onClick={handleSave} disabled={!canSave}
+                        className={`px-5 py-[9px] text-white text-[11px] font-bold rounded-[3px] transition-colors ${canSave ? 'bg-letusBlue hover:bg-blue-600' : 'bg-gray-300 cursor-not-allowed'}`}>
+                        등록
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ─────────────────────────────────────────────────────────
 // 메인 — 일일점검 관리자 화면
 // ─────────────────────────────────────────────────────────
@@ -543,9 +700,10 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [checks,         setChecks]         = useState([]); // Supabase rows 배열
     const [forklifts,      setForklifts]      = useState([]); // Supabase forklifts 배열
-    const [detailRecord,   setDetailRecord]   = useState(null);
-    const [selectedIds,    setSelectedIds]    = useState([]);
-    const [approvalModal,  setApprovalModal]  = useState(false);
+    const [detailRecord,      setDetailRecord]      = useState(null);
+    const [showManualCheck,   setShowManualCheck]   = useState(false);
+    const [selectedIds,       setSelectedIds]       = useState([]);
+    const [approvalModal,     setApprovalModal]     = useState(false);
     const [approvalNotes,  setApprovalNotes]  = useState({}); // { forkliftId: '조치사항 텍스트' }
     const [sortConfig,     setSortConfig]     = useState({ key: 'no', dir: 'asc' });
     const [printModal,     setPrintModal]     = useState(false);
@@ -667,6 +825,15 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
         setApprovalNotes({});
         setApprovalModal(false);
     }, [rows, selectedIds, startDate, userProfile, approvalNotes]);
+
+    // 수기 점검 등록
+    const handleManualCheckSave = useCallback(async (record) => {
+        const { data, error } = await supabase.from('forklift_daily_checks').insert(record).select().single();
+        if (!error && data) {
+            setChecks(prev => [data, ...prev]);
+        }
+        setShowManualCheck(false);
+    }, []);
 
     // 승인 취소
     const handleRevokeApproval = useCallback(async (checkId) => {
@@ -1092,6 +1259,14 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                                     출력
                                 </button>
                                 <button
+                                    onClick={() => { setShowManualCheck(true); setIsActionMenuOpen(false); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors">
+                                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    수기 등록
+                                </button>
+                                <button
                                     onClick={() => { if (selectedIds.length > 0 && can('forklift_check', 'approve')) { openApprovalModal(); setIsActionMenuOpen(false); } }}
                                     disabled={selectedIds.length === 0 || !can('forklift_check', 'approve')}
                                     className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
@@ -1176,6 +1351,16 @@ export const ForkliftDailyCheck = ({ userProfile }) => {
                     </table>
                 </div>
             </div>
+
+            {/* 수기 점검 등록 모달 */}
+            {showManualCheck && (
+                <ManualCheckModal
+                    forklifts={forklifts}
+                    onSave={handleManualCheckSave}
+                    onClose={() => setShowManualCheck(false)}
+                    userProfile={userProfile}
+                />
+            )}
 
             {/* 상세 모달 */}
             {detailRecord && (

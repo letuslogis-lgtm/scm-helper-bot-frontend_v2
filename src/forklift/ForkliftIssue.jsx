@@ -369,213 +369,7 @@ const SingleDateTimeInput = ({ value, onChange, placeholder = '날짜/시간 선
     );
 };
 
-// ── 수기 등록 모달
-const ManualIssueModal = ({ forklifts, onSave, onClose, userProfile }) => {
-    const pad = n => String(n).padStart(2, '0');
-    const nowLocal = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-    const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 
-    const [forkliftId,   setForkliftId]   = useState('');
-    const [faultType,    setFaultType]    = useState('');
-    const [errorCode,    setErrorCode]    = useState('');
-    const [faultDesc,    setFaultDesc]    = useState('');
-    const [reporter,     setReporter]     = useState(userProfile?.name || userProfile?.email || '');
-    const [reportedAt,   setReportedAt]   = useState(nowLocal());
-    const [status,       setStatus]       = useState('reported');
-    const [acceptedBy,   setAcceptedBy]   = useState('');
-    const [acceptedAt,   setAcceptedAt]   = useState(nowLocal());
-    const [acceptNote,   setAcceptNote]   = useState('');
-    const [repairDesc,   setRepairDesc]   = useState('');
-    const [repairVendor, setRepairVendor] = useState('');
-    const [completedAt,  setCompletedAt]  = useState(todayStr());
-    const [approvedBy,   setApprovedBy]   = useState(userProfile?.name || userProfile?.email || '');
-    const [approvedAt,   setApprovedAt]   = useState(nowLocal());
-
-    const canSave = forkliftId && faultDesc.trim() && reporter.trim();
-    const isAccepted  = status === 'accepted'  || status === 'completed' || status === 'approved';
-    const isCompleted = status === 'completed' || status === 'approved';
-    const isApproved  = status === 'approved';
-
-    const handleSave = () => {
-        if (!canSave) return;
-        const id = `ISS-${Date.now().toString(36).toUpperCase()}`;
-        const record = {
-            id, forklift_id: forkliftId, fault_type: faultType, error_code: errorCode,
-            fault_desc: faultDesc, reporter,
-            reported_at: reportedAt ? new Date(reportedAt).toISOString() : new Date().toISOString(),
-            status, created_at: new Date().toISOString(),
-        };
-        if (isAccepted) {
-            record.accepted_by = acceptedBy;
-            record.accepted_at = acceptedAt ? new Date(acceptedAt).toISOString() : new Date().toISOString();
-            if (acceptNote.trim()) record.accept_note = acceptNote.trim();
-        }
-        if (isCompleted) {
-            record.repair_desc = repairDesc;
-            record.repair_vendor = repairVendor;
-            record.completed_at = completedAt;
-            record.repair_completed_by = acceptedBy;
-            record.completed_recorded_at = new Date().toISOString();
-        }
-        if (isApproved) {
-            record.approved_by = approvedBy;
-            record.approved_at = approvedAt ? new Date(approvedAt).toISOString() : new Date().toISOString();
-        }
-        onSave(record);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-[520px] overflow-hidden flex flex-col slide-up">
-                {/* 헤더 */}
-                <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-white">
-                    <h3 className="text-sm font-bold text-gray-800 flex items-center">
-                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full mr-2"></span>
-                        수기 등록
-                    </h3>
-                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                {/* 본문 */}
-                <div className="p-6 bg-slate-50 flex-1 overflow-y-auto max-h-[75vh] custom-scrollbar space-y-4">
-                    {/* 장비 선택 */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-gray-700">장비 선택 <span className="text-red-500">*</span></label>
-                        <ForkliftPicker forklifts={forklifts} value={forkliftId} onChange={setForkliftId} />
-                    </div>
-                    {/* 등록 상태 */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-gray-700">등록 상태</label>
-                        <select value={status} onChange={e => setStatus(e.target.value)}
-                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full font-bold cursor-pointer">
-                            <option value="reported">고장접수</option>
-                            <option value="accepted">정비중</option>
-                            <option value="completed">정비완료</option>
-                            <option value="approved">검수완료</option>
-                        </select>
-                    </div>
-                    <div className="border-t border-gray-200" />
-                    {/* 고장 유형 */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-gray-700">고장 유형</label>
-                        <div className="flex flex-wrap gap-2">
-                            {FAULT_TYPES.map(t => (
-                                <button key={t} type="button" onClick={() => setFaultType(t === faultType ? '' : t)}
-                                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${faultType === t ? 'border-red-400 bg-red-50 text-red-700 font-bold' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-                                    {t}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    {/* 에러 코드 */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-gray-700">에러 코드 <span className="text-gray-400 font-normal">(선택)</span></label>
-                        <input value={errorCode} onChange={e => setErrorCode(e.target.value)}
-                            placeholder="예) E-01, F23, ERR_HYD 등"
-                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
-                    </div>
-                    {/* 고장 내용 */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-gray-700">고장 내용 <span className="text-red-500">*</span></label>
-                        <textarea value={faultDesc} onChange={e => setFaultDesc(e.target.value)}
-                            rows={2} placeholder="고장 증상을 입력해 주세요"
-                            className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full resize-none" />
-                    </div>
-                    {/* 신고자 / 신고 일시 */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-bold text-gray-700">신고자 <span className="text-red-500">*</span></label>
-                            <input value={reporter} onChange={e => setReporter(e.target.value)} placeholder="이름 입력"
-                                className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-bold text-gray-700">신고 일시</label>
-                            <SingleDateTimeInput value={reportedAt} onChange={setReportedAt} placeholder="날짜/시간 선택" />
-                        </div>
-                    </div>
-                    {/* 접수 정보 */}
-                    {isAccepted && (
-                        <>
-                            <div className="border-t border-gray-200" />
-                            <p className="text-[11px] font-black text-orange-500">접수 정보</p>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-gray-700">접수자</label>
-                                    <input value={acceptedBy} onChange={e => setAcceptedBy(e.target.value)} placeholder="이름 입력"
-                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-gray-700">접수 일시</label>
-                                    <SingleDateTimeInput value={acceptedAt} onChange={setAcceptedAt} placeholder="날짜/시간 선택" />
-                                </div>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-bold text-gray-700">접수 메모 <span className="text-gray-400 font-normal">(선택)</span></label>
-                                <input value={acceptNote} onChange={e => setAcceptNote(e.target.value)} placeholder="정비 지시사항 등"
-                                    className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
-                            </div>
-                        </>
-                    )}
-                    {/* 정비완료 정보 */}
-                    {isCompleted && (
-                        <>
-                            <div className="border-t border-gray-200" />
-                            <p className="text-[11px] font-black text-blue-500">정비완료 정보</p>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-bold text-gray-700">정비 내용</label>
-                                <textarea value={repairDesc} onChange={e => setRepairDesc(e.target.value)}
-                                    rows={2} placeholder="정비 내용을 입력해 주세요"
-                                    className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full resize-none" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-gray-700">정비업체</label>
-                                    <input value={repairVendor} onChange={e => setRepairVendor(e.target.value)} placeholder="업체명 입력"
-                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-gray-700">완료일</label>
-                                    <input type="date" value={completedAt} onChange={e => setCompletedAt(e.target.value)}
-                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
-                                </div>
-                            </div>
-                        </>
-                    )}
-                    {/* 검수완료 정보 */}
-                    {isApproved && (
-                        <>
-                            <div className="border-t border-gray-200" />
-                            <p className="text-[11px] font-black text-green-600">검수완료 정보</p>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-gray-700">검수자</label>
-                                    <input value={approvedBy} onChange={e => setApprovedBy(e.target.value)} placeholder="이름 입력"
-                                        className="border border-gray-300 rounded-[4px] px-3.5 py-2 text-xs focus:outline-none focus:border-letusBlue transition-all bg-white w-full" />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-bold text-gray-700">검수 일시</label>
-                                    <SingleDateTimeInput value={approvedAt} onChange={setApprovedAt} placeholder="날짜/시간 선택" />
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-                {/* 하단 버튼 */}
-                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
-                    <button type="button" onClick={onClose}
-                        className="px-5 py-[9px] border border-gray-300 text-gray-600 text-[11px] font-bold rounded-[3px] hover:bg-gray-50 transition-colors">
-                        취소
-                    </button>
-                    <button onClick={handleSave} disabled={!canSave}
-                        className={`px-5 py-[9px] text-white text-[11px] font-bold rounded-[3px] transition-colors ${canSave ? 'bg-letusBlue hover:bg-blue-600' : 'bg-gray-300 cursor-not-allowed'}`}>
-                        수기 등록
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 // ── 이슈 등록/수정 모달
 const IssueFormModal = ({ forklifts, onSave, onClose, editIssue, userProfile }) => {
@@ -922,7 +716,6 @@ export const ForkliftIssue = ({ userProfile }) => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [excludeApproved, setExcludeApproved] = useState(true);  // 검수완료 제외 (기본 체크)
     const [showForm,       setShowForm]       = useState(false);
-    const [showManualForm, setShowManualForm] = useState(false);
     const [editIssue,     setEditIssue]     = useState(null);
     const [detailIssue,   setDetailIssue]   = useState(null);
     const [completeIssue, setCompleteIssue] = useState(null);
@@ -1041,22 +834,6 @@ export const ForkliftIssue = ({ userProfile }) => {
         setIssues(prev => prev.map(i => i.id !== approveIssue.id ? i : { ...i, ...updates }));
         setApproveIssue(null);
     }, [issues, approveIssue, userProfile]);
-
-    // 수기 등록
-    const handleManualSave = useCallback(async (record) => {
-        const { error } = await supabase.from('forklift_issues').insert(record);
-        if (!error) {
-            if (record.status === 'reported' || record.status === 'accepted') {
-                await supabase.from('forklifts').update({ status: '고장' }).eq('id', record.forklift_id);
-                setForklifts(prev => prev.map(f => f.id === record.forklift_id ? { ...f, status: '고장' } : f));
-            } else {
-                await supabase.from('forklifts').update({ status: '정상' }).eq('id', record.forklift_id);
-                setForklifts(prev => prev.map(f => f.id === record.forklift_id ? { ...f, status: '정상' } : f));
-            }
-            setIssues(prev => [record, ...prev]);
-        }
-        setShowManualForm(false);
-    }, []);
 
     // 체크박스
     const handleSelectAll = (e) => {
@@ -1345,11 +1122,6 @@ export const ForkliftIssue = ({ userProfile }) => {
                                     이슈 등록
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                                 </button>
-                                <button onClick={() => { setIsActionMenuOpen(false); setShowManualForm(true); }}
-                                    className="w-full text-left px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-between">
-                                    수기 등록
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
                                 <div className="border-t border-gray-100 my-1" />
                                 <button onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
                                     className="w-full text-left px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors flex items-center justify-between">
@@ -1428,11 +1200,6 @@ export const ForkliftIssue = ({ userProfile }) => {
                     </table>
                 </div>
             </div>
-
-            {/* 수기 등록 모달 */}
-            {showManualForm && (
-                <ManualIssueModal forklifts={activeForklifts} onSave={handleManualSave} onClose={() => setShowManualForm(false)} userProfile={userProfile} />
-            )}
 
             {/* 이슈 등록 모달 */}
             {showForm && !editIssue && (
