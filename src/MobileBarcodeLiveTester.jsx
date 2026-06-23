@@ -110,8 +110,19 @@ export const MobileBarcodeLiveTester = () => {
 
             <div className="flex-1 flex flex-col">
                 {/* 카메라 뷰파인더 */}
-                <div className="relative bg-black" style={{ minHeight: '60vh' }}>
-                    <div ref={viewportRef} className="w-full" style={{ minHeight: '60vh' }} />
+                <style>{`
+                    .quagga-viewport video,
+                    .quagga-viewport canvas {
+                        width: 100% !important;
+                        height: 100% !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        object-fit: cover;
+                    }
+                `}</style>
+                <div className="relative bg-black" style={{ height: '60vh' }}>
+                    <div ref={viewportRef} className="quagga-viewport w-full h-full absolute inset-0" />
 
                     {/* 스캔 가이드 오버레이 */}
                     {scanning && (
