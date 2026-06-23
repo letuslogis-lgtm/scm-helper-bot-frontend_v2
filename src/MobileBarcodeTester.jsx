@@ -66,9 +66,10 @@ export const MobileBarcodeTester = () => {
         await new Promise(resolve => setTimeout(resolve, 50));
         try {
             const base64 = await compressImage(photo.file);
+            const correctedDataUrl = `data:image/jpeg;base64,${base64}`;
 
             const [quaggaSettled, aiSettled] = await Promise.allSettled([
-                decodeWithQuagga(photo.preview),
+                decodeWithQuagga(correctedDataUrl),
                 (async () => {
                     const t0 = Date.now();
                     const { data, error } = await supabase.functions.invoke('analyze-barcode', {
