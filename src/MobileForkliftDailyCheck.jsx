@@ -115,10 +115,6 @@ const StartScreen = ({ onStart, isLoading, error }) => {
 
     return (
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-            <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mb-4 text-3xl">🏗️</div>
-            <h2 className="text-xl font-black text-slate-800 mb-1">일일 지게차 점검</h2>
-            <p className="text-slate-400 text-sm mb-7 text-center">지게차 번호를 확인하고 시작해 주세요.</p>
-
             <div className="w-full max-w-sm space-y-5">
                 {nfcVisible && (
                     <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-center gap-4 shadow-sm">
@@ -210,7 +206,7 @@ const StartScreen = ({ onStart, isLoading, error }) => {
                         }`}
                     />
                     {showDropdown && filtered.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-blue-300 rounded-2xl shadow-lg overflow-hidden">
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-blue-300 rounded-2xl shadow-lg overflow-y-auto max-h-[240px]">
                             {filtered.map(no => (
                                 <button
                                     key={no}
