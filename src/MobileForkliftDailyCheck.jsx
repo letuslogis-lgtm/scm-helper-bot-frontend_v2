@@ -53,6 +53,8 @@ const SECTIONS = [
 const StartScreen = ({ onStart, isLoading, error }) => {
     const [forkliftNo, setForkliftNo] = useState('');
     const [nfcStatus, setNfcStatus] = useState('checking');
+    const [forkliftList, setForkliftList] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
     const abortRef = useRef(null);
 
     const doScan = async () => {
@@ -85,6 +87,22 @@ const StartScreen = ({ onStart, isLoading, error }) => {
         doScan();
         return () => abortRef.current?.abort();
     }, []);
+
+    useEffect(() => {
+        supabase.from('forklifts').select('no').order('no')
+            .then(({ data }) => { if (data) setForkliftList(data.map(f => f.no)); });
+    }, []);
+
+    const filtered = forkliftNo.trim()
+        ? forkliftList.filter(no => no.toLowerCase().includes(forkliftNo.toLowerCase()))
+        : forkliftList;
+
+    const renderHighlight = (text, query) => {
+        if (!query) return text;
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return text;
+        return <>{text.slice(0, idx)}<span className="text-blue-600 font-black">{text.slice(idx, idx + query.length)}</span>{text.slice(idx + query.length)}</>;
+    };
 
     const handleRescan = () => {
         setForkliftNo('');
@@ -171,7 +189,7 @@ const StartScreen = ({ onStart, isLoading, error }) => {
                     </div>
                 )}
 
-                <div>
+                <div className="relative">
                     {nfcStatus === 'unsupported' && (
                         <p className="text-xs text-slate-400 mb-3 text-center">지게차 번호를 입력하고 시작해 주세요.</p>
                     )}
@@ -181,7 +199,9 @@ const StartScreen = ({ onStart, isLoading, error }) => {
                     <input
                         type="text"
                         value={forkliftNo}
-                        onChange={e => setForkliftNo(e.target.value)}
+                        onChange={e => { setForkliftNo(e.target.value); setShowDropdown(true); }}
+                        onFocus={() => setShowDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
                         placeholder="예: 양지-001"
                         className={`w-full rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none transition-all border ${
                             nfcStatus === 'success'
@@ -189,6 +209,19 @@ const StartScreen = ({ onStart, isLoading, error }) => {
                                 : 'bg-slate-50 border-slate-200 focus:border-letusBlue focus:ring-1 focus:ring-letusBlue'
                         }`}
                     />
+                    {showDropdown && filtered.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-blue-300 rounded-2xl shadow-lg overflow-hidden">
+                            {filtered.map(no => (
+                                <button
+                                    key={no}
+                                    onClick={() => { setForkliftNo(no); setShowDropdown(false); }}
+                                    className="w-full flex items-center px-4 py-3.5 text-left border-b border-slate-100 last:border-0 active:bg-blue-50 transition-colors"
+                                >
+                                    <span className="text-sm font-bold text-slate-800">{renderHighlight(no, forkliftNo)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* 오류 메시지 */}

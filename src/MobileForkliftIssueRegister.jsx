@@ -34,10 +34,14 @@ export const MobileForkliftIssueRegister = ({ userProfile }) => {
     const [errorCode, setErrorCode] = useState('');
     const [faultDesc, setFaultDesc] = useState('');
 
+    // 장비 목록
+    const [forkliftList, setForkliftList] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+
     // 제출 상태
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
-    const [doneId, setDoneId] = useState(''); // 성공 시 발급된 이슈 ID
+    const [doneId, setDoneId] = useState('');
 
     // ── NFC
     const doScan = async () => {
@@ -67,6 +71,22 @@ export const MobileForkliftIssueRegister = ({ userProfile }) => {
         doScan();
         return () => abortRef.current?.abort();
     }, []);
+
+    useEffect(() => {
+        supabase.from('forklifts').select('no').order('no')
+            .then(({ data }) => { if (data) setForkliftList(data.map(f => f.no)); });
+    }, []);
+
+    const filtered = forkliftNo.trim()
+        ? forkliftList.filter(no => no.toLowerCase().includes(forkliftNo.toLowerCase()))
+        : forkliftList;
+
+    const renderHighlight = (text, query) => {
+        if (!query) return text;
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return text;
+        return <>{text.slice(0, idx)}<span className="text-blue-600 font-black">{text.slice(idx, idx + query.length)}</span>{text.slice(idx + query.length)}</>;
+    };
 
     const handleRescan = () => { setForkliftNo(''); setNfcStatus('scanning'); doScan(); };
 
@@ -193,8 +213,8 @@ export const MobileForkliftIssueRegister = ({ userProfile }) => {
             <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
 
                 {/* ① 관리번호 */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 rounded-t-2xl">
                         <p className="text-xs font-black text-slate-500">① 지게차 관리번호 <span className="text-red-400">*</span></p>
                     </div>
                     <div className="p-4 space-y-3">
@@ -229,17 +249,34 @@ export const MobileForkliftIssueRegister = ({ userProfile }) => {
                             </div>
                         )}
 
-                        <input
-                            type="text"
-                            value={forkliftNo}
-                            onChange={e => setForkliftNo(e.target.value)}
-                            placeholder="예: 양지-001"
-                            className={`w-full rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none transition-all border ${
-                                nfcStatus === 'success'
-                                    ? 'bg-green-50 border-green-300 focus:border-green-400'
-                                    : 'bg-slate-50 border-slate-200 focus:border-letusBlue focus:ring-1 focus:ring-letusBlue'
-                            }`}
-                        />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={forkliftNo}
+                                onChange={e => { setForkliftNo(e.target.value); setShowDropdown(true); }}
+                                onFocus={() => setShowDropdown(true)}
+                                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                                placeholder="예: 양지-001"
+                                className={`w-full rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none transition-all border ${
+                                    nfcStatus === 'success'
+                                        ? 'bg-green-50 border-green-300 focus:border-green-400'
+                                        : 'bg-slate-50 border-slate-200 focus:border-letusBlue focus:ring-1 focus:ring-letusBlue'
+                                }`}
+                            />
+                            {showDropdown && filtered.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-blue-300 rounded-2xl shadow-lg overflow-hidden">
+                                    {filtered.map(no => (
+                                        <button
+                                            key={no}
+                                            onClick={() => { setForkliftNo(no); setShowDropdown(false); }}
+                                            className="w-full flex items-center px-4 py-3.5 text-left border-b border-slate-100 last:border-0 active:bg-blue-50 transition-colors"
+                                        >
+                                            <span className="text-sm font-bold text-slate-800">{renderHighlight(no, forkliftNo)}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
