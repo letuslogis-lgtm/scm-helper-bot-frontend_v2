@@ -544,6 +544,15 @@ export const MobileForkliftDailyCheck = ({ userProfile }) => {
                         onClick={() => {
                             if (phase === 'start') navigate(-1);
                             else if (phase === 'choice') setPhase('start');
+                            else if (phase === 'check') {
+                                setAnswers({});
+                                setNotes({});
+                                setMaxStep(0);
+                                setActiveStep(0);
+                                setPendingFault(false);
+                                setPendingNote('');
+                                existingCheckId ? setPhase('choice') : setPhase('start');
+                            }
                             else if (phase === 'done') resetAll();
                         }}
                         className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors"
