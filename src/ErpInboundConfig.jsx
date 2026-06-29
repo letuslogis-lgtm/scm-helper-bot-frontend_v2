@@ -1351,8 +1351,8 @@ const ReportSubscriptionPanel = () => {
         const { error } = await supabase
             .from('report_subscriptions')
             .upsert(
-                { profile_id: user.id, report_type: 'wms_comparison', is_active: newVal },
-                { onConflict: 'profile_id,report_type' }
+                { profile_id: user.id, report_type: 'wms_comparison', brand: 'all', is_active: newVal },
+                { onConflict: 'profile_id,report_type,brand' }
             );
         if (!error) {
             setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isSubscribed: newVal } : u));
