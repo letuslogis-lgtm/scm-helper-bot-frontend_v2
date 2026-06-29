@@ -1313,11 +1313,143 @@ const CenterConfigPanel = () => {
     );
 };
 
+// ── 보고서 수신 설정 상수 ─────────────────────────────────────────────────────
+const REPORT_TYPES = [
+    { id: 'wms_comparison', label: 'WMS 재고비교점검' },
+];
+
+// ── 패널: 보고서 수신 설정 ────────────────────────────────────────────────────
+const ReportSubscriptionPanel = () => {
+    const [users, setUsers]   = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving]   = useState(null); // 저장 중인 profile_id
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        const [{ data: profiles }, { data: subs }] = await Promise.all([
+            supabase.from('profiles')
+                .select('id, name, role, slack_email')
+                .not('slack_email', 'is', null)
+                .order('name'),
+            supabase.from('report_subscriptions')
+                .select('profile_id, report_type, is_active')
+                .eq('report_type', 'wms_comparison'),
+        ]);
+        const merged = (profiles ?? []).map(p => {
+            const sub = (subs ?? []).find(s => s.profile_id === p.id);
+            return { ...p, isSubscribed: sub ? sub.is_active : false };
+        });
+        setUsers(merged);
+        setLoading(false);
+    }, []);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const handleToggle = async (user) => {
+        const newVal = !user.isSubscribed;
+        setSaving(user.id);
+        const { error } = await supabase
+            .from('report_subscriptions')
+            .upsert(
+                { profile_id: user.id, report_type: 'wms_comparison', is_active: newVal },
+                { onConflict: 'profile_id,report_type' }
+            );
+        if (!error) {
+            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isSubscribed: newVal } : u));
+        }
+        setSaving(null);
+    };
+
+    const subscribedCount = users.filter(u => u.isSubscribed).length;
+
+    return (
+        <div className="p-6 flex flex-col gap-4 h-full bg-slate-100">
+
+            {/* 상단 요약 + 안내 */}
+            <div className="flex items-start justify-between shrink-0 gap-4">
+                <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded shadow-sm">
+                        전체 {users.length}명
+                    </span>
+                    <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded shadow-sm">
+                        수신 {subscribedCount}명
+                    </span>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-[12px] text-blue-600 leading-relaxed">
+                    슬랙 이메일이 등록된 사용자만 표시됩니다. 수신 활성화 시 매일 오전 7시 보고서가 자동 발송됩니다.
+                </div>
+            </div>
+
+            {/* 테이블 카드 */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden min-h-0">
+                <div className="p-0 overflow-auto flex-1 custom-scrollbar outline-none">
+                    <table className="w-full text-left whitespace-nowrap">
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th className="p-4" style={{ width: 160 }}>이름</th>
+                                <th className="p-4" style={{ width: 120 }}>역할</th>
+                                <th className="p-4" style={{ width: 260 }}>슬랙 이메일</th>
+                                {REPORT_TYPES.map(rt => (
+                                    <th key={rt.id} className="p-4 text-center" style={{ width: 160 }}>{rt.label}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-[13px]">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={3 + REPORT_TYPES.length} className="p-12 text-center">
+                                        <div className="w-7 h-7 border-4 border-blue-100 border-t-letusBlue rounded-full animate-spin mx-auto"></div>
+                                    </td>
+                                </tr>
+                            ) : users.length === 0 ? (
+                                <tr>
+                                    <td colSpan={3 + REPORT_TYPES.length} className="p-16 text-center text-gray-400">
+                                        슬랙 이메일이 등록된 사용자가 없습니다
+                                    </td>
+                                </tr>
+                            ) : users.map(user => (
+                                <tr key={user.id} className="hover:bg-blue-50/30 transition-colors">
+                                    <td className="p-4 font-bold text-gray-800">{user.name}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                                            user.role === '최고관리자' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                            user.role === '관리자' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                            'bg-gray-100 text-gray-600 border-gray-200'
+                                        }`}>{user.role}</span>
+                                    </td>
+                                    <td className="p-4 text-gray-500">{user.slack_email}</td>
+                                    {REPORT_TYPES.map(rt => (
+                                        <td key={rt.id} className="p-4 text-center">
+                                            <button
+                                                onClick={() => handleToggle(user)}
+                                                disabled={saving === user.id}
+                                                title={user.isSubscribed ? '수신 비활성화' : '수신 활성화'}
+                                                className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-40 ${
+                                                    user.isSubscribed ? 'bg-letusBlue' : 'bg-gray-200'
+                                                }`}
+                                            >
+                                                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                    user.isSubscribed ? 'translate-x-5' : 'translate-x-0'
+                                                }`} />
+                                            </button>
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── 탭 정의 ───────────────────────────────────────────────────────────────────
 const TABS = [
-    { id: 'erp_inbound',    label: 'ERP 입고예정생성 설정' },
-    { id: 'erp_closing',    label: '입고 실적 마감 설정' },
-    { id: 'center_config',  label: '센터 설정' },
+    { id: 'erp_inbound',           label: 'ERP 입고예정생성 설정' },
+    { id: 'erp_closing',           label: '입고 실적 마감 설정' },
+    { id: 'center_config',         label: '센터 설정' },
+    { id: 'report_subscriptions',  label: '보고서 수신 설정' },
 ];
 
 // ── 래퍼: 시스템 데이터 관리 ──────────────────────────────────────────────────
@@ -1342,9 +1474,10 @@ const ErpInboundConfig = () => {
                 ))}
             </div>
             <div className="flex-1 overflow-hidden">
-                {activeTab === 'erp_inbound'   && <ErpInboundConfigPanel />}
-                {activeTab === 'erp_closing'   && <ErpClosingConfigPanel />}
-                {activeTab === 'center_config' && <CenterConfigPanel />}
+                {activeTab === 'erp_inbound'          && <ErpInboundConfigPanel />}
+                {activeTab === 'erp_closing'          && <ErpClosingConfigPanel />}
+                {activeTab === 'center_config'        && <CenterConfigPanel />}
+                {activeTab === 'report_subscriptions' && <ReportSubscriptionPanel />}
             </div>
         </div>
     );
