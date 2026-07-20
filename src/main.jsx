@@ -24,6 +24,7 @@ import { RpaManagement } from './RpaManagement.jsx';
 import { LoadingMap } from './LoadingMap.jsx';
 import { AiInsightLab } from './AiInsightLab.jsx';
 import { ReturnsManagement } from './ReturnsManagement.jsx';
+import { OutgoingNotes } from './OutgoingNotes.jsx';
 import { WmsShortageList } from './WmsShortageList.jsx';
 import { LogisticsClosing } from './LogisticsClosing.jsx';
 import { WmsStockDashboard } from './WmsStockDashboard.jsx';
@@ -142,6 +143,7 @@ const AppContent = () => {
                 <Route path="/loading_map" element={<LoadingMap />} />
                 <Route path="/ai_lab" element={<AiInsightLab />} />
                 <Route path="/returns_management" element={<ReturnsManagement userProfile={logic.userProfile} />} />
+                <Route path="/outgoing_notes"     element={<OutgoingNotes    userProfile={logic.userProfile} />} />
                 <Route path="/logistics_closing" element={<LogisticsClosing />} />
                 <Route path="/inbound_closing" element={<InboundClosing />} />
                 <Route path="/wms_stock" element={<WmsStockDashboard userProfile={logic.userProfile} />} />
