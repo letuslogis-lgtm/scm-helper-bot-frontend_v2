@@ -61,8 +61,9 @@ export function OutgoingNotes({ userProfile }) {
     const [submitting,   setSubmitting]   = useState(false);
 
     // ── 정렬
-    const [sortKey, setSortKey] = useState('scheduled_date');
-    const [sortDir, setSortDir] = useState('desc');
+    const [sortKey,       setSortKey]       = useState('scheduled_date');
+    const [sortDir,       setSortDir]       = useState('desc');
+    const [hasUserSorted, setHasUserSorted] = useState(false);
 
     // ── 칼럼 설정
     const [colOrder,    setColOrder]    = useState(DEFAULT_COLUMNS.map((_, i) => i));
@@ -115,7 +116,7 @@ export function OutgoingNotes({ userProfile }) {
             .lte('scheduled_date', endDate)
             .order('scheduled_date', { ascending: false })
             .order('created_at',     { ascending: false });
-        if (centerFilter) q = q.eq('destination', centerFilter);
+        if (centerFilter) q = q.eq('loading_location', centerFilter);
         const { data, error } = await q;
         if (!error) setNotes(data || []);
         setLoading(false);
@@ -135,12 +136,13 @@ export function OutgoingNotes({ userProfile }) {
     }, [notes, sortKey, sortDir]);
 
     const requestSort = (key) => {
+        setHasUserSorted(true);
         if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
         else { setSortKey(key); setSortDir('asc'); }
     };
 
     const getSortIcon = (key) => {
-        if (sortKey !== key) return null;
+        if (!hasUserSorted || sortKey !== key) return null;
         return <span className="text-letusBlue font-black ml-0.5">{sortDir === 'asc' ? '↑' : '↓'}</span>;
     };
 
@@ -317,7 +319,7 @@ export function OutgoingNotes({ userProfile }) {
                     />
                 </div>
                 <div className="flex items-center shrink-0">
-                    <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">출고센터</label>
+                    <label className="text-[11px] font-bold text-gray-600 mr-2 whitespace-nowrap">상차지</label>
                     <select value={centerFilter} onChange={e => setCenterFilter(e.target.value)}
                         className="border border-gray-200 rounded-[3px] text-xs px-2 h-[30px] text-gray-700 bg-gray-50 focus:outline-none cursor-pointer min-w-[130px]">
                         <option value="">전체</option>
