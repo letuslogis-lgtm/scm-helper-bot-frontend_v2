@@ -278,7 +278,7 @@ export function OutgoingNotes({ userProfile }) {
         switch (col.key) {
             case 'is_confirmed':
                 return (
-                    <td key={origIdx} className="p-4 text-center">
+                    <td key={origIdx} className="p-4 text-center align-middle">
                         {row.is_confirmed
                             ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-letusBlue border border-blue-200">확정</span>
                             : <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200">대기</span>
@@ -296,7 +296,7 @@ export function OutgoingNotes({ userProfile }) {
             case 'created_at':         content = formatDateTime(row.created_at);               break;
             default:                   content = '—';
         }
-        return <td key={origIdx} className="p-4 text-center text-[13px]">{content}</td>;
+        return <td key={origIdx} className="p-4 text-center text-[13px] align-middle">{content}</td>;
     };
 
     const openRegModal = () => {
@@ -466,7 +466,7 @@ export function OutgoingNotes({ userProfile }) {
                             <tr key={row.id}
                                 className={`hover:bg-blue-50/30 transition-colors cursor-pointer align-middle ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`}
                                 onClick={e => handleSelectOne(e, row.id)}>
-                                <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
+                                <td className="p-4 pl-6 text-center align-middle" onClick={e => e.stopPropagation()}>
                                     <input type="checkbox"
                                         checked={selectedIds.includes(row.id)}
                                         onChange={e => handleSelectOne(e, row.id)}
