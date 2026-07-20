@@ -478,10 +478,43 @@ export function OutgoingNotes({ userProfile }) {
                                     상차시간
                                     <span className="text-[10px] font-normal text-gray-400 ml-1">선택 입력</span>
                                 </label>
-                                <input type="time" value={form.loading_time}
-                                    onChange={e => setForm(f => ({ ...f, loading_time: e.target.value }))}
-                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue w-36"
-                                />
+                                <div className="flex items-center gap-1.5">
+                                    <select
+                                        value={form.loading_time ? form.loading_time.slice(0, 2) : ''}
+                                        onChange={e => {
+                                            const h = e.target.value;
+                                            const m = form.loading_time ? form.loading_time.slice(3, 5) : '00';
+                                            setForm(f => ({ ...f, loading_time: h ? `${h}:${m}` : '' }));
+                                        }}
+                                        className="border border-gray-200 rounded-[4px] px-2 py-2 text-xs focus:outline-none focus:border-letusBlue cursor-pointer w-[70px]"
+                                    >
+                                        <option value="">시</option>
+                                        {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                                            <option key={h} value={h}>{h}시</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        value={form.loading_time ? form.loading_time.slice(3, 5) : '00'}
+                                        disabled={!form.loading_time}
+                                        onChange={e => {
+                                            const h = form.loading_time ? form.loading_time.slice(0, 2) : '';
+                                            setForm(f => ({ ...f, loading_time: h ? `${h}:${e.target.value}` : '' }));
+                                        }}
+                                        className="border border-gray-200 rounded-[4px] px-2 py-2 text-xs focus:outline-none focus:border-letusBlue cursor-pointer w-[70px] disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                    >
+                                        {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                                            <option key={m} value={m}>{m}분</option>
+                                        ))}
+                                    </select>
+                                    {form.loading_time && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm(f => ({ ...f, loading_time: '' }))}
+                                            className="text-gray-400 hover:text-gray-600 text-xs"
+                                            title="초기화"
+                                        >✕</button>
+                                    )}
+                                </div>
                             </div>
                             {/* 등록자 / 등록일시 (자동) */}
                             <div className="grid grid-cols-2 gap-3">
