@@ -521,8 +521,15 @@ def process_config(page, cfg: dict, target_date: str) -> dict:
 # ---------------------------------------------------------------------------
 # 7. WMS 입고예정정보 IF 실행
 # ---------------------------------------------------------------------------
-def run_wms_if(headless: bool) -> None:
-    print('\n[WMS] 입고예정정보 IF 실행 중...')
+WMS_WAREHOUSES = [
+    ('YA', '양지1물류센터'),
+    ('Y2', '양지2물류센터'),
+    ('EU', '음성물류센터'),
+]
+
+
+def run_wms_if(headless: bool, warehouse_id: str, warehouse_name: str) -> None:
+    print(f'\n[WMS] 입고예정정보 IF 실행 중... ({warehouse_name})')
     with sync_playwright() as pw:
         browser, ctx = _new_browser(pw, headless)
         page = ctx.new_page()
@@ -543,8 +550,12 @@ def run_wms_if(headless: bool) -> None:
             # 입고 예정 정보 관리 직접 이동
             page.goto('http://wms.letus4u.com/v1/inbound/asn', timeout=30000)
             page.wait_for_load_state('networkidle')
-            page.wait_for_timeout(3000)
-            print('[WMS] 입고 예정 정보 관리 진입')
+            page.wait_for_timeout(2000)
+
+            # 창고 드롭박스 선택
+            page.select_option('select[name="warehouseId"]', value=warehouse_id)
+            page.wait_for_timeout(1000)
+            print(f'[WMS] 창고 선택: {warehouse_name} ({warehouse_id})')
 
             # ① 페이지 상단 "+ 입고예정정보 IF" 버튼 클릭 (modalBtn 클래스 유일)
             page_btn = page.locator(WMS_IDS['if_page_btn'])
@@ -645,7 +656,8 @@ def run(target_date: str, headless: bool):
             print(f'     └ ❌ {er["invoice_no"]}: {er["error"][:60]}')
 
     # WMS IF 실행 (관계사=ERP 경유, 외주상품=WMS 직접 등록 → 항상 실행)
-    run_wms_if(headless)
+    for wh_id, wh_name in WMS_WAREHOUSES:
+        run_wms_if(headless, wh_id, wh_name)
 
     print('=' * 60)
     print(f'완료! ({time.time() - t0:.1f}초)')
