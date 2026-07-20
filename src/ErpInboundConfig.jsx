@@ -931,13 +931,16 @@ const CENTER_LS_KEY  = 'letus_center_col';
 const CENTER_COLUMNS = [
     { label: '정렬순서',  key: 'sort_order', w: 100 },
     { label: '센터명',    key: 'name',       w: 160 },
-    { label: '사용 목적', key: 'purposes',   w: 170 },
+    { label: '사용 목적', key: 'purposes',   w: 180 },
     { label: '주소',      key: 'address',    w: 280 },
     { label: '활성',      key: 'is_active',  w: 80  },
-    { label: '비고',      key: 'note',       w: 200 },
-    { label: '수정/삭제', key: null,         w: 110 },
+    { label: '비고',      key: 'note',       w: 220 },
 ];
 const CENTER_PURPOSES = ['재고 운영', '시공 상차'];
+const PURPOSE_BADGE = {
+    '재고 운영': 'bg-blue-50 text-blue-600 border-blue-100',
+    '시공 상차': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
 const CENTER_EMPTY = { name: '', address: '', sort_order: '', is_active: true, note: '', purposes: [] };
 
 // ── 모달: 센터 등록/수정 ──────────────────────────────────────────────────────
@@ -1083,6 +1086,85 @@ const CenterModal = ({ initial, existingOrders, existingNames, onClose, onSaved 
     );
 };
 
+// ── 일괄 수정 모달 ────────────────────────────────────────────────────────────
+const CenterBulkEditModal = ({ selectedRows, onClose, onSaved }) => {
+    const [activeChange, setActiveChange] = useState('none');
+    const [changePurposes, setChangePurposes] = useState(false);
+    const [purposes, setPurposes] = useState([]);
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        const payload = {};
+        if (activeChange !== 'none') payload.is_active = activeChange === 'active';
+        if (changePurposes) payload.purposes = purposes;
+        if (Object.keys(payload).length === 0) return onClose();
+        setSaving(true);
+        await supabase.from(CENTER_TABLE).update(payload).in('id', selectedRows.map(r => r.id));
+        setSaving(false);
+        onSaved();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-[420px] flex flex-col border border-gray-100 overflow-hidden slide-up" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-3.5 bg-letusBlue rounded-full" />
+                        <h3 className="font-bold text-sm text-gray-800">일괄 수정</h3>
+                        <span className="text-xs text-gray-400">{selectedRows.length}개 선택</span>
+                    </div>
+                    <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div className="p-5 space-y-5">
+                    <div>
+                        <p className="text-xs font-bold text-gray-600 mb-2">활성 상태</p>
+                        <div className="flex gap-5">
+                            {[['none', '변경 없음'], ['active', '활성'], ['inactive', '비활성']].map(([val, label]) => (
+                                <label key={val} className="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="bulk-active" className="accent-letusBlue cursor-pointer"
+                                        checked={activeChange === val} onChange={() => setActiveChange(val)} />
+                                    <span className="text-sm text-gray-700">{label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="flex items-center gap-2 cursor-pointer mb-2">
+                            <input type="checkbox" className="w-4 h-4 accent-letusBlue cursor-pointer"
+                                checked={changePurposes} onChange={e => setChangePurposes(e.target.checked)} />
+                            <span className="text-xs font-bold text-gray-600">사용 목적 변경</span>
+                        </label>
+                        {changePurposes && (
+                            <div className="flex gap-5 pl-6">
+                                {CENTER_PURPOSES.map(opt => (
+                                    <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="checkbox" className="w-4 h-4 accent-letusBlue cursor-pointer"
+                                            checked={purposes.includes(opt)}
+                                            onChange={e => setPurposes(prev => e.target.checked ? [...prev, opt] : prev.filter(p => p !== opt))} />
+                                        <span className="text-sm text-gray-700">{opt}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="p-4 border-t bg-gray-50 flex gap-2 justify-end shrink-0">
+                    <button onClick={onClose}
+                        className="px-4 py-1.5 border border-gray-300 text-gray-600 bg-white text-xs font-bold rounded-lg hover:bg-gray-50 shadow-sm transition-colors">
+                        취소
+                    </button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="px-5 py-1.5 bg-letusBlue text-white text-xs font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors">
+                        {saving ? '수정 중...' : '일괄 수정'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── 패널: 센터 설정 ───────────────────────────────────────────────────────────
 const CenterConfigPanel = () => {
     const [rows, setRows]               = useState([]);
@@ -1091,6 +1173,7 @@ const CenterConfigPanel = () => {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+    const [bulkModal, setBulkModal]     = useState(false);
 
     const [colOrder, setColOrder]       = useState(CENTER_COLUMNS.map((_, i) => i));
     const [colWidths, setColWidths]     = useState(CENTER_COLUMNS.map(c => c.w));
@@ -1182,7 +1265,7 @@ const CenterConfigPanel = () => {
                         {(row.purposes ?? []).length === 0
                             ? <span className="text-gray-300 text-[13px]">-</span>
                             : (row.purposes ?? []).map(p => (
-                                <span key={p} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[11px] font-bold rounded border border-blue-100">{p}</span>
+                                <span key={p} className={`px-1.5 py-0.5 text-[11px] font-bold rounded border ${PURPOSE_BADGE[p] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>{p}</span>
                             ))
                         }
                     </div>
@@ -1197,20 +1280,6 @@ const CenterConfigPanel = () => {
                 </td>
             );
             case 5: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.note || <span className="text-gray-300">-</span>}</td>;
-            case 6: return (
-                <td key={origIdx} className="p-4 text-center" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => setModal(row)}
-                            className="text-xs font-bold text-letusBlue border border-letusBlue/30 bg-blue-50 rounded px-2 py-0.5 hover:bg-blue-100">
-                            수정
-                        </button>
-                        <button onClick={() => setDeleteTarget(row)}
-                            className="text-xs font-bold text-red-500 border border-red-200 bg-red-50 rounded px-2 py-0.5 hover:bg-red-100">
-                            삭제
-                        </button>
-                    </div>
-                </td>
-            );
             default: return null;
         }
     };
@@ -1239,6 +1308,19 @@ const CenterConfigPanel = () => {
                                     className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
                                     센터 등록
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                </button>
+                                <div className="h-px bg-gray-100 my-1" />
+                                <button onClick={() => { setIsActionMenuOpen(false); if (selectedIds.length === 1) setModal(rows.find(r => r.id === selectedIds[0])); }}
+                                    disabled={selectedIds.length !== 1}
+                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length === 1 ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                    수정
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                                <button onClick={() => { setIsActionMenuOpen(false); setBulkModal(true); }}
+                                    disabled={selectedIds.length < 2}
+                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${selectedIds.length >= 2 ? 'text-gray-700 hover:bg-gray-50' : 'text-gray-300 cursor-not-allowed'}`}>
+                                    일괄 수정 {selectedIds.length >= 2 ? `(${selectedIds.length})` : ''}
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
                                 </button>
                                 <div className="h-px bg-gray-100 my-1" />
                                 <button onClick={() => { setIsActionMenuOpen(false); handleDeleteSelected(); }}
@@ -1320,6 +1402,15 @@ const CenterConfigPanel = () => {
                     existingNames={existingNames}
                     onClose={() => setModal(null)}
                     onSaved={() => { setModal(null); fetchRows(); }}
+                />
+            )}
+
+            {/* 일괄 수정 모달 */}
+            {bulkModal && (
+                <CenterBulkEditModal
+                    selectedRows={rows.filter(r => selectedIds.includes(r.id))}
+                    onClose={() => setBulkModal(false)}
+                    onSaved={() => { setBulkModal(false); setSelectedIds([]); fetchRows(); }}
                 />
             )}
 
