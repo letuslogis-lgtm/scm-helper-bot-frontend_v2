@@ -5,14 +5,15 @@ import { CloseIcon, SearchButton, DateRangeInput, formatDateTime } from './Share
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소', '기타'];
 
 const DEFAULT_COLUMNS = [
-    { label: '출고예정일',  key: 'scheduled_date',    w: 110 },
-    { label: '브랜드',      key: 'brand',              w: 100 },
-    { label: '품목코드',    key: 'item_code',          w: 130 },
-    { label: '수량',        key: 'quantity',           w: 70  },
-    { label: '하차지',      key: 'destination',        w: 130 },
-    { label: '상차시간',    key: 'loading_time',       w: 90  },
-    { label: '등록자',      key: 'registered_by_name', w: 100 },
-    { label: '등록일시',    key: 'created_at',         w: 145 },
+    { label: '출고예정일',  key: 'scheduled_date',      w: 110 },
+    { label: '브랜드',      key: 'brand',                w: 100 },
+    { label: '품목코드',    key: 'item_code',            w: 130 },
+    { label: '수량',        key: 'quantity',             w: 70  },
+    { label: '상차지',      key: 'loading_location',     w: 110 },
+    { label: '하차지',      key: 'destination',          w: 130 },
+    { label: '상차시간',    key: 'loading_time',         w: 90  },
+    { label: '등록자',      key: 'registered_by_name',   w: 100 },
+    { label: '등록일시',    key: 'created_at',           w: 145 },
 ];
 
 const LSKey = (uid) => `letus_outgoing_notes_col_${uid}`;
@@ -28,7 +29,9 @@ const displayDest = (row) =>
 
 const INIT_FORM = {
     scheduled_date: '', brand: '', brand_custom: '',
-    item_code: '', quantity: '', destination: '', destination_custom: '', loading_time: '',
+    item_code: '', quantity: '',
+    loading_location: '', loading_location_custom: '',
+    destination: '', destination_custom: '', loading_time: '',
 };
 
 export function OutgoingNotes({ userProfile }) {
@@ -167,6 +170,8 @@ export function OutgoingNotes({ userProfile }) {
             brand_custom:       form.brand === '기타' ? form.brand_custom.trim() : null,
             item_code:          form.item_code.trim(),
             quantity:           Number(form.quantity),
+            loading_location:        form.loading_location || null,
+            loading_location_custom: form.loading_location === '기타' ? form.loading_location_custom.trim() : null,
             destination:        form.destination,
             destination_custom: form.destination === '기타' ? form.destination_custom.trim() : null,
             loading_time:       form.loading_time || null,
@@ -232,6 +237,7 @@ export function OutgoingNotes({ userProfile }) {
             case 'brand':              content = displayBrand(row);                            break;
             case 'item_code':          content = row.item_code;                                break;
             case 'quantity':           content = row.quantity?.toLocaleString();               break;
+            case 'loading_location':   content = row.loading_location === '기타' && row.loading_location_custom ? row.loading_location_custom : (row.loading_location || '—'); break;
             case 'destination':        content = displayDest(row);                             break;
             case 'loading_time':       content = row.loading_time ? row.loading_time.slice(0,5) : '—'; break;
             case 'registered_by_name': content = row.registered_by_name || '—';               break;
@@ -452,6 +458,26 @@ export function OutgoingNotes({ userProfile }) {
                                         className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue"
                                     />
                                 </div>
+                            </div>
+                            {/* 상차지 */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-bold text-gray-600">
+                                    상차지
+                                    <span className="text-[10px] font-normal text-gray-400 ml-1">선택 입력</span>
+                                </label>
+                                <select value={form.loading_location}
+                                    onChange={e => setForm(f => ({ ...f, loading_location: e.target.value, loading_location_custom: '' }))}
+                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue cursor-pointer">
+                                    <option value="">선택</option>
+                                    {allCenters.map(c => <option key={c} value={c}>{c}</option>)}
+                                    <option value="기타">기타</option>
+                                </select>
+                                <input type="text" value={form.loading_location_custom}
+                                    disabled={form.loading_location !== '기타'}
+                                    onChange={e => setForm(f => ({ ...f, loading_location_custom: e.target.value }))}
+                                    placeholder="상차지 직접 입력 (기타 선택 시 활성화)"
+                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                />
                             </div>
                             {/* 하차지 */}
                             <div className="flex flex-col gap-1.5">
