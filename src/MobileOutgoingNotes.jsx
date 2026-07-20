@@ -98,11 +98,11 @@ export const MobileOutgoingNotes = () => {
                     {/* CTRN NO + 하차 시간 */}
                     <div className="mx-4 mb-4 bg-slate-50 rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
                         <div>
-                            <p className="text-[10px] font-bold text-amber-400 mb-0.5">CTRN NO</p>
+                            <p className="text-[10px] font-bold text-slate-400 mb-0.5">CTRN NO</p>
                             <p className="text-xs font-bold text-slate-700">{note.ctrn_no}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-bold text-amber-400 mb-0.5">하차 시간</p>
+                            <p className="text-[10px] font-bold text-slate-400 mb-0.5">하차 시간</p>
                             <p className="text-xs font-bold text-slate-700">{note.unloading_time}</p>
                         </div>
                     </div>
