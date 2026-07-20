@@ -464,7 +464,7 @@ export function OutgoingNotes({ userProfile }) {
                         )}
                         {!loading && sorted.map(row => (
                             <tr key={row.id}
-                                className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`}
+                                className={`hover:bg-blue-50/30 transition-colors cursor-pointer align-middle ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`}
                                 onClick={e => handleSelectOne(e, row.id)}>
                                 <td className="p-4 pl-6 text-center" onClick={e => e.stopPropagation()}>
                                     <input type="checkbox"
