@@ -5,7 +5,8 @@ import { CloseIcon, SearchButton, DateRangeInput, formatDateTime } from './Share
 const BRANDS = ['퍼시스', '일룸', '슬로우베드', '데스커', '시디즈', '알로소', '기타'];
 
 const DEFAULT_COLUMNS = [
-    { label: '출고예정일',  key: 'scheduled_date',      w: 110 },
+    { label: '상태',        key: 'is_confirmed',         w: 75  },
+    { label: '출고예정일',  key: 'scheduled_date',       w: 110 },
     { label: '브랜드',      key: 'brand',                w: 100 },
     { label: '품목코드',    key: 'item_code',            w: 130 },
     { label: '수량',        key: 'quantity',             w: 70  },
@@ -55,6 +56,7 @@ export function OutgoingNotes({ userProfile }) {
     // ── 모달
     const [isRegOpen,    setIsRegOpen]    = useState(false);
     const [isDelConfirm, setIsDelConfirm] = useState(false);
+    const [editId,       setEditId]       = useState(null);
     const [form,         setForm]         = useState(INIT_FORM);
     const [submitting,   setSubmitting]   = useState(false);
 
@@ -152,7 +154,7 @@ export function OutgoingNotes({ userProfile }) {
 
     const isAdmin = userProfile?.role?.includes('관리자');
 
-    // ── 등록
+    // ── 등록 / 수정
     const handleRegister = async () => {
         if (!form.scheduled_date || !form.brand || !form.item_code || !form.quantity || !form.destination) {
             alert('필수 항목을 모두 입력해주세요.'); return;
@@ -164,25 +166,62 @@ export function OutgoingNotes({ userProfile }) {
             alert('하차지를 직접 입력해주세요.'); return;
         }
         setSubmitting(true);
-        const { error } = await supabase.from('outgoing_notes').insert({
-            scheduled_date:     form.scheduled_date,
-            brand:              form.brand,
-            brand_custom:       form.brand === '기타' ? form.brand_custom.trim() : null,
-            item_code:          form.item_code.trim(),
-            quantity:           Number(form.quantity),
+        const payload = {
+            scheduled_date:          form.scheduled_date,
+            brand:                   form.brand,
+            brand_custom:            form.brand === '기타' ? form.brand_custom.trim() : null,
+            item_code:               form.item_code.trim(),
+            quantity:                Number(form.quantity),
             loading_location:        form.loading_location || null,
             loading_location_custom: form.loading_location === '기타' ? form.loading_location_custom.trim() : null,
-            destination:        form.destination,
-            destination_custom: form.destination === '기타' ? form.destination_custom.trim() : null,
-            loading_time:       form.loading_time || null,
-            registered_by:      userProfile?.id,
-            registered_by_name: userProfile?.name || userProfile?.email,
-        });
+            destination:             form.destination,
+            destination_custom:      form.destination === '기타' ? form.destination_custom.trim() : null,
+            loading_time:            form.loading_time || null,
+        };
+        const { error } = editId
+            ? await supabase.from('outgoing_notes').update(payload).eq('id', editId)
+            : await supabase.from('outgoing_notes').insert({
+                ...payload,
+                registered_by:      userProfile?.id,
+                registered_by_name: userProfile?.name || userProfile?.email,
+            });
         setSubmitting(false);
-        if (error) { alert('등록 실패: ' + error.message); return; }
+        if (error) { alert((editId ? '수정' : '등록') + ' 실패: ' + error.message); return; }
         setIsRegOpen(false);
+        setEditId(null);
         setForm(INIT_FORM);
         fetchNotes();
+    };
+
+    // ── 확정 / 확정 취소
+    const handleConfirm = async (confirm) => {
+        const { error } = await supabase.from('outgoing_notes')
+            .update({ is_confirmed: confirm, confirmed_at: confirm ? new Date().toISOString() : null })
+            .in('id', selectedIds);
+        if (error) { alert('처리 실패: ' + error.message); return; }
+        setSelectedIds([]);
+        fetchNotes();
+    };
+
+    // ── 수정 모달 열기
+    const openEditModal = () => {
+        const row = notes.find(r => r.id === selectedIds[0]);
+        if (!row) return;
+        setEditId(row.id);
+        setForm({
+            scheduled_date:          row.scheduled_date,
+            brand:                   row.brand,
+            brand_custom:            row.brand_custom || '',
+            item_code:               row.item_code,
+            quantity:                String(row.quantity),
+            loading_location:        row.loading_location || '',
+            loading_location_custom: row.loading_location_custom || '',
+            destination:             row.destination,
+            destination_custom:      row.destination_custom || '',
+            loading_time:            row.loading_time ? row.loading_time.slice(0, 5) : '',
+        });
+        setIsRegOpen(true);
+        setIsActionOpen(false);
     };
 
     // ── 삭제
@@ -233,6 +272,15 @@ export function OutgoingNotes({ userProfile }) {
         const col = DEFAULT_COLUMNS[origIdx];
         let content;
         switch (col.key) {
+            case 'is_confirmed':
+                return (
+                    <td key={origIdx} className="p-4 text-center">
+                        {row.is_confirmed
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-letusBlue border border-blue-200">확정</span>
+                            : <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200">대기</span>
+                        }
+                    </td>
+                );
             case 'scheduled_date':     content = row.scheduled_date;                           break;
             case 'brand':              content = displayBrand(row);                            break;
             case 'item_code':          content = row.item_code;                                break;
@@ -248,6 +296,7 @@ export function OutgoingNotes({ userProfile }) {
     };
 
     const openRegModal = () => {
+        setEditId(null);
         setForm({ ...INIT_FORM, scheduled_date: today });
         setIsRegOpen(true);
         setIsActionOpen(false);
@@ -310,6 +359,34 @@ export function OutgoingNotes({ userProfile }) {
                                         className="w-full text-left px-4 py-2 text-xs font-bold text-letusBlue hover:bg-blue-50 transition-colors flex items-center justify-between">
                                         등록
                                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                    </button>
+                                )}
+                                {isAdmin && (
+                                    <button
+                                        disabled={selectedIds.length !== 1}
+                                        onClick={openEditModal}
+                                        className="w-full text-left px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between disabled:opacity-40 disabled:cursor-not-allowed">
+                                        수정
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </button>
+                                )}
+                                <div className="h-px bg-gray-100 my-1" />
+                                {isAdmin && (
+                                    <button
+                                        disabled={selectedIds.length === 0}
+                                        onClick={() => { if (!selectedIds.length) return; setIsActionOpen(false); handleConfirm(true); }}
+                                        className="w-full text-left px-4 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center justify-between disabled:opacity-40 disabled:cursor-not-allowed">
+                                        확정
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                    </button>
+                                )}
+                                {isAdmin && (
+                                    <button
+                                        disabled={selectedIds.length === 0}
+                                        onClick={() => { if (!selectedIds.length) return; setIsActionOpen(false); handleConfirm(false); }}
+                                        className="w-full text-left px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-between disabled:opacity-40 disabled:cursor-not-allowed">
+                                        확정 취소
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                     </button>
                                 )}
                                 <div className="h-px bg-gray-100 my-1" />
@@ -404,8 +481,8 @@ export function OutgoingNotes({ userProfile }) {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 fade-in">
                     <div className="bg-white rounded-xl shadow-xl w-[420px] max-h-[90vh] overflow-y-auto slide-up">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                            <h3 className="font-bold text-gray-800">출고 특이사항 등록</h3>
-                            <button onClick={() => setIsRegOpen(false)}><CloseIcon /></button>
+                            <h3 className="font-bold text-gray-800">{editId ? '출고 특이사항 수정' : '출고 특이사항 등록'}</h3>
+                            <button onClick={() => { setIsRegOpen(false); setEditId(null); }}><CloseIcon /></button>
                         </div>
                         <div className="px-6 py-5 flex flex-col gap-4">
                             {/* 출고예정일 */}
@@ -533,13 +610,13 @@ export function OutgoingNotes({ userProfile }) {
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-                            <button onClick={() => setIsRegOpen(false)}
+                            <button onClick={() => { setIsRegOpen(false); setEditId(null); }}
                                 className="px-4 py-2 rounded-[4px] text-xs font-bold border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">
                                 취소
                             </button>
                             <button onClick={handleRegister} disabled={submitting}
                                 className="px-5 py-2 rounded-[4px] text-xs font-bold bg-letusBlue text-white hover:bg-letusBlue/90 transition-colors disabled:opacity-60">
-                                {submitting ? '등록 중...' : '등록'}
+                                {submitting ? (editId ? '수정 중...' : '등록 중...') : (editId ? '수정' : '등록')}
                             </button>
                         </div>
                     </div>
