@@ -11,8 +11,8 @@ const DEFAULT_COLUMNS = [
     { label: '품목코드',    key: 'item_code',            w: 130 },
     { label: '수량',        key: 'quantity',             w: 70  },
     { label: '상차지',      key: 'loading_location',     w: 110 },
-    { label: '하차지',      key: 'destination',          w: 130 },
     { label: '상차시간',    key: 'loading_time',         w: 90  },
+    { label: '하차지',      key: 'destination',          w: 130 },
     { label: '등록자',      key: 'registered_by_name',   w: 100 },
     { label: '등록일시',    key: 'created_at',           w: 145 },
 ];
@@ -32,7 +32,7 @@ const INIT_FORM = {
     scheduled_date: '', brand: '', brand_custom: '',
     item_code: '', quantity: '',
     loading_location: '', loading_location_custom: '',
-    destination: '', destination_custom: '', loading_time: '',
+    destination: '', destination_custom: '', loading_time: '', unloading_time: '',
 };
 
 export function OutgoingNotes({ userProfile }) {
@@ -177,6 +177,7 @@ export function OutgoingNotes({ userProfile }) {
             destination:             form.destination,
             destination_custom:      form.destination === '기타' ? form.destination_custom.trim() : null,
             loading_time:            form.loading_time || null,
+            unloading_time:          form.unloading_time || null,
         };
         const { error } = editId
             ? await supabase.from('outgoing_notes').update(payload).eq('id', editId)
@@ -219,6 +220,7 @@ export function OutgoingNotes({ userProfile }) {
             destination:             row.destination,
             destination_custom:      row.destination_custom || '',
             loading_time:            row.loading_time ? row.loading_time.slice(0, 5) : '',
+            unloading_time:          row.unloading_time ? row.unloading_time.slice(0, 5) : '',
         });
         setIsRegOpen(true);
         setIsActionOpen(false);
@@ -536,76 +538,81 @@ export function OutgoingNotes({ userProfile }) {
                                     />
                                 </div>
                             </div>
-                            {/* 상차지 */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-gray-600">
-                                    상차지
-                                    <span className="text-[10px] font-normal text-gray-400 ml-1">선택 입력</span>
-                                </label>
-                                <select value={form.loading_location}
-                                    onChange={e => setForm(f => ({ ...f, loading_location: e.target.value, loading_location_custom: '' }))}
-                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue cursor-pointer">
-                                    <option value="">선택</option>
-                                    {allCenters.map(c => <option key={c} value={c}>{c}</option>)}
-                                    <option value="기타">기타</option>
-                                </select>
-                                <input type="text" value={form.loading_location_custom}
-                                    disabled={form.loading_location !== '기타'}
-                                    onChange={e => setForm(f => ({ ...f, loading_location_custom: e.target.value }))}
-                                    placeholder="상차지 직접 입력 (기타 선택 시 활성화)"
-                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                />
-                            </div>
-                            {/* 하차지 */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-gray-600">
-                                    하차지 <span className="text-red-500">*</span>
-                                </label>
-                                <select value={form.destination}
-                                    onChange={e => setForm(f => ({ ...f, destination: e.target.value, destination_custom: '' }))}
-                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue cursor-pointer">
-                                    <option value="">선택</option>
-                                    {allCenters.map(c => <option key={c} value={c}>{c}</option>)}
-                                    <option value="기타">기타</option>
-                                </select>
-                                <input type="text" value={form.destination_custom}
-                                    disabled={form.destination !== '기타'}
-                                    onChange={e => setForm(f => ({ ...f, destination_custom: e.target.value }))}
-                                    placeholder="하차지 직접 입력 (기타 선택 시 활성화)"
-                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                />
-                            </div>
-                            {/* 상차시간 */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[11px] font-bold text-gray-600">
-                                    상차시간
-                                    <span className="text-[10px] font-normal text-gray-400 ml-1">선택 입력</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={form.loading_time}
-                                    onChange={e => {
-                                        let v = e.target.value.replace(/[^0-9:]/g, '');
-                                        if (v.length === 2 && !v.includes(':') && form.loading_time.length === 1) v += ':';
-                                        if (v.length > 5) return;
-                                        setForm(f => ({ ...f, loading_time: v }));
-                                    }}
-                                    placeholder="예) 09:00"
-                                    maxLength={5}
-                                    className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue w-28"
-                                />
-                            </div>
-                            {/* 등록자 / 등록일시 (자동) */}
+                            {/* 상차지 + 상차시간 */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[11px] font-bold text-gray-600">등록자</label>
-                                    <div className="border border-gray-100 rounded-[4px] px-3 py-2 text-xs bg-gray-50 text-gray-400">
-                                        {userProfile?.name || userProfile?.email || '—'}
-                                    </div>
+                                    <label className="text-[11px] font-bold text-gray-600">
+                                        상차지
+                                        <span className="text-[10px] font-normal text-gray-400 ml-1">선택 입력</span>
+                                    </label>
+                                    <select value={form.loading_location}
+                                        onChange={e => setForm(f => ({ ...f, loading_location: e.target.value, loading_location_custom: '' }))}
+                                        className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue cursor-pointer">
+                                        <option value="">선택</option>
+                                        {allCenters.map(c => <option key={c} value={c}>{c}</option>)}
+                                        <option value="기타">기타</option>
+                                    </select>
+                                    <input type="text" value={form.loading_location_custom}
+                                        disabled={form.loading_location !== '기타'}
+                                        onChange={e => setForm(f => ({ ...f, loading_location_custom: e.target.value }))}
+                                        placeholder="상차지 직접 입력 (기타)"
+                                        className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                    />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[11px] font-bold text-gray-600">등록일시</label>
-                                    <div className="border border-gray-100 rounded-[4px] px-3 py-2 text-xs bg-gray-50 text-gray-400">자동 입력</div>
+                                    <label className="text-[11px] font-bold text-gray-600">
+                                        상차시간
+                                        <span className="text-[10px] font-normal text-gray-400 ml-1">선택 입력</span>
+                                    </label>
+                                    <input type="text" value={form.loading_time}
+                                        onChange={e => {
+                                            let v = e.target.value.replace(/[^0-9:]/g, '');
+                                            if (v.length === 2 && !v.includes(':') && form.loading_time.length === 1) v += ':';
+                                            if (v.length > 5) return;
+                                            setForm(f => ({ ...f, loading_time: v }));
+                                        }}
+                                        placeholder="예) 09:00"
+                                        maxLength={5}
+                                        className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue"
+                                    />
+                                </div>
+                            </div>
+                            {/* 하차지 + 하차시간 */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[11px] font-bold text-gray-600">
+                                        하차지 <span className="text-red-500">*</span>
+                                    </label>
+                                    <select value={form.destination}
+                                        onChange={e => setForm(f => ({ ...f, destination: e.target.value, destination_custom: '' }))}
+                                        className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue cursor-pointer">
+                                        <option value="">선택</option>
+                                        {allCenters.map(c => <option key={c} value={c}>{c}</option>)}
+                                        <option value="기타">기타</option>
+                                    </select>
+                                    <input type="text" value={form.destination_custom}
+                                        disabled={form.destination !== '기타'}
+                                        onChange={e => setForm(f => ({ ...f, destination_custom: e.target.value }))}
+                                        placeholder="하차지 직접 입력 (기타)"
+                                        className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[11px] font-bold text-gray-600">
+                                        하차시간
+                                        <span className="text-[10px] font-normal text-gray-400 ml-1">선택 입력</span>
+                                    </label>
+                                    <input type="text" value={form.unloading_time}
+                                        onChange={e => {
+                                            let v = e.target.value.replace(/[^0-9:]/g, '');
+                                            if (v.length === 2 && !v.includes(':') && form.unloading_time.length === 1) v += ':';
+                                            if (v.length > 5) return;
+                                            setForm(f => ({ ...f, unloading_time: v }));
+                                        }}
+                                        placeholder="예) 15:00"
+                                        maxLength={5}
+                                        className="border border-gray-200 rounded-[4px] px-3 py-2 text-xs focus:outline-none focus:border-letusBlue"
+                                    />
                                 </div>
                             </div>
                         </div>
