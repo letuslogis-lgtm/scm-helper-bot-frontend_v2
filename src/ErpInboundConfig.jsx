@@ -929,10 +929,10 @@ const ErpClosingConfigPanel = () => {
 const CENTER_TABLE   = 'centers';
 const CENTER_LS_KEY  = 'letus_center_col';
 const CENTER_COLUMNS = [
-    { label: '센터명',    key: 'name',       w: 180 },
-    { label: '활성',      key: 'is_active',  w: 80  },
-    { label: '사용 목적', key: null,         w: 180 },
-    { label: '주소',      key: 'address',    w: 320 },
+    { label: '센터명',    key: 'name',       w: 90  },
+    { label: '활성',      key: 'is_active',  w: 40  },
+    { label: '사용 목적', key: null,         w: 72  },
+    { label: '주소',      key: 'address',    w: 800 },
     { label: '비고',      key: 'note',       w: 220 },
 ];
 const CENTER_PURPOSES = ['재고 운영', '시공 상차'];
@@ -1275,7 +1275,7 @@ const CenterConfigPanel = () => {
 
     const renderCell = (origIdx, row) => {
         switch (origIdx) {
-            case 0: return <td key={origIdx} className="p-4 text-[13px] font-bold text-gray-800">{row.name}</td>;
+            case 0: return <td key={origIdx} className="p-4 text-center text-[13px] font-bold text-gray-800">{row.name}</td>;
             case 1: return (
                 <td key={origIdx} className="p-4 text-center">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${row.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
