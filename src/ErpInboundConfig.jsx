@@ -930,9 +930,9 @@ const CENTER_TABLE   = 'centers';
 const CENTER_LS_KEY  = 'letus_center_col';
 const CENTER_COLUMNS = [
     { label: '센터명',    key: 'name',       w: 180 },
-    { label: '사용 목적', key: 'purposes',   w: 180 },
-    { label: '주소',      key: 'address',    w: 320 },
     { label: '활성',      key: 'is_active',  w: 80  },
+    { label: '사용 목적', key: null,         w: 180 },
+    { label: '주소',      key: 'address',    w: 320 },
     { label: '비고',      key: 'note',       w: 220 },
 ];
 const CENTER_PURPOSES = ['재고 운영', '시공 상차'];
@@ -1158,6 +1158,7 @@ const CenterConfigPanel = () => {
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [bulkModal, setBulkModal]     = useState(false);
     const [lastSelectedId, setLastSelectedId] = useState(null);
+    const [sortConfig, setSortConfig]   = useState({ key: null, direction: 'none' });
 
     const [colOrder, setColOrder]       = useState(CENTER_COLUMNS.map((_, i) => i));
     const [colWidths, setColWidths]     = useState(CENTER_COLUMNS.map(c => c.w));
@@ -1193,18 +1194,18 @@ const CenterConfigPanel = () => {
     useEffect(() => { fetchRows(); }, [fetchRows]);
 
     const handleSelectAll = e => {
-        setSelectedIds(e.target.checked ? rows.map(r => r.id) : []);
+        setSelectedIds(e.target.checked ? sortedRows.map(r => r.id) : []);
         setLastSelectedId(null);
     };
     const handleSelectOne = (e, id) => {
         e.stopPropagation();
         if (e.nativeEvent?.shiftKey && lastSelectedId) {
-            const startIdx = rows.findIndex(r => r.id === lastSelectedId);
-            const endIdx   = rows.findIndex(r => r.id === id);
+            const startIdx = sortedRows.findIndex(r => r.id === lastSelectedId);
+            const endIdx   = sortedRows.findIndex(r => r.id === id);
             if (startIdx !== -1 && endIdx !== -1) {
                 const min = Math.min(startIdx, endIdx);
                 const max = Math.max(startIdx, endIdx);
-                const idsInRange = rows.slice(min, max + 1).map(r => r.id);
+                const idsInRange = sortedRows.slice(min, max + 1).map(r => r.id);
                 setSelectedIds(prev => Array.from(new Set([...prev, ...idsInRange])));
                 return;
             }
@@ -1247,7 +1248,28 @@ const CenterConfigPanel = () => {
     };
     const handleDragEnd = () => { setDragOverIdx(null); setTimeout(() => { wasDraggedRef.current = false; }, 50); };
 
-    const getSortIcon = () => null;
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key) {
+            if (sortConfig.direction === 'asc') direction = 'desc';
+            else if (sortConfig.direction === 'desc') direction = 'none';
+        }
+        setSortConfig({ key: direction === 'none' ? null : key, direction });
+    };
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return null;
+        if (sortConfig.direction === 'asc') return <span className="ml-1 text-letusBlue font-black">↑</span>;
+        if (sortConfig.direction === 'desc') return <span className="ml-1 text-letusBlue font-black">↓</span>;
+        return null;
+    };
+    const sortedRows = [...rows].sort((a, b) => {
+        if (!sortConfig.key || sortConfig.direction === 'none') return 0;
+        const aVal = a[sortConfig.key] ?? '';
+        const bVal = b[sortConfig.key] ?? '';
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
 
     const existingNames = rows.map(r => r.name);
 
@@ -1255,6 +1277,13 @@ const CenterConfigPanel = () => {
         switch (origIdx) {
             case 0: return <td key={origIdx} className="p-4 text-[13px] font-bold text-gray-800">{row.name}</td>;
             case 1: return (
+                <td key={origIdx} className="p-4 text-center">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${row.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
+                        {row.is_active ? '활성' : '비활성'}
+                    </span>
+                </td>
+            );
+            case 2: return (
                 <td key={origIdx} className="p-4">
                     <div className="flex flex-wrap gap-1">
                         {CENTER_PURPOSES.filter(p => (row.purposes ?? []).includes(p)).length === 0
@@ -1266,14 +1295,7 @@ const CenterConfigPanel = () => {
                     </div>
                 </td>
             );
-            case 2: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.address || <span className="text-gray-300">-</span>}</td>;
-            case 3: return (
-                <td key={origIdx} className="p-4 text-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${row.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                        {row.is_active ? '활성' : '비활성'}
-                    </span>
-                </td>
-            );
+            case 3: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.address || <span className="text-gray-300">-</span>}</td>;
             case 4: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.note || <span className="text-gray-300">-</span>}</td>;
             default: return null;
         }
@@ -1349,7 +1371,7 @@ const CenterConfigPanel = () => {
                                             className={`relative p-4 text-center select-none transition-colors cursor-grab active:cursor-grabbing ${col.key ? 'hover:bg-gray-100' : ''} ${dragOverIdx === visualIdx ? 'bg-blue-100' : ''}`}
                                             style={{ width: colWidths[origIdx] }}
                                             draggable
-                                            onClick={() => !wasDraggedRef.current && col.key && undefined}
+                                            onClick={() => !wasDraggedRef.current && col.key && requestSort(col.key)}
                                             onDragStart={e => handleDragStart(e, visualIdx)}
                                             onDragEnd={handleDragEnd}
                                             onDragOver={e => handleDragOver(e, visualIdx)}
@@ -1369,9 +1391,9 @@ const CenterConfigPanel = () => {
                         <tbody className="divide-y divide-gray-100 text-[13px]">
                             {loading ? (
                                 <tr><td colSpan={colOrder.length + 1} className="p-4 text-center text-gray-400">불러오는 중...</td></tr>
-                            ) : rows.length === 0 ? (
+                            ) : sortedRows.length === 0 ? (
                                 <tr><td colSpan={colOrder.length + 1} className="p-8 text-center text-gray-400">등록된 센터가 없습니다</td></tr>
-                            ) : rows.map(row => (
+                            ) : sortedRows.map(row => (
                                 <tr key={row.id}
                                     className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${selectedIds.includes(row.id) ? 'bg-blue-50' : ''}`}
                                     onClick={e => handleSelectOne(e, row.id)}>
