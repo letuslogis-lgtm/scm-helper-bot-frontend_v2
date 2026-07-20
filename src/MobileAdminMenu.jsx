@@ -106,8 +106,8 @@ export const MobileAdminMenu = ({ userProfile, handleLogout, pendingCount = 0, o
                 {
                     id: 'outgoing-notes',
                     icon: '🚚',
-                    title: '출고 특이사항',
-                    subtitle: '확정된 출고 일정 조회',
+                    title: '하역/출고 특이사항',
+                    subtitle: '하역/출고 일정 조회',
                     iconBg: 'bg-indigo-50',
                     path: '/mobile/admin/outgoing-notes',
                     badge: 0,

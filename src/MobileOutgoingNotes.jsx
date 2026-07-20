@@ -159,8 +159,8 @@ export const MobileOutgoingNotes = () => {
                         </svg>
                     </button>
                     <div className="flex-1">
-                        <h1 className="text-slate-800 font-black text-base leading-none">출고 특이사항</h1>
-                        <p className="text-slate-400 text-[11px] mt-0.5">확정된 출고 일정 조회</p>
+                        <h1 className="text-slate-800 font-black text-base leading-none">하역/출고 특이사항</h1>
+                        <p className="text-slate-400 text-[11px] mt-0.5">하역/출고 일정 조회</p>
                     </div>
                     <button onClick={() => fetchNotes()} className="p-2 rounded-lg bg-slate-100 active:bg-slate-200 transition-colors">
                         <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
