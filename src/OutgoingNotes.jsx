@@ -280,8 +280,8 @@ export function OutgoingNotes({ userProfile }) {
                 return (
                     <td key={origIdx} className="p-4 text-center align-middle">
                         {row.is_confirmed
-                            ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-letusBlue border border-blue-200">확정</span>
-                            : <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200">대기</span>
+                            ? <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold leading-none bg-blue-50 text-letusBlue border border-blue-200">확정</span>
+                            : <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold leading-none bg-gray-100 text-gray-500 border border-gray-200">대기</span>
                         }
                     </td>
                 );
