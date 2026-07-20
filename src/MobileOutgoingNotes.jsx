@@ -85,18 +85,17 @@ export const MobileOutgoingNotes = () => {
             return (
                 <div key={note.id} className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden border-l-4 ${ts.border}`}>
                     {/* 상단: 브랜드(좌) / 품목·수량(우) */}
-                    <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
+                    <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
                         <span className="text-xs font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full truncate">
                             {note.brand}
                         </span>
-                        <div className="text-right shrink-0">
-                            <p className="text-sm font-black text-slate-800">{note.item_code}</p>
-                            <p className="text-[11px] font-bold text-slate-400 mt-0.5">{note.quantity.toLocaleString()}개</p>
-                        </div>
+                        <p className="text-xs font-black text-slate-700 shrink-0">
+                            {note.item_code} <span className="text-slate-300 font-medium">|</span> {note.quantity.toLocaleString()}개
+                        </p>
                     </div>
 
                     {/* CTRN NO + 하차 시간 */}
-                    <div className="mx-4 mb-4 bg-slate-50 rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
+                    <div className="mx-4 mb-3 bg-slate-50 rounded-xl px-3 py-2 flex items-center justify-between gap-3">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 mb-0.5">CTRN NO</p>
                             <p className="text-xs font-bold text-slate-700">{note.ctrn_no}</p>
@@ -120,18 +119,17 @@ export const MobileOutgoingNotes = () => {
         return (
             <div key={`outgoing-${note.id}`} className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden border-l-4 ${ts.border}`}>
                 {/* 상단: 브랜드(좌) / 품목·수량(우) */}
-                <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
+                <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
                     <span className="text-xs font-black text-letusBlue bg-blue-50 px-2.5 py-1 rounded-full truncate">
                         {brand}
                     </span>
-                    <div className="text-right shrink-0">
-                        <p className="text-sm font-black text-slate-800">{note.item_code}</p>
-                        <p className="text-[11px] font-bold text-slate-400 mt-0.5">{note.quantity?.toLocaleString()}개</p>
-                    </div>
+                    <p className="text-xs font-black text-slate-700 shrink-0">
+                        {note.item_code} <span className="text-slate-300 font-medium">|</span> {note.quantity?.toLocaleString()}개
+                    </p>
                 </div>
 
                 {/* 상차지 → 하차지 */}
-                <div className="mx-4 mb-4 bg-slate-50 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                <div className="mx-4 mb-3 bg-slate-50 rounded-xl px-3 py-2 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-bold text-slate-400 mb-0.5">상차지</p>
                         <p className="text-xs font-bold text-slate-700 truncate">{loadingLoc}</p>
