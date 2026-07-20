@@ -929,10 +929,9 @@ const ErpClosingConfigPanel = () => {
 const CENTER_TABLE   = 'centers';
 const CENTER_LS_KEY  = 'letus_center_col';
 const CENTER_COLUMNS = [
-    { label: '정렬순서',  key: 'sort_order', w: 100 },
-    { label: '센터명',    key: 'name',       w: 160 },
+    { label: '센터명',    key: 'name',       w: 180 },
     { label: '사용 목적', key: 'purposes',   w: 180 },
-    { label: '주소',      key: 'address',    w: 280 },
+    { label: '주소',      key: 'address',    w: 320 },
     { label: '활성',      key: 'is_active',  w: 80  },
     { label: '비고',      key: 'note',       w: 220 },
 ];
@@ -941,11 +940,11 @@ const PURPOSE_BADGE = {
     '재고 운영': 'bg-blue-50 text-blue-600 border-blue-100',
     '시공 상차': 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
-const CENTER_EMPTY = { name: '', address: '', sort_order: '', is_active: true, note: '', purposes: [] };
+const CENTER_EMPTY = { name: '', address: '', is_active: true, note: '', purposes: [] };
 
 // ── 모달: 센터 등록/수정 ──────────────────────────────────────────────────────
-const CenterModal = ({ initial, existingOrders, existingNames, onClose, onSaved }) => {
-    const [form, setForm] = useState(initial ? { ...initial, sort_order: String(initial.sort_order), purposes: initial.purposes ?? [] } : CENTER_EMPTY);
+const CenterModal = ({ initial, existingNames, onClose, onSaved }) => {
+    const [form, setForm] = useState(initial ? { ...initial, purposes: initial.purposes ?? [] } : CENTER_EMPTY);
     const [saving, setSaving] = useState(false);
     const [err, setErr]       = useState('');
     const isEdit = !!initial?.id;
@@ -953,23 +952,17 @@ const CenterModal = ({ initial, existingOrders, existingNames, onClose, onSaved 
     const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
     const handleSave = async () => {
-        if (!form.name.trim())    return setErr('센터명을 입력하세요');
-        if (form.sort_order === '' || isNaN(Number(form.sort_order))) return setErr('정렬순서를 숫자로 입력하세요');
-        const order = Number(form.sort_order);
-        // 중복 체크 (자기 자신 제외)
-        if (existingOrders.filter(o => (!isEdit || o !== initial.sort_order)).includes(order))
-            return setErr(`정렬순서 ${order}은(는) 이미 사용 중입니다`);
+        if (!form.name.trim()) return setErr('센터명을 입력하세요');
         if (existingNames.filter(n => (!isEdit || n !== initial.name)).includes(form.name.trim()))
             return setErr(`센터명 "${form.name.trim()}"은(는) 이미 등록되어 있습니다`);
         setSaving(true); setErr('');
         try {
             const payload = {
-                name:       form.name.trim(),
-                address:    (form.address ?? '').trim() || null,
-                sort_order: order,
-                is_active:  form.is_active,
-                note:       (form.note ?? '').trim() || null,
-                purposes:   form.purposes ?? [],
+                name:      form.name.trim(),
+                address:   (form.address ?? '').trim() || null,
+                is_active: form.is_active,
+                note:      (form.note ?? '').trim() || null,
+                purposes:  CENTER_PURPOSES.filter(p => (form.purposes ?? []).includes(p)),
             };
             if (isEdit) {
                 const { error } = await supabase.from(CENTER_TABLE).update(payload).eq('id', initial.id);
@@ -1000,23 +993,13 @@ const CenterModal = ({ initial, existingOrders, existingNames, onClose, onSaved 
                 </div>
                 <div className="p-5 space-y-4 overflow-y-auto">
                     <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                        <div className="flex gap-3">
-                            <div className="w-28 shrink-0">
-                                <label className="block text-xs font-bold text-gray-600 mb-1">정렬순서 <span className="text-red-400">*</span></label>
-                                <input type="number" min="1"
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-letusBlue/30 focus:border-letusBlue"
-                                    value={form.sort_order}
-                                    onChange={e => set('sort_order', e.target.value)}
-                                />
-                            </div>
-                            <div className="flex-1">
-                                <label className="block text-xs font-bold text-gray-600 mb-1">센터명 <span className="text-red-400">*</span></label>
-                                <input type="text" placeholder="예: 양지1"
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-letusBlue/30 focus:border-letusBlue"
-                                    value={form.name}
-                                    onChange={e => set('name', e.target.value)}
-                                />
-                            </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 mb-1">센터명 <span className="text-red-400">*</span></label>
+                            <input type="text" placeholder="예: 양지1"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-letusBlue/30 focus:border-letusBlue"
+                                value={form.name}
+                                onChange={e => set('name', e.target.value)}
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-600 mb-1">주소</label>
@@ -1174,6 +1157,7 @@ const CenterConfigPanel = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [bulkModal, setBulkModal]     = useState(false);
+    const [lastSelectedId, setLastSelectedId] = useState(null);
 
     const [colOrder, setColOrder]       = useState(CENTER_COLUMNS.map((_, i) => i));
     const [colWidths, setColWidths]     = useState(CENTER_COLUMNS.map(c => c.w));
@@ -1201,7 +1185,7 @@ const CenterConfigPanel = () => {
 
     const fetchRows = useCallback(async () => {
         setLoading(true);
-        const { data } = await supabase.from(CENTER_TABLE).select('*').order('sort_order');
+        const { data } = await supabase.from(CENTER_TABLE).select('*').order('name');
         setRows(data ?? []);
         setLoading(false);
     }, []);
@@ -1210,10 +1194,23 @@ const CenterConfigPanel = () => {
 
     const handleSelectAll = e => {
         setSelectedIds(e.target.checked ? rows.map(r => r.id) : []);
+        setLastSelectedId(null);
     };
     const handleSelectOne = (e, id) => {
         e.stopPropagation();
+        if (e.nativeEvent?.shiftKey && lastSelectedId) {
+            const startIdx = rows.findIndex(r => r.id === lastSelectedId);
+            const endIdx   = rows.findIndex(r => r.id === id);
+            if (startIdx !== -1 && endIdx !== -1) {
+                const min = Math.min(startIdx, endIdx);
+                const max = Math.max(startIdx, endIdx);
+                const idsInRange = rows.slice(min, max + 1).map(r => r.id);
+                setSelectedIds(prev => Array.from(new Set([...prev, ...idsInRange])));
+                return;
+            }
+        }
         setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+        setLastSelectedId(id);
     };
 
     const handleDeleteSelected = async () => {
@@ -1252,34 +1249,32 @@ const CenterConfigPanel = () => {
 
     const getSortIcon = () => null;
 
-    const existingOrders = rows.map(r => r.sort_order);
-    const existingNames  = rows.map(r => r.name);
+    const existingNames = rows.map(r => r.name);
 
     const renderCell = (origIdx, row) => {
         switch (origIdx) {
-            case 0: return <td key={origIdx} className="p-4 text-center text-[13px] text-gray-700 font-bold">{row.sort_order}</td>;
-            case 1: return <td key={origIdx} className="p-4 text-[13px] font-bold text-gray-800">{row.name}</td>;
-            case 2: return (
+            case 0: return <td key={origIdx} className="p-4 text-[13px] font-bold text-gray-800">{row.name}</td>;
+            case 1: return (
                 <td key={origIdx} className="p-4">
                     <div className="flex flex-wrap gap-1">
-                        {(row.purposes ?? []).length === 0
+                        {CENTER_PURPOSES.filter(p => (row.purposes ?? []).includes(p)).length === 0
                             ? <span className="text-gray-300 text-[13px]">-</span>
-                            : (row.purposes ?? []).map(p => (
+                            : CENTER_PURPOSES.filter(p => (row.purposes ?? []).includes(p)).map(p => (
                                 <span key={p} className={`px-1.5 py-0.5 text-[11px] font-bold rounded border ${PURPOSE_BADGE[p] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>{p}</span>
                             ))
                         }
                     </div>
                 </td>
             );
-            case 3: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.address || <span className="text-gray-300">-</span>}</td>;
-            case 4: return (
+            case 2: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.address || <span className="text-gray-300">-</span>}</td>;
+            case 3: return (
                 <td key={origIdx} className="p-4 text-center">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${row.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
                         {row.is_active ? '활성' : '비활성'}
                     </span>
                 </td>
             );
-            case 5: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.note || <span className="text-gray-300">-</span>}</td>;
+            case 4: return <td key={origIdx} className="p-4 text-[13px] text-gray-600">{row.note || <span className="text-gray-300">-</span>}</td>;
             default: return null;
         }
     };
@@ -1398,7 +1393,7 @@ const CenterConfigPanel = () => {
             {modal !== null && (
                 <CenterModal
                     initial={modal?.id ? modal : null}
-                    existingOrders={existingOrders}
+
                     existingNames={existingNames}
                     onClose={() => setModal(null)}
                     onSaved={() => { setModal(null); fetchRows(); }}
